@@ -1,0 +1,26 @@
+cfg_ilia = configuration_data()
+cfg_ilia.set('DATADIR', join_paths(get_option('prefix'),get_option('datadir')))
+cfg_ilia.set('PKGDATADIR', join_paths(get_option('prefix'),get_option('datadir'),'ilia'))
+cfg_ilia.set('GETTEXT_PACKAGE', 'ilia')
+cfg_ilia.set('RELEASE_NAME', 'ilia')
+cfg_ilia.set('PREFIX', get_option('prefix'))
+cfg_ilia.set('VERSION', '0.1.0')
+cfg_ilia.set('TESTSRCDIR', meson.source_root())
+
+cfgfile_1 = configure_file(
+	input: 'Config.vala.base',
+	output: 'Config.vala',
+	configuration: cfg_ilia)
+
+ilia_deps = [gio_2_0_dep]
+ilia_deps += [glib_2_0_dep]
+ilia_deps += [gobject_2_0_dep]
+ilia_sources = [cfgfile_1]
+ilia_sources += ['ilia.vala']
+ilia_link_args = ['-rdynamic']
+
+executable('ilia',ilia_sources,
+    dependencies: ilia_deps,
+    link_args: ilia_link_args,
+    install: true)
+

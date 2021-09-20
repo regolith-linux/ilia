@@ -1,0 +1,6 @@
+.gitignore
+.bzrignore
+.hgignore
+install
+*~
+build

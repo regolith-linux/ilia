@@ -18,6 +18,7 @@ project_version: 0.1.0
 *vala_check_package: x11
 *vala_source: DialogWindow.vala
 *vala_source: Ilia.vala
+*unitest: unitests/ExampleTest.vala
 
 
 *po: po

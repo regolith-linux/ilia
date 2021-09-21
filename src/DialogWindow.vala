@@ -63,6 +63,13 @@ public class DialogWindow : Window {
         action_quit();
         return false;
     });
+
+    this.key_press_event.connect ((key) => {
+      if (key.keyval == 65307) action_quit();
+
+      return false;
+    });
+    
     entry.grab_focus();
   }
 

@@ -12,11 +12,19 @@ cfgfile_1 = configure_file(
 	output: 'Config.vala',
 	configuration: cfg_ilia)
 
-ilia_deps = [gio_2_0_dep]
+ilia_deps = [atk_dep]
+ilia_deps += [cairo_gobject_dep]
+ilia_deps += [gdk_3_0_dep]
+ilia_deps += [gdk_pixbuf_2_0_dep]
+ilia_deps += [gio_2_0_dep]
 ilia_deps += [glib_2_0_dep]
 ilia_deps += [gobject_2_0_dep]
+ilia_deps += [gtk_3_0_dep]
+ilia_deps += [pango_dep]
+ilia_deps += [x11_dep]
 ilia_sources = [cfgfile_1]
-ilia_sources += ['ilia.vala']
+ilia_sources += ['DialogWindow.vala']
+ilia_sources += ['Ilia.vala']
 ilia_link_args = ['-rdynamic']
 
 executable('ilia',ilia_sources,

@@ -1,3 +1,8 @@
+using Gtk;
+
+/**
+ * Application entry point
+ */
 public static int main (string[] args) {
     Gtk.init (ref args);
 

@@ -6,15 +6,24 @@ project_version: 0.1.0
 
 *vala_binary: src/ilia
 *version: 0.1.0
+*vala_check_package: atk
+*vala_check_package: cairo-gobject
+*vala_check_package: gdk-3.0
+*vala_check_package: gdk-pixbuf-2.0
 *vala_check_package: gio-2.0
 *vala_check_package: glib-2.0
 *vala_check_package: gobject-2.0
-*vala_source: ilia.vala
+*vala_check_package: gtk+-3.0
+*vala_check_package: pango
+*vala_check_package: x11
+*vala_source: DialogWindow.vala
+*vala_source: Ilia.vala
 
 
 *po: po
 
-*translate: vala src/ilia.vala
+*translate: vala src/DialogWindow.vala
+*translate: vala src/Ilia.vala
 
 *data: data/local
 

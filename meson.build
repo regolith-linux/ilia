@@ -4,10 +4,12 @@ project('ilia',
 
 add_global_arguments('-DGETTEXT_PACKAGE="ilia"',language: 'c')
 
+gio_unix_2_0_dep = dependency('gio-unix-2.0')
 atk_dep = dependency('atk')
 cairo_gobject_dep = dependency('cairo-gobject')
 gdk_3_0_dep = dependency('gdk-3.0')
 gdk_pixbuf_2_0_dep = dependency('gdk-pixbuf-2.0')
+gee_0_8_dep = dependency('gee-0.8')
 gio_2_0_dep = dependency('gio-2.0')
 glib_2_0_dep = dependency('glib-2.0')
 gobject_2_0_dep = dependency('gobject-2.0')

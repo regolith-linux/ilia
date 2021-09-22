@@ -6,7 +6,8 @@ using Gtk;
 public static int main (string[] args) {
     Gtk.init (ref args);
 
-    var window = new DialogWindow ();
+    var window = new Ilia.DialogWindow ();
+    
     window.destroy.connect (Gtk.main_quit);
     window.show_all ();
 

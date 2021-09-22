@@ -6,7 +6,7 @@ namespace Ilia {
     Gtk.ListStore list_store;
     Gtk.TreeIter iter;
     Gtk.TreeModelFilter filter;
-    Gtk.IconTheme icon_theme;    
+    Gtk.IconTheme icon_theme;
 
 /**
  * Primary UI
@@ -92,9 +92,15 @@ namespace Ilia {
             action_quit ();
         }
 
-        public void icon_clicked () {
-            /*  var model = new Dlauncher.Model();
-               model.exec_selected();  */
+        private void icon_clicked () {
+            List<Gtk.TreePath> paths = view.get_selected_items ();
+            GLib.Value exec;
+            foreach (Gtk.TreePath path in paths) {
+                filter.get_iter (out iter, path);
+                filter.get_value (iter, 3, out exec);
+                spawn_command ((string) exec);
+            }
+
             action_quit ();
         }
 
@@ -130,7 +136,6 @@ namespace Ilia {
         }
 
         private async void load_apps_from_dir (File app_dir) {
-            stdout.printf ("dir: %s\n", app_dir.get_path ());
             try {
                 var enumerator = yield app_dir.enumerate_children_async (FileAttribute.STANDARD_NAME, FileQueryInfoFlags.NOFOLLOW_SYMLINKS, Priority.DEFAULT);
 
@@ -159,13 +164,13 @@ namespace Ilia {
                 var icon = app_info.get_icon ();
                 string icon_name = null;
                 if (icon != null) icon_name = icon.to_string ();
-                list_store.set (iter, 0, load_icon (icon_name, 32), 1, app_info.get_name (), 2, "comment", 3, "exec");
+                list_store.set (iter, 0, load_icon (icon_name, 64), 1, app_info.get_name (), 2, "comment", 3, "/usr/bin/gnome-terminal");
             }
         }
 
-        private Gdk.Pixbuf? load_icon (string? icon_name, int size) {
+        private Gdk.Pixbuf ? load_icon (string ? icon_name, int size) {
             Gtk.IconInfo icon_info;
-            
+
             try {
                 if (icon_name == null) {
                     icon_info = icon_theme.lookup_icon ("application-x-executable", size, Gtk.IconLookupFlags.FORCE_SIZE);
@@ -184,18 +189,26 @@ namespace Ilia {
                         stderr.printf ("%s\n", e.message);
                     }
                 }
-                
+
                 try {
                     icon_info = icon_theme.lookup_icon ("application-x-executable", size, Gtk.IconLookupFlags.FORCE_SIZE);
                     return icon_info.load_icon ();
                 } catch (Error e) {
                     stderr.printf ("%s\n", e.message);
-                }                
+                }
             } catch (Error e) {
                 stderr.printf ("%s\n", e.message);
             }
 
             return null;
+        }
+
+        private void spawn_command (string item) {
+            try {
+                Process.spawn_command_line_async (item);
+            } catch (GLib.Error e) {
+                stderr.printf ("%s\n", e.message);
+            }
         }
     }
 }

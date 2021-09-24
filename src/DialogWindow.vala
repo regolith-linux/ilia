@@ -40,6 +40,7 @@ namespace Ilia {
             filter.set_visible_func (filter_func);
             view = new Gtk.TreeView.with_model (filter);
 
+            view.headers_visible = false;
             view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", 0);
             view.insert_column_with_attributes (-1, "Application", new CellRendererText (), "text", 1);
             view.set_activate_on_single_click (true);

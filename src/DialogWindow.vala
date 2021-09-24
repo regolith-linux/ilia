@@ -104,12 +104,15 @@ namespace Ilia {
             if (search != "") {
                 GLib.Value val;
                 string strval;
+                list_store.get_value (iter, 1, out val);
+                strval = val.get_string ().down ();
+                // stdout.printf ("compare %s and %s\n", search, strval);
+
+                if (strval.contains (search)) return true;
+
                 list_store.get_value (iter, 2, out val);
-                strval = val.get_string ();
-                if (strval.contains (search) == false) {
-                    list_store.get_value (iter, 3, out val);
-                    strval = val.get_string ();
-                }
+                strval = val.get_string ().down ();
+
                 return strval.contains (search);
             } else {
                 return true;

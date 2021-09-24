@@ -2,15 +2,12 @@ using Gtk;
 
 namespace Ilia {
 
-    Gtk.IconView view;
+    Gtk.TreeView view;
     Gtk.ListStore list_store;
     Gtk.TreeIter iter;
     Gtk.TreeModelFilter filter;
     Gtk.IconTheme icon_theme;
 
-/**
- * Primary UI
- */
     public class DialogWindow : Window {
 
         private int width = 490;
@@ -41,15 +38,12 @@ namespace Ilia {
 
             filter = new Gtk.TreeModelFilter (list_store, null);
             filter.set_visible_func (filter_func);
-            view = new Gtk.IconView.with_model (filter);
-            view.set_pixbuf_column (0);
-            view.set_text_column (1);
-            view.set_tooltip_column (2);
-            view.set_item_width (72);
-            view.set_row_spacing (22);
-            view.set_selection_mode (Gtk.SelectionMode.BROWSE);
+            view = new Gtk.TreeView.with_model (filter);
+
+            view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", 0);
+            view.insert_column_with_attributes (-1, "Application", new CellRendererText (), "text", 1);
             view.set_activate_on_single_click (true);
-            view.item_activated.connect (icon_clicked);
+            view.row_activated.connect (on_row_activated);
 
             var scrolled = new Gtk.ScrolledWindow (null, null);
             scrolled.add (view);
@@ -92,16 +86,12 @@ namespace Ilia {
             action_quit ();
         }
 
-        private void icon_clicked () {
-            List<Gtk.TreePath> paths = view.get_selected_items ();
+        private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
             GLib.Value exec;
-            foreach (Gtk.TreePath path in paths) {
-                filter.get_iter (out iter, path);
-                filter.get_value (iter, 3, out exec);
-                spawn_command ((string) exec);
-            }
 
-            action_quit ();
+            filter.get_iter (out iter, path);
+            filter.get_value (iter, 3, out exec);
+            spawn_command ((string) exec);
         }
 
         public void action_quit () {
@@ -164,7 +154,7 @@ namespace Ilia {
                 var icon = app_info.get_icon ();
                 string icon_name = null;
                 if (icon != null) icon_name = icon.to_string ();
-                list_store.set (iter, 0, load_icon (icon_name, 64), 1, app_info.get_name (), 2, "comment", 3, "/usr/bin/gnome-terminal");
+                list_store.set (iter, 0, load_icon (icon_name, 32), 1, app_info.get_name (), 2, "comment", 3, "/usr/bin/gnome-terminal");
             }
         }
 

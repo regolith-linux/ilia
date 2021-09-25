@@ -2,12 +2,18 @@ using Gtk;
 
 namespace Ilia {
 
-    Gtk.TreeView view;
-    Gtk.ListStore list_store;
+    // The widget to display list of available options
+    Gtk.TreeView item_view;
+    // Model for selections
+    Gtk.ListStore model;
+    // Access state from model
     Gtk.TreeIter iter;
+    // View on model of filtered elements
     Gtk.TreeModelFilter filter;
+    // Active icon theme
     Gtk.IconTheme icon_theme;
 
+    // Primary UI
     public class DialogWindow : Window {
 
         private int width = 490;
@@ -16,38 +22,20 @@ namespace Ilia {
         Gtk.Entry entry;
 
         public DialogWindow () {
-            entry = new Gtk.Entry ();
-            entry.hexpand = true;
-            entry.height_request = 36;
-            entry.set_placeholder_text ("Search");
-            entry.primary_icon_name = "edit-find";
-            entry.secondary_icon_name = "edit-clear";
-            entry.secondary_icon_activatable = true;
-            entry.icon_press.connect ((position, event) => {
-                if (position == Gtk.EntryIconPosition.SECONDARY) {
-                    entry.text = "";
-                }
-            });
-            entry.changed.connect (on_entry_changed);
-            entry.activate.connect (on_entry_activated);
 
-            icon_theme = Gtk.IconTheme.get_default ();
+            create_entry ();
 
-            list_store = new Gtk.ListStore (4, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (DesktopAppInfo));
+            model = new Gtk.ListStore (4, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (DesktopAppInfo));
+            model.set_sort_column_id (1, SortType.ASCENDING);
             load_apps ();
 
-            filter = new Gtk.TreeModelFilter (list_store, null);
+            filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);
-            view = new Gtk.TreeView.with_model (filter);
 
-            view.headers_visible = false;
-            view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", 0);
-            view.insert_column_with_attributes (-1, "Application", new CellRendererText (), "text", 1);
-            view.set_activate_on_single_click (true);
-            view.row_activated.connect (on_row_activated);
+            create_item_view ();
 
             var scrolled = new Gtk.ScrolledWindow (null, null);
-            scrolled.add (view);
+            scrolled.add (item_view);
             scrolled.expand = true;
             var grid = new Gtk.Grid ();
             grid.attach (entry, 0, 0, 1, 1);
@@ -60,13 +48,31 @@ namespace Ilia {
             set_property ("skip-taskbar-hint", true);
             set_default_size (width, height);
             stick ();
+
+            // Exit if focus leaves us
             focus_out_event.connect (() => {
                 action_quit ();
                 return false;
             });
 
-            this.key_press_event.connect ((key) => {
-                if (key.keyval == 65307) action_quit ();
+            // Route keys based on function
+            key_press_event.connect ((key) => {
+                switch (key.keyval) {
+                    case 65307:
+                        action_quit ();
+                        break;
+                    case 65364:
+                        item_view.grab_focus ();
+                        break;
+                    case 65362: 
+                        item_view.grab_focus ();
+                        break;
+                    default:
+                        entry.grab_focus_without_selecting();
+                        // stdout.printf ("Keycode: %u\n", key.keyval);
+                        break;
+                }
+
 
                 return false;
             });
@@ -74,25 +80,77 @@ namespace Ilia {
             entry.grab_focus ();
         }
 
+        // Initialize the text entry
+        void create_entry () {
+            entry = new Gtk.Entry ();
+            entry.hexpand = true;
+            entry.height_request = 36;
+            entry.set_placeholder_text ("Search");
+            entry.primary_icon_name = "system-run";
+            entry.secondary_icon_name = "edit-clear";
+            entry.secondary_icon_activatable = true;
+            entry.icon_press.connect ((position, event) => {
+                if (position == Gtk.EntryIconPosition.SECONDARY) {
+                    entry.text = "";
+                }
+            });
+            entry.changed.connect (on_entry_changed);
+            entry.activate.connect (on_entry_activated);
+        }
+
+        // Initialize the view displaying selections
+        void create_item_view () {
+            item_view = new Gtk.TreeView.with_model (filter);
+
+            // Do not show column headers
+            item_view.headers_visible = false;
+
+            // Optimization
+            item_view.fixed_height_mode = true;
+
+            // Do not enable Gtk seearch
+            item_view.enable_search = false;
+
+            // Create columns
+            item_view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", 0);
+            item_view.insert_column_with_attributes (-1, "Name", new CellRendererText (), "text", 1);
+
+            // Launch app on one click
+            item_view.set_activate_on_single_click (true);
+
+            // Launch app on row selection
+            item_view.row_activated.connect (on_row_activated);
+        }
+
+        // Filter selection based on contents of Entry
         void on_entry_changed () {
             filter.refilter ();
+            set_item_view_selection ();
         }
 
+        // Called on enter when in text box
         void on_entry_activated () {
             filter.get_iter_first (out iter);
-            DesktopAppInfo val;
-            filter.@get (iter, 3, out val);
-            val.launch (null, null);
-            action_quit ();
+            execute_app (iter);
         }
 
+        // Called on enter from TreeView
         private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
-            DesktopAppInfo exec;
-
             filter.get_iter (out iter, path);
-            filter.@get (iter, 3, out exec);
+            execute_app (iter);
+        }
 
-            exec.launch (null, null);
+        // Launch a desktop app
+        public void execute_app (Gtk.TreeIter selection) {
+            DesktopAppInfo app_info;
+            filter.@get (selection, 3, out app_info);
+
+            try {
+                app_info.launch (null, null);
+            } catch (GLib.Error e) {
+                stderr.printf ("%s\n", e.message);
+            }
+
             action_quit ();
         }
 
@@ -104,16 +162,16 @@ namespace Ilia {
         private bool filter_func (Gtk.TreeModel m, Gtk.TreeIter iter) {
             string search = entry.get_text ().down ();
             if (search != "") {
-                GLib.Value val;
+                GLib.Value app_info;
                 string strval;
-                list_store.get_value (iter, 1, out val);
-                strval = val.get_string ();
+                model.get_value (iter, 1, out app_info);
+                strval = app_info.get_string ();
                 // stdout.printf ("compare %s and %s\n", search, strval);
 
                 if (strval != null && strval.down ().contains (search)) return true;
 
-                list_store.get_value (iter, 2, out val);
-                strval = val.get_string ();
+                model.get_value (iter, 2, out app_info);
+                strval = app_info.get_string ();
 
                 return strval != null && strval.down ().contains (search);
             } else {
@@ -122,12 +180,18 @@ namespace Ilia {
         }
 
         private async void load_apps () {
+            // determine theme for icons
+            icon_theme = Gtk.IconTheme.get_default ();
+
+            // populate model with desktop apps from known locations
             var system_app_dir = File.new_for_path ("/usr/share/applications");
             if (system_app_dir.query_exists ()) yield load_apps_from_dir (system_app_dir);
 
             /*  var home_dir = File.new_for_path (Environment.get_home_dir ());
                var user_app_dir = home_dir.get_child(".applications");
                if (user_app_dir.query_exists()) yield load_apps_from_dir(user_app_dir);  */
+
+            set_item_view_selection ();
         }
 
         private async void load_apps_from_dir (File app_dir) {
@@ -155,16 +219,16 @@ namespace Ilia {
             DesktopAppInfo app_info = new DesktopAppInfo.from_filename (desktopPath);
 
             if (app_info != null && app_info.should_show ()) {
-                list_store.append (out iter);
+                model.append (out iter);
 
                 var icon = app_info.get_icon ();
                 string icon_name = null;
                 if (icon != null) icon_name = icon.to_string ();
 
-                var comment = app_info.get_string("Comment");
-                var keywords = app_info.get_string("Keywords");
+                var comment = app_info.get_string ("Comment");
+                var keywords = app_info.get_string ("Keywords");
 
-                list_store.set (iter, 0, load_icon (icon_name, 32), 1, app_info.get_name (), 2, comment + keywords, 3, app_info);
+                model.set (iter, 0, load_icon (icon_name, 32), 1, app_info.get_name (), 2, comment + keywords, 3, app_info);
             }
         }
 
@@ -203,12 +267,13 @@ namespace Ilia {
             return null;
         }
 
-        private void spawn_command (string item) {
-            try {
-                Process.spawn_command_line_async (item);
-            } catch (GLib.Error e) {
-                stderr.printf ("%s\n", e.message);
-            }
+        // Automatically set the first item in the list as selected.
+        private void set_item_view_selection () {
+            Gtk.TreePath path = new Gtk.TreePath.first ();
+            Gtk.TreeSelection selection = item_view.get_selection ();
+
+            selection.set_mode (SelectionMode.SINGLE);
+            selection.select_path (path);
         }
     }
 }

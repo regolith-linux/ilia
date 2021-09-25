@@ -33,7 +33,7 @@ namespace Ilia {
 
             icon_theme = Gtk.IconTheme.get_default ();
 
-            list_store = new Gtk.ListStore (4, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (string));
+            list_store = new Gtk.ListStore (4, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (DesktopAppInfo));
             load_apps ();
 
             filter = new Gtk.TreeModelFilter (list_store, null);
@@ -80,19 +80,20 @@ namespace Ilia {
 
         void on_entry_activated () {
             filter.get_iter_first (out iter);
-            GLib.Value val;
-            filter.get_value (iter, 3, out val);
-            // var model = new Dlauncher.Model();
-            // model.spawn_command((string)val);
+            DesktopAppInfo val;
+            filter.@get (iter, 3, out val);
+            val.launch (null, null);
             action_quit ();
         }
 
         private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
-            GLib.Value exec;
+            DesktopAppInfo exec;
 
             filter.get_iter (out iter, path);
-            filter.get_value (iter, 3, out exec);
-            spawn_command ((string) exec);
+            filter.@get (iter, 3, out exec);
+
+            exec.launch (null, null);
+            action_quit ();
         }
 
         public void action_quit () {
@@ -106,15 +107,15 @@ namespace Ilia {
                 GLib.Value val;
                 string strval;
                 list_store.get_value (iter, 1, out val);
-                strval = val.get_string ().down ();
+                strval = val.get_string ();
                 // stdout.printf ("compare %s and %s\n", search, strval);
 
-                if (strval.contains (search)) return true;
+                if (strval != null && strval.down ().contains (search)) return true;
 
                 list_store.get_value (iter, 2, out val);
-                strval = val.get_string ().down ();
+                strval = val.get_string ();
 
-                return strval.contains (search);
+                return strval != null && strval.down ().contains (search);
             } else {
                 return true;
             }
@@ -152,13 +153,18 @@ namespace Ilia {
 
         private void read_desktop_file (string desktopPath) {
             DesktopAppInfo app_info = new DesktopAppInfo.from_filename (desktopPath);
-            if (app_info != null) {
+
+            if (app_info != null && app_info.should_show ()) {
                 list_store.append (out iter);
 
                 var icon = app_info.get_icon ();
                 string icon_name = null;
                 if (icon != null) icon_name = icon.to_string ();
-                list_store.set (iter, 0, load_icon (icon_name, 32), 1, app_info.get_name (), 2, "comment", 3, "/usr/bin/gnome-terminal");
+
+                var comment = app_info.get_string("Comment");
+                var keywords = app_info.get_string("Keywords");
+
+                list_store.set (iter, 0, load_icon (icon_name, 32), 1, app_info.get_name (), 2, comment + keywords, 3, app_info);
             }
         }
 

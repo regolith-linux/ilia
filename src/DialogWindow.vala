@@ -16,8 +16,23 @@ namespace Ilia {
     // Primary UI
     public class DialogWindow : Window {
 
-        private int width = 490;
-        private int height = 460;
+        private const int WINDOW_WIDTH = 490;
+        private const int WINDOW_HEIGHT = 460;
+
+        private const int ITEM_VIEW_COLUMNS = 4;
+        private const int ITEM_VIEW_COLUMN_ICON = 0;
+        private const int ITEM_VIEW_COLUMN_NAME = 1;
+        private const int ITEM_VIEW_COLUMN_KEYWORDS = 2;
+        private const int ITEM_VIEW_COLUMN_APPINFO = 3;
+
+        private const int KEY_CODE_ESCAPE = 65307;
+        private const int KEY_CODE_UP = 65364;
+        private const int KEY_CODE_DOWN = 65362;
+        private const int KEY_CODE_ENTER = 65293;
+
+        private const int FS_FILE_READ_COUNT = 32;
+
+        private const int ICON_SIZE = 32;
 
         Gtk.Entry entry;
 
@@ -25,9 +40,9 @@ namespace Ilia {
 
             create_entry ();
 
-            model = new Gtk.ListStore (4, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (DesktopAppInfo));
+            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (DesktopAppInfo));
             model.set_sort_column_id (1, SortType.ASCENDING);
-            load_apps ();
+            load_apps.begin ();
 
             filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);
@@ -42,12 +57,7 @@ namespace Ilia {
             grid.attach (scrolled, 0, 1, 1, 1);
 
             add (grid);
-            set_decorated (false);
-            set_resizable (false);
-            set_keep_above (true);
-            set_property ("skip-taskbar-hint", true);
-            set_default_size (width, height);
-            stick ();
+            style_window (this);
 
             // Exit if focus leaves us
             focus_out_event.connect (() => {
@@ -58,18 +68,17 @@ namespace Ilia {
             // Route keys based on function
             key_press_event.connect ((key) => {
                 switch (key.keyval) {
-                    case 65307:
+                    case KEY_CODE_ESCAPE:
                         action_quit ();
                         break;
-                    case 65364:
-                        item_view.grab_focus ();
-                        break;
-                    case 65362: 
+                    case KEY_CODE_UP:
+                    case KEY_CODE_DOWN:
+                    case KEY_CODE_ENTER:
                         item_view.grab_focus ();
                         break;
                     default:
-                        entry.grab_focus_without_selecting();
                         // stdout.printf ("Keycode: %u\n", key.keyval);
+                        entry.grab_focus_without_selecting ();
                         break;
                 }
 
@@ -112,8 +121,8 @@ namespace Ilia {
             item_view.enable_search = false;
 
             // Create columns
-            item_view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", 0);
-            item_view.insert_column_with_attributes (-1, "Name", new CellRendererText (), "text", 1);
+            item_view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", ITEM_VIEW_COLUMN_ICON);
+            item_view.insert_column_with_attributes (-1, "Name", new CellRendererText (), "text", ITEM_VIEW_COLUMN_NAME);
 
             // Launch app on one click
             item_view.set_activate_on_single_click (true);
@@ -122,28 +131,28 @@ namespace Ilia {
             item_view.row_activated.connect (on_row_activated);
         }
 
-        // Filter selection based on contents of Entry
+        // filter selection based on contents of Entry
         void on_entry_changed () {
             filter.refilter ();
             set_item_view_selection ();
         }
 
-        // Called on enter when in text box
+        // called on enter when in text box
         void on_entry_activated () {
             filter.get_iter_first (out iter);
             execute_app (iter);
         }
 
-        // Called on enter from TreeView
+        // called on enter from TreeView
         private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
             filter.get_iter (out iter, path);
             execute_app (iter);
         }
 
-        // Launch a desktop app
+        // launch a desktop app
         public void execute_app (Gtk.TreeIter selection) {
             DesktopAppInfo app_info;
-            filter.@get (selection, 3, out app_info);
+            filter.@get (selection, ITEM_VIEW_COLUMN_APPINFO, out app_info);
 
             try {
                 app_info.launch (null, null);
@@ -154,23 +163,35 @@ namespace Ilia {
             action_quit ();
         }
 
+        // configure style of window
+        private void style_window (DialogWindow window) {
+            window.set_decorated (false);
+            window.set_resizable (false);
+            window.set_keep_above (true);
+            window.set_property ("skip-taskbar-hint", true);
+            window.set_default_size (WINDOW_WIDTH, WINDOW_HEIGHT);
+            window.stick ();
+        }
+
+        // exit
         public void action_quit () {
             hide ();
             close ();
         }
 
+        // traverse the model and show items with metadata that matches entry filter string
         private bool filter_func (Gtk.TreeModel m, Gtk.TreeIter iter) {
             string search = entry.get_text ().down ();
             if (search != "") {
                 GLib.Value app_info;
                 string strval;
-                model.get_value (iter, 1, out app_info);
+                model.get_value (iter, ITEM_VIEW_COLUMN_NAME, out app_info);
                 strval = app_info.get_string ();
                 // stdout.printf ("compare %s and %s\n", search, strval);
 
                 if (strval != null && strval.down ().contains (search)) return true;
 
-                model.get_value (iter, 2, out app_info);
+                model.get_value (iter, ITEM_VIEW_COLUMN_KEYWORDS, out app_info);
                 strval = app_info.get_string ();
 
                 return strval != null && strval.down ().contains (search);
@@ -187,9 +208,11 @@ namespace Ilia {
             var system_app_dir = File.new_for_path ("/usr/share/applications");
             if (system_app_dir.query_exists ()) yield load_apps_from_dir (system_app_dir);
 
-            /*  var home_dir = File.new_for_path (Environment.get_home_dir ());
+            /*
+               var home_dir = File.new_for_path (Environment.get_home_dir ());
                var user_app_dir = home_dir.get_child(".applications");
-               if (user_app_dir.query_exists()) yield load_apps_from_dir(user_app_dir);  */
+               if (user_app_dir.query_exists()) yield load_apps_from_dir(user_app_dir);
+             */
 
             set_item_view_selection ();
         }
@@ -199,7 +222,7 @@ namespace Ilia {
                 var enumerator = yield app_dir.enumerate_children_async (FileAttribute.STANDARD_NAME, FileQueryInfoFlags.NOFOLLOW_SYMLINKS, Priority.DEFAULT);
 
                 while (true) {
-                    var app_files = yield enumerator.next_files_async (10, Priority.DEFAULT);
+                    var app_files = yield enumerator.next_files_async (FS_FILE_READ_COUNT, Priority.DEFAULT);
 
                     if (app_files == null) {
                         break;
@@ -228,7 +251,13 @@ namespace Ilia {
                 var comment = app_info.get_string ("Comment");
                 var keywords = app_info.get_string ("Keywords");
 
-                model.set (iter, 0, load_icon (icon_name, 32), 1, app_info.get_name (), 2, comment + keywords, 3, app_info);
+                model.set (
+                    iter,
+                    ITEM_VIEW_COLUMN_ICON, load_icon (icon_name, ICON_SIZE),
+                    ITEM_VIEW_COLUMN_NAME, app_info.get_name (),
+                    ITEM_VIEW_COLUMN_KEYWORDS, comment + keywords,
+                    ITEM_VIEW_COLUMN_APPINFO, app_info
+                );
             }
         }
 

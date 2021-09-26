@@ -1,18 +1,6 @@
 using Gtk;
 
 namespace Ilia {
-
-    // The widget to display list of available options
-    Gtk.TreeView item_view;
-    // Model for selections
-    Gtk.ListStore model;
-    // Access state from model
-    Gtk.TreeIter iter;
-    // View on model of filtered elements
-    Gtk.TreeModelFilter filter;
-    // Active icon theme
-    Gtk.IconTheme icon_theme;
-
     // Primary UI
     public class DialogWindow : Window {
 
@@ -34,10 +22,24 @@ namespace Ilia {
 
         private const int ICON_SIZE = 32;
 
-        Gtk.Entry entry;
+        // The widget to display list of available options
+        private Gtk.TreeView item_view;
+        // Model for selections
+        private Gtk.ListStore model;
+        // Access state from model
+        private Gtk.TreeIter iter;
+        // View on model of filtered elements
+        private Gtk.TreeModelFilter filter;
+        // Active icon theme
+        private Gtk.IconTheme icon_theme;
+
+        private Gtk.Entry entry;
+
+        private GLib.Settings settings;
+
+        private string[] launch_counts;
 
         public DialogWindow () {
-
             create_entry ();
 
             model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (DesktopAppInfo));
@@ -57,7 +59,11 @@ namespace Ilia {
             grid.attach (scrolled, 0, 1, 1, 1);
 
             add (grid);
+
+            settings = new GLib.Settings ("org.regolith-linux.ilia");
             style_window (this);
+
+            launch_counts = settings.get_strv ("app-launch-counts");
 
             // Exit if focus leaves us
             focus_out_event.connect (() => {
@@ -156,6 +162,8 @@ namespace Ilia {
 
             try {
                 app_info.launch (null, null);
+                launch_counts += app_info.get_generic_name ();
+                settings.set_strv ("app-launch-counts", launch_counts);
             } catch (GLib.Error e) {
                 stderr.printf ("%s\n", e.message);
             }

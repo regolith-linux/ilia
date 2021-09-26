@@ -33,10 +33,3 @@ executable('ilia',ilia_sources,
     link_args: ilia_link_args,
     install: true)
 
-ilia_tests_vala_args = ['-D','UNITEST']
-ilia_tests_c_args = ['-DUNITEST']
-
-ilia_test1_exec = executable('ilia_test1',ilia_sources + ['unitests/ExampleTest.vala'],dependencies: ilia_deps,vala_args: ilia_tests_vala_args,c_args: ilia_tests_c_args,link_args: ilia_link_args,install: false)
-test('ilia_test1', ilia_test1_exec)
-
-

@@ -17,7 +17,6 @@ ilia_deps += [atk_dep]
 ilia_deps += [cairo_gobject_dep]
 ilia_deps += [gdk_3_0_dep]
 ilia_deps += [gdk_pixbuf_2_0_dep]
-ilia_deps += [gee_0_8_dep]
 ilia_deps += [gio_2_0_dep]
 ilia_deps += [glib_2_0_dep]
 ilia_deps += [gobject_2_0_dep]
@@ -37,5 +36,7 @@ executable('ilia',ilia_sources,
 ilia_tests_vala_args = ['-D','UNITEST']
 ilia_tests_c_args = ['-DUNITEST']
 
-ilia_test2_exec = executable('ilia_test2','unitests/ExampleTest.vala',dependencies: ilia_deps,vala_args: ilia_tests_vala_args,c_args: ilia_tests_c_args,link_args: ilia_link_args,install: false)
-test('ilia_test2', ilia_test2_exec)
+ilia_test1_exec = executable('ilia_test1',ilia_sources + ['unitests/ExampleTest.vala'],dependencies: ilia_deps,vala_args: ilia_tests_vala_args,c_args: ilia_tests_c_args,link_args: ilia_link_args,install: false)
+test('ilia_test1', ilia_test1_exec)
+
+

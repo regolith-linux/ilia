@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="ilia">
+	<schema id="org.regolith-linux.ilia" path="/org/regolith-linux/ilia/">
+	  <key name="app-launch-counts" type="as">
+      <default></default>
+      <summary>Count of app launches indexed by app id</summary>
+      <description>
+        A table of apps that have been launced and the total count.  Used for sorting apps.
+      </description>
+    </key>
+	</schema>
+</schemalist>

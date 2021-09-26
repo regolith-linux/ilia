@@ -7,6 +7,7 @@ namespace Ilia {
         private const int WINDOW_WIDTH = 490;
         private const int WINDOW_HEIGHT = 460;
 
+        // Model constants
         private const int ITEM_VIEW_COLUMNS = 4;
         private const int ITEM_VIEW_COLUMN_ICON = 0;
         private const int ITEM_VIEW_COLUMN_NAME = 1;
@@ -18,9 +19,14 @@ namespace Ilia {
         private const int KEY_CODE_DOWN = 65362;
         private const int KEY_CODE_ENTER = 65293;
 
-        private const int FS_FILE_READ_COUNT = 32;
+        // Max number of files to read in sequence before yeilding
+        private const int FS_FILE_READ_COUNT = 8;
 
+        // Size in pixels of application icons
         private const int ICON_SIZE = 32;
+
+        // Number of past launches to store (to determine sort rank)
+        private const uint HISTORY_MAX_LEN = 32;
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -44,6 +50,7 @@ namespace Ilia {
 
             model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (DesktopAppInfo));
             model.set_sort_column_id (1, SortType.ASCENDING);
+            model.set_sort_func (1, app_sort_func);
             load_apps.begin ();
 
             filter = new Gtk.TreeModelFilter (model, null);
@@ -160,15 +167,35 @@ namespace Ilia {
             DesktopAppInfo app_info;
             filter.@get (selection, ITEM_VIEW_COLUMN_APPINFO, out app_info);
 
+            AppLaunchContext ctx = new AppLaunchContext ();
+
+            ctx.launch_failed.connect ((startup_notify_id) => {
+                stderr.printf ("Failed to launch %s(%n)\n", app_info.get_name (), startup_notify_id);
+                action_quit ();
+            });
+
             try {
-                app_info.launch (null, null);
-                launch_counts += app_info.get_generic_name ();
-                settings.set_strv ("app-launch-counts", launch_counts);
+                var result = app_info.launch (null, null);
+
+                if (result) {
+                  string key = app_info.get_id ();
+                  if (launch_counts == null) {
+                      launch_counts = { key };
+                  } else {
+                      launch_counts += key;
+                  }
+  
+                  if (launch_counts.length <= HISTORY_MAX_LEN) {
+                      settings.set_strv ("app-launch-counts", launch_counts);
+                  } else {
+                      settings.set_strv ("app-launch-counts", launch_counts[1 : HISTORY_MAX_LEN]);
+                  }          
+                } else {
+                  stderr.printf ("Failed to launch %s\n", app_info.get_name ());
+                }
             } catch (GLib.Error e) {
                 stderr.printf ("%s\n", e.message);
             }
-
-            action_quit ();
         }
 
         // configure style of window
@@ -187,22 +214,54 @@ namespace Ilia {
             close ();
         }
 
+        private int app_sort_func (TreeModel model, TreeIter a, TreeIter b) {
+            DesktopAppInfo app_a;
+            model.@get (a, ITEM_VIEW_COLUMN_APPINFO, out app_a);
+            DesktopAppInfo app_b;
+            model.@get (b, ITEM_VIEW_COLUMN_APPINFO, out app_b);
+
+            var a_count = app_count (app_a);
+            var b_count = app_count (app_b);
+
+            if (a_count > 0 || b_count > 0) {
+                if (a_count > b_count) {
+                    return -1;
+                } else if (a_count < b_count) {
+                    return 1;
+                } else {
+                    return 0;
+                }
+            }
+
+            return app_a.get_name ().ascii_casecmp (app_b.get_name ());
+        }
+
+        private int app_count (DesktopAppInfo app) {
+            var count = 0;
+            for (int i = 0; i < launch_counts.length; ++i) {
+                if (launch_counts[i] == app.get_id ()) count++;
+            }
+
+            return count;
+        }
+
         // traverse the model and show items with metadata that matches entry filter string
         private bool filter_func (Gtk.TreeModel m, Gtk.TreeIter iter) {
-            string search = entry.get_text ().down ();
-            if (search != "") {
+            string queryString = entry.get_text ().down ();
+
+            if (queryString != "") {
                 GLib.Value app_info;
                 string strval;
                 model.get_value (iter, ITEM_VIEW_COLUMN_NAME, out app_info);
                 strval = app_info.get_string ();
-                // stdout.printf ("compare %s and %s\n", search, strval);
+                // stdout.printf ("compare %s and %s\n", queryString, strval);
 
-                if (strval != null && strval.down ().contains (search)) return true;
+                if (strval != null && strval.down ().contains (queryString)) return true;
 
                 model.get_value (iter, ITEM_VIEW_COLUMN_KEYWORDS, out app_info);
                 strval = app_info.get_string ();
 
-                return strval != null && strval.down ().contains (search);
+                return strval != null && strval.down ().contains (queryString);
             } else {
                 return true;
             }

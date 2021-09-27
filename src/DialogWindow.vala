@@ -3,10 +3,6 @@ using Gtk;
 namespace Ilia {
     // Primary UI
     public class DialogWindow : Window {
-
-        private const int WINDOW_WIDTH = 490;
-        private const int WINDOW_HEIGHT = 460;
-
         // Model constants
         private const int ITEM_VIEW_COLUMNS = 4;
         private const int ITEM_VIEW_COLUMN_ICON = 0;
@@ -18,12 +14,11 @@ namespace Ilia {
         private const int KEY_CODE_UP = 65364;
         private const int KEY_CODE_DOWN = 65362;
         private const int KEY_CODE_ENTER = 65293;
+        private const int KEY_CODE_PGDOWN = 65366;
+        private const int KEY_CODE_PGUP = 65365;
 
         // Max number of files to read in sequence before yeilding
         private const int FS_FILE_READ_COUNT = 8;
-
-        // Size in pixels of application icons
-        private const int ICON_SIZE = 32;
 
         // Number of past launches to store (to determine sort rank)
         private const uint HISTORY_MAX_LEN = 32;
@@ -44,8 +39,13 @@ namespace Ilia {
         private GLib.Settings settings;
 
         private string[] launch_counts;
+        private int icon_size;
 
         public DialogWindow () {
+            settings = new GLib.Settings ("org.regolith-linux.ilia");
+            launch_counts = settings.get_strv ("app-launch-counts");
+            icon_size = settings.get_int ("icon-size");
+
             create_entry ();
 
             model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (DesktopAppInfo));
@@ -64,13 +64,11 @@ namespace Ilia {
             var grid = new Gtk.Grid ();
             grid.attach (entry, 0, 0, 1, 1);
             grid.attach (scrolled, 0, 1, 1, 1);
-
             add (grid);
 
-            settings = new GLib.Settings ("org.regolith-linux.ilia");
-            style_window (this);
+            style_window (this, settings);
 
-            launch_counts = settings.get_strv ("app-launch-counts");
+
 
             // Exit if focus leaves us
             focus_out_event.connect (() => {
@@ -87,6 +85,8 @@ namespace Ilia {
                     case KEY_CODE_UP:
                     case KEY_CODE_DOWN:
                     case KEY_CODE_ENTER:
+                    case KEY_CODE_PGDOWN:
+                    case KEY_CODE_PGUP:
                         item_view.grab_focus ();
                         break;
                     default:
@@ -107,7 +107,7 @@ namespace Ilia {
             entry = new Gtk.Entry ();
             entry.hexpand = true;
             entry.height_request = 36;
-            entry.set_placeholder_text ("Search");
+            entry.set_placeholder_text ("Launch App");
             entry.primary_icon_name = "system-run";
             entry.secondary_icon_name = "edit-clear";
             entry.secondary_icon_activatable = true;
@@ -134,7 +134,9 @@ namespace Ilia {
             item_view.enable_search = false;
 
             // Create columns
-            item_view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", ITEM_VIEW_COLUMN_ICON);
+            if (icon_size > 0) {
+                item_view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", ITEM_VIEW_COLUMN_ICON);
+            }
             item_view.insert_column_with_attributes (-1, "Name", new CellRendererText (), "text", ITEM_VIEW_COLUMN_NAME);
 
             // Launch app on one click
@@ -178,20 +180,20 @@ namespace Ilia {
                 var result = app_info.launch (null, null);
 
                 if (result) {
-                  string key = app_info.get_id ();
-                  if (launch_counts == null) {
-                      launch_counts = { key };
-                  } else {
-                      launch_counts += key;
-                  }
-  
-                  if (launch_counts.length <= HISTORY_MAX_LEN) {
-                      settings.set_strv ("app-launch-counts", launch_counts);
-                  } else {
-                      settings.set_strv ("app-launch-counts", launch_counts[1 : HISTORY_MAX_LEN]);
-                  }          
+                    string key = app_info.get_id ();
+                    if (launch_counts == null) {
+                        launch_counts = { key };
+                    } else {
+                        launch_counts += key;
+                    }
+
+                    if (launch_counts.length <= HISTORY_MAX_LEN) {
+                        settings.set_strv ("app-launch-counts", launch_counts);
+                    } else {
+                        settings.set_strv ("app-launch-counts", launch_counts[1 : HISTORY_MAX_LEN]);
+                    }
                 } else {
-                  stderr.printf ("Failed to launch %s\n", app_info.get_name ());
+                    stderr.printf ("Failed to launch %s\n", app_info.get_name ());
                 }
             } catch (GLib.Error e) {
                 stderr.printf ("%s\n", e.message);
@@ -199,12 +201,13 @@ namespace Ilia {
         }
 
         // configure style of window
-        private void style_window (DialogWindow window) {
+        private void style_window (DialogWindow window, GLib.Settings settings) {
             window.set_decorated (false);
             window.set_resizable (false);
             window.set_keep_above (true);
             window.set_property ("skip-taskbar-hint", true);
-            window.set_default_size (WINDOW_WIDTH, WINDOW_HEIGHT);
+
+            window.set_default_size (settings.get_int ("window-width"), settings.get_int ("window-height"));
             window.stick ();
         }
 
@@ -318,13 +321,26 @@ namespace Ilia {
                 var comment = app_info.get_string ("Comment");
                 var keywords = app_info.get_string ("Keywords");
 
-                model.set (
-                    iter,
-                    ITEM_VIEW_COLUMN_ICON, load_icon (icon_name, ICON_SIZE),
-                    ITEM_VIEW_COLUMN_NAME, app_info.get_name (),
-                    ITEM_VIEW_COLUMN_KEYWORDS, comment + keywords,
-                    ITEM_VIEW_COLUMN_APPINFO, app_info
-                );
+                Gdk.Pixbuf icon_img = null;
+
+                if (icon_size > 0) {
+                    icon_img = load_icon (icon_name, icon_size);
+
+                    model.set (
+                        iter,
+                        ITEM_VIEW_COLUMN_ICON, icon_img,
+                        ITEM_VIEW_COLUMN_NAME, app_info.get_name (),
+                        ITEM_VIEW_COLUMN_KEYWORDS, comment + keywords,
+                        ITEM_VIEW_COLUMN_APPINFO, app_info
+                    );
+                } else {
+                    model.set (
+                        iter,
+                        ITEM_VIEW_COLUMN_NAME, app_info.get_name (),
+                        ITEM_VIEW_COLUMN_KEYWORDS, comment + keywords,
+                        ITEM_VIEW_COLUMN_APPINFO, app_info
+                    );
+                }
             }
         }
 

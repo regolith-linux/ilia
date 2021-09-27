@@ -8,5 +8,26 @@
         A table of apps that have been launced and the total count.  Used for sorting apps.
       </description>
     </key>
+    <key name="window-width" type="i">
+      <default>490</default>
+      <summary>Window width</summary>
+      <description>
+        Width of dialog window in pixels.
+      </description>
+    </key>
+    <key name="window-height" type="i">
+      <default>460</default>
+      <summary>Window height</summary>
+      <description>
+        Height of dialog window in pixels.
+      </description>
+    </key>
+    <key name="icon-size" type="i">
+      <default>32</default>
+      <summary>Size of icons</summary>
+      <description>
+        Size of icons.
+      </description>
+    </key>
 	</schema>
 </schemalist>

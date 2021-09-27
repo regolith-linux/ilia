@@ -68,8 +68,6 @@ namespace Ilia {
 
             style_window (this, settings);
 
-
-
             // Exit if focus leaves us
             focus_out_event.connect (() => {
                 action_quit ();
@@ -250,14 +248,13 @@ namespace Ilia {
 
         // traverse the model and show items with metadata that matches entry filter string
         private bool filter_func (Gtk.TreeModel m, Gtk.TreeIter iter) {
-            string queryString = entry.get_text ().down ();
+            string queryString = entry.get_text ().down ().strip ();
 
-            if (queryString != "") {
+            if (queryString.length > 0) {
                 GLib.Value app_info;
                 string strval;
                 model.get_value (iter, ITEM_VIEW_COLUMN_NAME, out app_info);
                 strval = app_info.get_string ();
-                // stdout.printf ("compare %s and %s\n", queryString, strval);
 
                 if (strval != null && strval.down ().contains (queryString)) return true;
 

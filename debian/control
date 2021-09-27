@@ -1,0 +1,26 @@
+Source: ilia
+Section: x11
+Priority: optional
+Maintainer: Ken Gilmer <kgilmer@gmail.com>
+Build-Depends: debhelper (>= 10),
+               gettext,
+               libgtk-3-dev (>= 3.22),
+               meson,
+               libgee-0.8-dev,
+               libgee-0.8-2,
+               gir1.2-gee-0.8,
+               po-debconf, 
+               valac-bin, 
+               intltool
+Standards-Version: 4.1.2
+Homepage: https://github.com/regolith-linux/ilia
+
+Package: ilia
+Architecture: any
+Depends: 
+  ${shlibs:Depends}, 
+  ${misc:Depends},
+  libgee-0.8-2
+Description: General purpose application launcher
+ Launch desktop apps via a simple filterable menu.
+

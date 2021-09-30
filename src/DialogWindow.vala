@@ -18,7 +18,7 @@ namespace Ilia {
         private const int KEY_CODE_PGUP = 65365;
 
         // Max number of files to read in sequence before yeilding
-        private const int FS_FILE_READ_COUNT = 8;
+        private const int FS_FILE_READ_COUNT = 64;
 
         // Number of past launches to store (to determine sort rank)
         private const uint HISTORY_MAX_LEN = 32;
@@ -50,12 +50,13 @@ namespace Ilia {
 
             model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (DesktopAppInfo));
             model.set_sort_column_id (1, SortType.ASCENDING);
-            model.set_sort_func (1, app_sort_func);
+            model.set_sort_func (1, app_sort_func); 
+
             load_apps.begin ();
 
             filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);
-
+            
             create_item_view ();
 
             var scrolled = new Gtk.ScrolledWindow (null, null);
@@ -164,6 +165,8 @@ namespace Ilia {
 
         // launch a desktop app
         public void execute_app (Gtk.TreeIter selection) {
+            this.set_visible(false);
+
             DesktopAppInfo app_info;
             filter.@get (selection, ITEM_VIEW_COLUMN_APPINFO, out app_info);
 
@@ -275,13 +278,21 @@ namespace Ilia {
             var system_app_dir = File.new_for_path ("/usr/share/applications");
             if (system_app_dir.query_exists ()) yield load_apps_from_dir (system_app_dir);
 
-            /*
-               var home_dir = File.new_for_path (Environment.get_home_dir ());
-               var user_app_dir = home_dir.get_child(".applications");
-               if (user_app_dir.query_exists()) yield load_apps_from_dir(user_app_dir);
-             */
+            // ~/.applications
+            var home_dir = File.new_for_path (Environment.get_home_dir ());
+            var user_app_dir = home_dir.get_child(".applications");
+            if (user_app_dir.query_exists()) yield load_apps_from_dir(user_app_dir);
 
-            set_item_view_selection ();
+            // ~/.gnome/.apps
+            var gnome_app_dir = home_dir.get_child(".gnome").get_child("apps");
+            if (gnome_app_dir.query_exists()) yield load_apps_from_dir(gnome_app_dir);
+
+            // ~/.local/share/applications
+            var local_app_dir = home_dir.get_child(".local").get_child("share").get_child("applications");
+            if (local_app_dir.query_exists()) yield load_apps_from_dir(local_app_dir);
+
+
+            set_item_view_selection ();                    
         }
 
         private async void load_apps_from_dir (File app_dir) {
@@ -297,7 +308,7 @@ namespace Ilia {
 
                     foreach (var info in app_files) {
                         string file_path = app_dir.get_child (info.get_name ()).get_path ();
-                        read_desktop_file (file_path);
+                        yield read_desktop_file (file_path);
                     }
                 }
             } catch (Error err) {
@@ -305,7 +316,7 @@ namespace Ilia {
             }
         }
 
-        private void read_desktop_file (string desktopPath) {
+        private async void read_desktop_file (string desktopPath) {
             DesktopAppInfo app_info = new DesktopAppInfo.from_filename (desktopPath);
 
             if (app_info != null && app_info.should_show ()) {
@@ -321,7 +332,7 @@ namespace Ilia {
                 Gdk.Pixbuf icon_img = null;
 
                 if (icon_size > 0) {
-                    icon_img = load_icon (icon_name, icon_size);
+                    icon_img = yield load_icon (icon_name, icon_size);
 
                     model.set (
                         iter,
@@ -341,7 +352,7 @@ namespace Ilia {
             }
         }
 
-        private Gdk.Pixbuf ? load_icon (string ? icon_name, int size) {
+        private async Gdk.Pixbuf ? load_icon (string ? icon_name, int size) {
             Gtk.IconInfo icon_info;
 
             try {

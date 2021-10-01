@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Ilia
+Exec=ilia
+Terminal=false
+Type=Application
+Categories=GTK;
+StartupNotify=true
+Icon=dialog-information
+Keywords=desktop,launcher,executor

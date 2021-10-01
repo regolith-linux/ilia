@@ -1,3 +1,12 @@
+ilia (0.3.0-1) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Improve startup ux. Load apps from user dirs.  Close dialog before launching app.
+  * Cleanup app source dirs
+  * Add app metadata files. Add build support for gsettings schema.
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 30 Sep 2021 20:45:14 -0700
+
 ilia (0.2.0-1) focal; urgency=medium
 
   [ Ken Gilmer ]

@@ -38,7 +38,7 @@ namespace Ilia {
 
         private GLib.Settings settings;
 
-        private string[] launch_counts;
+        private string[] launch_counts;        
         private int icon_size;
 
         public DialogWindow () {
@@ -277,20 +277,11 @@ namespace Ilia {
             // populate model with desktop apps from known locations
             var system_app_dir = File.new_for_path ("/usr/share/applications");
             if (system_app_dir.query_exists ()) yield load_apps_from_dir (system_app_dir);
-
-            // ~/.applications
-            var home_dir = File.new_for_path (Environment.get_home_dir ());
-            var user_app_dir = home_dir.get_child(".applications");
-            if (user_app_dir.query_exists()) yield load_apps_from_dir(user_app_dir);
-
-            // ~/.gnome/.apps
-            var gnome_app_dir = home_dir.get_child(".gnome").get_child("apps");
-            if (gnome_app_dir.query_exists()) yield load_apps_from_dir(gnome_app_dir);
-
+            
             // ~/.local/share/applications
+            var home_dir = File.new_for_path (Environment.get_home_dir ());
             var local_app_dir = home_dir.get_child(".local").get_child("share").get_child("applications");
             if (local_app_dir.query_exists()) yield load_apps_from_dir(local_app_dir);
-
 
             set_item_view_selection ();                    
         }

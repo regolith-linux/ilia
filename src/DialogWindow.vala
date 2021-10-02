@@ -2,7 +2,7 @@ using Gtk;
 
 namespace Ilia {
     // Primary UI
-    public class DialogWindow : Window {
+    public class DialogWindow : Window, SessionContoller {
         // Model constants
         private const int KEY_CODE_ESCAPE = 65307;
         private const int KEY_CODE_UP = 65364;
@@ -25,10 +25,25 @@ namespace Ilia {
         public DialogWindow () {
             settings = new GLib.Settings ("org.regolith-linux.ilia");
 
-            create_entry ();
+            entry = new Gtk.Entry ();
+            entry.hexpand = true;
+            entry.height_request = 36;
+            entry.set_placeholder_text ("Launch App");
+            entry.primary_icon_name = "system-run";
+            entry.secondary_icon_name = "edit-clear";
+            entry.secondary_icon_activatable = true;
+            entry.icon_press.connect ((position, event) => {
+                if (position == Gtk.EntryIconPosition.SECONDARY) {
+                    entry.text = "";
+                }
+            });
+            entry.changed.connect (on_entry_changed);      
+            
 
             desktopAppPage = new DesktopAppPage();
-            var widget = desktopAppPage.initialize (settings, entry);
+            var widget = desktopAppPage.initialize (settings, entry, this);
+
+            entry.activate.connect (on_entry_activated);
 
             notebook = new Notebook ();
             notebook.set_show_border (true);
@@ -51,6 +66,7 @@ namespace Ilia {
 
             // Exit if focus leaves us
             focus_out_event.connect (() => {
+                stdout.printf("exit from lost focus\n");
                 action_quit ();
                 return false;
             });
@@ -82,6 +98,40 @@ namespace Ilia {
             });
 
             entry.grab_focus ();
+        }
+
+        // filter selection based on contents of Entry
+        void on_entry_changed () {
+            desktopAppPage.on_entry_changed ();
+        }
+
+        void on_entry_activated () {
+            desktopAppPage.on_entry_activated ();
+        }
+
+        // configure style of window
+        private void style_window (DialogWindow window, GLib.Settings settings) {
+            window.set_decorated (false);
+            window.set_resizable (false);
+            window.set_keep_above (true);
+            window.set_property ("skip-taskbar-hint", true);
+
+            window.set_default_size (settings.get_int ("window-width"), settings.get_int ("window-height"));
+            window.stick ();
+        }
+
+        // exit
+        public void action_quit () {
+            hide ();
+            close ();
+        }
+
+        public void hide_dialog () {
+            hide ();
+        }
+
+        public void exit_app () {
+            // close ();
         }
 
         private void add_fake_tab (string label) {
@@ -132,51 +182,6 @@ namespace Ilia {
 
             return scrolled;
             // return new Button.with_label ("Some Content");
-        }
-
-        // Initialize the text entry
-        void create_entry () {
-            entry = new Gtk.Entry ();
-            entry.hexpand = true;
-            entry.height_request = 36;
-            entry.set_placeholder_text ("Launch App");
-            entry.primary_icon_name = "system-run";
-            entry.secondary_icon_name = "edit-clear";
-            entry.secondary_icon_activatable = true;
-            entry.icon_press.connect ((position, event) => {
-                if (position == Gtk.EntryIconPosition.SECONDARY) {
-                    entry.text = "";
-                }
-            });
-            entry.changed.connect (on_entry_changed);
-            entry.activate.connect (on_entry_activated);
-        }
-
-        // filter selection based on contents of Entry
-        void on_entry_changed () {
-            desktopAppPage.on_entry_changed ();
-        }
-
-        // called on enter when in text box
-        void on_entry_activated () {
-            desktopAppPage.on_entry_activated ();
-        }
-
-        // configure style of window
-        private void style_window (DialogWindow window, GLib.Settings settings) {
-            window.set_decorated (false);
-            window.set_resizable (false);
-            window.set_keep_above (true);
-            window.set_property ("skip-taskbar-hint", true);
-
-            window.set_default_size (settings.get_int ("window-width"), settings.get_int ("window-height"));
-            window.stick ();
-        }
-
-        // exit
-        public void action_quit () {
-            hide ();
-            close ();
         }
     }
 }

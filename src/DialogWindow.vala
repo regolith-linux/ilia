@@ -16,6 +16,8 @@ namespace Ilia {
         private const int KEY_CODE_ENTER = 65293;
         private const int KEY_CODE_PGDOWN = 65366;
         private const int KEY_CODE_PGUP = 65365;
+        private const int KEY_CODE_RIGHT = 65363;
+        private const int KEY_CODE_LEFT = 65361;
 
         // Max number of files to read in sequence before yeilding
         private const int FS_FILE_READ_COUNT = 64;
@@ -33,12 +35,14 @@ namespace Ilia {
         private Gtk.TreeModelFilter filter;
         // Active icon theme
         private Gtk.IconTheme icon_theme;
+        // Mode switcher
+        private Gtk.Notebook notebook;
 
         private Gtk.Entry entry;
 
         private GLib.Settings settings;
 
-        private string[] launch_counts;        
+        private string[] launch_counts;
         private int icon_size;
 
         public DialogWindow () {
@@ -50,21 +54,34 @@ namespace Ilia {
 
             model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (DesktopAppInfo));
             model.set_sort_column_id (1, SortType.ASCENDING);
-            model.set_sort_func (1, app_sort_func); 
+            model.set_sort_func (1, app_sort_func);
 
             load_apps.begin ();
 
             filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);
-            
+
             create_item_view ();
 
             var scrolled = new Gtk.ScrolledWindow (null, null);
             scrolled.add (item_view);
             scrolled.expand = true;
+
+            notebook = new Notebook ();
+            notebook.set_show_border (true);
+            notebook.set_tab_pos (PositionType.BOTTOM);
+            var label = new Label (null);
+            label.set_label ("Apps");
+            notebook.append_page (scrolled, label);
+
+            add_tab ("Commands", create_command_widget ());
+            add_fake_tab ("Workspaces");
+            add_fake_tab ("Keybindings");
+            add_fake_tab ("Settings");
+
             var grid = new Gtk.Grid ();
             grid.attach (entry, 0, 0, 1, 1);
-            grid.attach (scrolled, 0, 1, 1, 1);
+            grid.attach (notebook, 0, 1, 1, 1);
             add (grid);
 
             style_window (this, settings);
@@ -88,6 +105,10 @@ namespace Ilia {
                     case KEY_CODE_PGUP:
                         item_view.grab_focus ();
                         break;
+                    case KEY_CODE_RIGHT:
+                    case KEY_CODE_LEFT:
+                        notebook.grab_focus ();
+                        break;
                     default:
                         // stdout.printf ("Keycode: %u\n", key.keyval);
                         entry.grab_focus_without_selecting ();
@@ -99,6 +120,59 @@ namespace Ilia {
             });
 
             entry.grab_focus ();
+        }
+
+        private void add_fake_tab (string label) {
+            var label2 = new Label (null);
+            label2.set_label (label);
+            var button2 = new Button.with_label ("Some Content");
+            notebook.append_page (button2, label2);
+        }
+
+        private void add_tab (string label, Widget child) {
+            var label2 = new Label (null);
+            label2.set_label (label);
+            notebook.append_page (child, label2);
+        }
+
+        here is where we're at adapting the existing desktop app UI for commands
+        private Widget create_command_widget () {
+            var command_model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (string), typeof (string));
+            // model.set_sort_column_id (1, SortType.ASCENDING);
+            // model.set_sort_func (1, app_sort_func);
+
+            // load_apps.begin ();
+
+            //var command_filter = new Gtk.TreeModelFilter (model, null);
+            //filter.set_visible_func (filter_func);
+
+            item_view = new Gtk.TreeView.with_model (filter);
+
+            // Do not show column headers
+            item_view.headers_visible = false;
+
+            // Optimization
+            item_view.fixed_height_mode = true;
+
+            // Do not enable Gtk seearch
+            item_view.enable_search = false;
+
+            // Create columns
+            if (icon_size > 0) {
+                item_view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", ITEM_VIEW_COLUMN_ICON);
+            }
+            item_view.insert_column_with_attributes (-1, "Name", new CellRendererText (), "text", ITEM_VIEW_COLUMN_NAME);
+
+            // Launch app on one click
+            item_view.set_activate_on_single_click (true);
+
+            // Launch app on row selection
+            item_view.row_activated.connect (on_row_activated);
+
+
+            var scrolled = new Gtk.ScrolledWindow (null, null);
+            scrolled.add (item_view);
+            scrolled.expand = true;
         }
 
         // Initialize the text entry
@@ -165,7 +239,7 @@ namespace Ilia {
 
         // launch a desktop app
         public void execute_app (Gtk.TreeIter selection) {
-            this.set_visible(false);
+            this.set_visible (false);
 
             DesktopAppInfo app_info;
             filter.@get (selection, ITEM_VIEW_COLUMN_APPINFO, out app_info);
@@ -277,13 +351,13 @@ namespace Ilia {
             // populate model with desktop apps from known locations
             var system_app_dir = File.new_for_path ("/usr/share/applications");
             if (system_app_dir.query_exists ()) yield load_apps_from_dir (system_app_dir);
-            
+
             // ~/.local/share/applications
             var home_dir = File.new_for_path (Environment.get_home_dir ());
-            var local_app_dir = home_dir.get_child(".local").get_child("share").get_child("applications");
-            if (local_app_dir.query_exists()) yield load_apps_from_dir(local_app_dir);
+            var local_app_dir = home_dir.get_child (".local").get_child ("share").get_child ("applications");
+            if (local_app_dir.query_exists ()) yield load_apps_from_dir (local_app_dir);
 
-            set_item_view_selection ();                    
+            set_item_view_selection ();
         }
 
         private async void load_apps_from_dir (File app_dir) {

@@ -135,7 +135,7 @@ namespace Ilia {
             notebook.append_page (child, label2);
         }
 
-        here is where we're at adapting the existing desktop app UI for commands
+        // here is where we're at adapting the existing desktop app UI for commands
         private Widget create_command_widget () {
             var command_model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (string), typeof (string));
             // model.set_sort_column_id (1, SortType.ASCENDING);
@@ -146,33 +146,29 @@ namespace Ilia {
             //var command_filter = new Gtk.TreeModelFilter (model, null);
             //filter.set_visible_func (filter_func);
 
-            item_view = new Gtk.TreeView.with_model (filter);
+            var command_item_view = new Gtk.TreeView.with_model (command_model);
 
             // Do not show column headers
-            item_view.headers_visible = false;
+            command_item_view.headers_visible = false;
 
             // Optimization
-            item_view.fixed_height_mode = true;
+            command_item_view.fixed_height_mode = true;
 
             // Do not enable Gtk seearch
-            item_view.enable_search = false;
-
-            // Create columns
-            if (icon_size > 0) {
-                item_view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", ITEM_VIEW_COLUMN_ICON);
-            }
-            item_view.insert_column_with_attributes (-1, "Name", new CellRendererText (), "text", ITEM_VIEW_COLUMN_NAME);
+            command_item_view.enable_search = false;
 
             // Launch app on one click
-            item_view.set_activate_on_single_click (true);
+            command_item_view.set_activate_on_single_click (true);
 
             // Launch app on row selection
-            item_view.row_activated.connect (on_row_activated);
+            command_item_view.row_activated.connect (on_row_activated);
 
 
             var scrolled = new Gtk.ScrolledWindow (null, null);
             scrolled.add (item_view);
             scrolled.expand = true;
+
+            return scrolled;
         }
 
         // Initialize the text entry

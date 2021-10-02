@@ -18,12 +18,23 @@ namespace Ilia {
         // Mode switcher
         private Gtk.Notebook notebook;
 
+        private Gtk.Stack stack;
+
         private Gtk.Entry entry;
 
         private GLib.Settings settings;
 
+        private Gtk.Grid grid;
+
+        private Gtk.Spinner spinner;
+
         public DialogWindow () {
             settings = new GLib.Settings ("org.regolith-linux.ilia");
+
+            stack = new Stack();
+            stack.set_vexpand(true);
+            stack.set_hexpand(true);
+            add (stack);
 
             entry = new Gtk.Entry ();
             entry.hexpand = true;
@@ -57,16 +68,24 @@ namespace Ilia {
             add_fake_tab ("Keybindings");
             add_fake_tab ("Settings");
 
-            var grid = new Gtk.Grid ();
+            grid = new Gtk.Grid ();
             grid.attach (entry, 0, 0, 1, 1);
             grid.attach (notebook, 0, 1, 1, 1);
-            add (grid);
+            stack.add_named(grid, "primary");
 
-            style_window (this, settings);
+            spinner = new Spinner();
+            stack.add_named(spinner, "spinner");
+
+            set_decorated (false);
+            set_resizable (false);
+            set_keep_above (true);
+            set_property ("skip-taskbar-hint", true);
+
+            set_default_size (settings.get_int ("window-width"), settings.get_int ("window-height"));
+            stick ();
 
             // Exit if focus leaves us
             focus_out_event.connect (() => {
-                stdout.printf("exit from lost focus\n");
                 action_quit ();
                 return false;
             });
@@ -109,29 +128,15 @@ namespace Ilia {
             desktopAppPage.on_entry_activated ();
         }
 
-        // configure style of window
-        private void style_window (DialogWindow window, GLib.Settings settings) {
-            window.set_decorated (false);
-            window.set_resizable (false);
-            window.set_keep_above (true);
-            window.set_property ("skip-taskbar-hint", true);
-
-            window.set_default_size (settings.get_int ("window-width"), settings.get_int ("window-height"));
-            window.stick ();
-        }
-
         // exit
         public void action_quit () {
             hide ();
             close ();
         }
 
-        public void hide_dialog () {
-            hide ();
-        }
-
-        public void exit_app () {
-            // close ();
+        public void launched () {
+            stack.set_visible_child_name ("spinner");
+            spinner.start ();
         }
 
         private void add_fake_tab (string label) {

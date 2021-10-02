@@ -91,7 +91,6 @@ namespace Ilia {
 
         // called on enter from TreeView
         private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
-            session_controller.hide_dialog ();
             filter.get_iter (out iter, path);
             execute_app (iter);
         }
@@ -104,7 +103,6 @@ namespace Ilia {
 
         // called on enter when in text box
         void on_entry_activated () {
-            session_controller.hide_dialog ();
             filter.get_iter_first (out iter);
             execute_app (iter);
         }
@@ -280,23 +278,21 @@ namespace Ilia {
 
         // launch a desktop app
         public void execute_app (Gtk.TreeIter selection) {            
+            session_controller.launched ();
+
             DesktopAppInfo app_info;
             filter.@get (selection, ITEM_VIEW_COLUMN_APPINFO, out app_info);
-
-            stdout.printf("Launchig app %s\n", app_info.get_name ());
 
             AppLaunchContext ctx = new AppLaunchContext ();
 
             ctx.launch_failed.connect ((startup_notify_id) => {
                 stderr.printf ("Failed to launch %s(%n)\n", app_info.get_name (), startup_notify_id);
-                session_controller.exit_app ();
             });
 
             try {
                 var result = app_info.launch (null, null);
 
                 if (result) {
-                    stdout.printf("launched app %s\n", app_info.get_name ());
                     string key = app_info.get_id ();
                     if (launch_counts == null) {
                         launch_counts = { key };
@@ -309,13 +305,12 @@ namespace Ilia {
                     } else {
                         settings.set_strv ("app-launch-counts", launch_counts[1 : HISTORY_MAX_LEN]);
                     }
-                    stdout.printf("completed app %s\n", app_info.get_name ());
                 } else {
                     stderr.printf ("Failed to launch %s\n", app_info.get_name ());
-                }
+                }                
             } catch (GLib.Error e) {
                 stderr.printf ("%s\n", e.message);
-            }
+            }            
         }
     }
 }

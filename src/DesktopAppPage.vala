@@ -39,7 +39,7 @@ namespace Ilia {
             return "Apps";
         }
         
-        public void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) {
+        public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) {
             this.settings = settings;
             this.entry = entry;
             this.session_controller = sessionController;
@@ -48,15 +48,18 @@ namespace Ilia {
             icon_size = settings.get_int ("icon-size");
 
             model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (DesktopAppInfo));
-            model.set_sort_column_id (1, SortType.ASCENDING);
-            model.set_sort_func (1, app_sort_func);
 
             filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);            
 
             create_item_view ();
 
-            load_apps.begin ();
+            load_apps.begin ((obj, res) => {
+                load_apps.end (res);
+                
+                model.set_sort_column_id (1, SortType.ASCENDING);
+                model.set_sort_func (1, app_sort_func);
+            });
 
             var scrolled = new Gtk.ScrolledWindow (null, null);
             scrolled.add (item_view);

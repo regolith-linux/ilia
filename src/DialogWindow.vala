@@ -62,12 +62,12 @@ namespace Ilia {
             dialog_pages = new DialogPage[TOTAL_PAGES];
 
             var desktopAppPage = new DesktopAppPage();
-            desktopAppPage.initialize (settings, entry, this);
-            dialog_pages[1] = desktopAppPage;
+            desktopAppPage.initialize.begin (settings, entry, this);
+            dialog_pages[0] = desktopAppPage;
 
             var commandPage = new CommandPage();
-            commandPage.initialize (settings, entry, this);
-            dialog_pages[0] = commandPage;
+            commandPage.initialize.begin (settings, entry, this);
+            dialog_pages[1] = commandPage;
 
             for (int i = 0; i < TOTAL_PAGES; ++i) {
                 if (dialog_pages[i] != null) {

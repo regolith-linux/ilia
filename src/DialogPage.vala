@@ -4,7 +4,7 @@ namespace Ilia {
     // A DialogPage represents a filtered, sorted view for the global search entry upon some domain.
     interface DialogPage : GLib.Object {
         // Initialize the page. Create widgets, load model data, etc.
-        public abstract void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController);
+        public async abstract void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController);
 
         public abstract Gtk.Widget get_root ();
 

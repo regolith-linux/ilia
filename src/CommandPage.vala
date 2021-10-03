@@ -2,10 +2,11 @@ using Gtk;
 
 namespace Ilia {
     class CommandPage : DialogPage, GLib.Object {
-        private const int ITEM_VIEW_COLUMNS = 2;
+        private const int ITEM_VIEW_COLUMNS = 1;
         private const int ITEM_VIEW_COLUMN_NAME = 0;
-        private const int ITEM_VIEW_COLUMN_PATH = 1;
-
+        
+        // Max number of files to read in sequence before yeilding
+        private const int FS_FILE_READ_COUNT = 64;
         // The widget to display list of available options
         private Gtk.TreeView item_view;
         // Model for selections
@@ -25,26 +26,29 @@ namespace Ilia {
             return "Terminal";
         }
 
-        public void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) {
+        public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) {
             this.entry = entry;
             this.session_controller = sessionController;
 
             model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (string), typeof (string));
-            // model.set_sort_column_id (1, SortType.ASCENDING);
-            // model.set_sort_func (1, app_sort_func);
 
             filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);
 
             create_item_view ();
 
-            load_apps.begin ();
+            load_apps.begin ((obj, res) => {
+                load_apps.end (res);
+                
+                model.set_sort_column_id (1, SortType.ASCENDING);
+                model.set_sort_func (1, app_sort_func);
+            });
 
             var scrolled = new Gtk.ScrolledWindow (null, null);
             scrolled.add (item_view);
             scrolled.expand = true;
 
-            root_widget = scrolled;
+            root_widget = scrolled;        
         }
 
         public Gtk.Widget get_root () {
@@ -96,6 +100,15 @@ namespace Ilia {
             execute_app (iter);
         }
 
+        private int app_sort_func (TreeModel model, TreeIter a, TreeIter b) {
+            string app_a;
+            model.@get (a, ITEM_VIEW_COLUMN_NAME, out app_a);
+            string app_b;
+            model.@get (b, ITEM_VIEW_COLUMN_NAME, out app_b);
+
+            return app_a.ascii_casecmp (app_b);
+        }
+
         // traverse the model and show items with metadata that matches entry filter string
         private bool filter_func (Gtk.TreeModel m, Gtk.TreeIter iter) {
             string queryString = entry.get_text ().down ().strip ();
@@ -113,26 +126,18 @@ namespace Ilia {
         }
 
         private async void load_apps () {
-            var path = Environment.get_variable("PATH");
+            var paths = Environment.get_variable("PATH");
 
-            // stdout.printf("path: %s\n", path);
-            model.append (out iter);
-            model.set (iter, ITEM_VIEW_COLUMN_NAME, path, ITEM_VIEW_COLUMN_PATH, path);
-            /*
-            // populate model with desktop apps from known locations
-            var system_app_dir = File.new_for_path ("/usr/share/applications");
-            if (system_app_dir.query_exists ()) yield load_apps_from_dir (system_app_dir);
-
-            // ~/.local/share/applications
-            var home_dir = File.new_for_path (Environment.get_home_dir ());
-            var local_app_dir = home_dir.get_child (".local").get_child ("share").get_child ("applications");
-            if (local_app_dir.query_exists ()) yield load_apps_from_dir (local_app_dir);
-            */
+            foreach (unowned string path in paths.split (":")) {
+                var path_dir = File.new_for_path (path);
+                if (path_dir.query_exists ()) {
+                    yield load_apps_from_dir (path_dir);
+                }
+            }
 
             set_selection ();
         }
-
-        /*
+        
         private async void load_apps_from_dir (File app_dir) {
             try {
                 var enumerator = yield app_dir.enumerate_children_async (FileAttribute.STANDARD_NAME, FileQueryInfoFlags.NOFOLLOW_SYMLINKS, Priority.DEFAULT);
@@ -146,50 +151,18 @@ namespace Ilia {
 
                     foreach (var info in app_files) {
                         string file_path = app_dir.get_child (info.get_name ()).get_path ();
-                        yield read_desktop_file (file_path);
+                        
+                        model.append (out iter);
+                        model.set (
+                            iter,
+                            ITEM_VIEW_COLUMN_NAME, file_path
+                        );                        
                     }
                 }
             } catch (Error err) {
                 stderr.printf ("Error: list_files failed: %s\n", err.message);
             }
         }
-
-        private async void read_desktop_file (string desktopPath) {
-            DesktopAppInfo app_info = new DesktopAppInfo.from_filename (desktopPath);
-
-            if (app_info != null && app_info.should_show ()) {
-                model.append (out iter);
-
-                var icon = app_info.get_icon ();
-                string icon_name = null;
-                if (icon != null) icon_name = icon.to_string ();
-
-                var comment = app_info.get_string ("Comment");
-                var keywords = app_info.get_string ("Keywords");
-
-                Gdk.Pixbuf icon_img = null;
-
-                if (icon_size > 0) {
-                    icon_img = yield load_icon (icon_name, icon_size);
-
-                    model.set (
-                        iter,
-                        ITEM_VIEW_COLUMN_ICON, icon_img,
-                        ITEM_VIEW_COLUMN_NAME, app_info.get_name (),
-                        ITEM_VIEW_COLUMN_KEYWORDS, comment + keywords,
-                        ITEM_VIEW_COLUMN_APPINFO, app_info
-                    );
-                } else {
-                    model.set (
-                        iter,
-                        ITEM_VIEW_COLUMN_NAME, app_info.get_name (),
-                        ITEM_VIEW_COLUMN_KEYWORDS, comment + keywords,
-                        ITEM_VIEW_COLUMN_APPINFO, app_info
-                    );
-                }
-            }
-        }
-        */
 
         // Automatically set the first item in the list as selected.
         private void set_selection () {
@@ -202,7 +175,22 @@ namespace Ilia {
 
         // launch a desktop app
         public void execute_app (Gtk.TreeIter selection) {            
-            session_controller.launched ();              
+            session_controller.launched ();       
+            
+            string cmd_path;
+            filter.@get (selection, ITEM_VIEW_COLUMN_NAME, out cmd_path);
+            
+            string commandline = "/usr/bin/x-terminal-emulator -e \"bash -c '" + cmd_path + "; exec bash'\"";            
+
+            try {
+                var app_info = AppInfo.create_from_commandline (commandline, cmd_path, AppInfoCreateFlags.NEEDS_TERMINAL);
+                
+                if (!app_info.launch (null, null)) {
+                    stderr.printf ("Error: execute_app failed\n");    
+                }            
+            } catch (GLib.Error err) {
+                stderr.printf ("Error: execute_app failed: %s\n", err.message);
+            }
         }
     }
 }

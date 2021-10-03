@@ -9,7 +9,7 @@ namespace Ilia {
         public abstract Gtk.Widget get_root ();
 
         // Set focus on page's primary widget
-        public abstract void grab_focus ();
+        public abstract void grab_focus (uint keycode);
 
         // Cause the top item to be selected in the view
         public abstract void set_selection ();
@@ -19,5 +19,7 @@ namespace Ilia {
         public abstract void on_entry_activated ();
 
         public abstract string get_name ();
+
+        public abstract string get_icon_name ();
     }
 }

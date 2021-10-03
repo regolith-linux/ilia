@@ -11,7 +11,7 @@ namespace Ilia {
         // Number of past launches to store (to determine sort rank)
         private const uint HISTORY_MAX_LEN = 32;        
         // Max number of files to read in sequence before yeilding
-        private const int FS_FILE_READ_COUNT = 64;
+        private const int FS_FILE_READ_COUNT = 128;
         // The widget to display list of available options
         private Gtk.TreeView item_view;
         // Model for selections
@@ -39,6 +39,10 @@ namespace Ilia {
             return "Apps";
         }
         
+        public string get_icon_name() {
+            return "system-run";
+        }
+
         public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) {
             this.settings = settings;
             this.entry = entry;
@@ -57,8 +61,10 @@ namespace Ilia {
             load_apps.begin ((obj, res) => {
                 load_apps.end (res);
                 
-                model.set_sort_column_id (1, SortType.ASCENDING);
                 model.set_sort_func (1, app_sort_func);
+                model.set_sort_column_id (1, SortType.ASCENDING);
+
+                set_selection ();
             });
 
             var scrolled = new Gtk.ScrolledWindow (null, null);
@@ -98,7 +104,7 @@ namespace Ilia {
             item_view.row_activated.connect (on_row_activated);
         }
 
-        public void grab_focus () {
+        public void grab_focus (uint keycode) {
             item_view.grab_focus ();
         }
 
@@ -116,8 +122,9 @@ namespace Ilia {
 
         // called on enter when in text box
         void on_entry_activated () {
-            filter.get_iter_first (out iter);
-            execute_app (iter);
+            if (filter.get_iter_first (out iter)) {
+                execute_app (iter);
+            }            
         }
 
         private int app_sort_func (TreeModel model, TreeIter a, TreeIter b) {
@@ -183,9 +190,7 @@ namespace Ilia {
             // ~/.local/share/applications
             var home_dir = File.new_for_path (Environment.get_home_dir ());
             var local_app_dir = home_dir.get_child (".local").get_child ("share").get_child ("applications");
-            if (local_app_dir.query_exists ()) yield load_apps_from_dir (local_app_dir);
-
-            set_selection ();
+            if (local_app_dir.query_exists ()) yield load_apps_from_dir (local_app_dir);            
         }
 
         private async void load_apps_from_dir (File app_dir) {

@@ -26,6 +26,10 @@ namespace Ilia {
             return "Terminal";
         }
 
+        public string get_icon_name() {
+            return "utilities-terminal";
+        }
+
         public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) {
             this.entry = entry;
             this.session_controller = sessionController;
@@ -40,8 +44,9 @@ namespace Ilia {
             load_apps.begin ((obj, res) => {
                 load_apps.end (res);
                 
-                model.set_sort_column_id (1, SortType.ASCENDING);
-                model.set_sort_func (1, app_sort_func);
+                model.set_sort_column_id (0, SortType.ASCENDING);
+                // model.set_sort_func (0, app_sort_func);
+                set_selection ();
             });
 
             var scrolled = new Gtk.ScrolledWindow (null, null);
@@ -78,14 +83,18 @@ namespace Ilia {
             item_view.row_activated.connect (on_row_activated);
         }
 
-        public void grab_focus () {
+        public void grab_focus (uint keycode) {    
+            if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
+                execute_app(entry.text);
+            }
+
             item_view.grab_focus ();
         }
 
         // called on enter from TreeView
         private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
             filter.get_iter (out iter, path);
-            execute_app (iter);
+            execute_app_from_selection (iter);
         }
 
         // filter selection based on contents of Entry
@@ -96,10 +105,12 @@ namespace Ilia {
 
         // called on enter when in text box
         void on_entry_activated () {
-            filter.get_iter_first (out iter);
-            execute_app (iter);
+            if (filter.get_iter_first (out iter)) {
+                execute_app_from_selection (iter);
+            }            
         }
 
+        /*
         private int app_sort_func (TreeModel model, TreeIter a, TreeIter b) {
             string app_a;
             model.@get (a, ITEM_VIEW_COLUMN_NAME, out app_a);
@@ -108,6 +119,7 @@ namespace Ilia {
 
             return app_a.ascii_casecmp (app_b);
         }
+        */
 
         // traverse the model and show items with metadata that matches entry filter string
         private bool filter_func (Gtk.TreeModel m, Gtk.TreeIter iter) {
@@ -133,9 +145,7 @@ namespace Ilia {
                 if (path_dir.query_exists ()) {
                     yield load_apps_from_dir (path_dir);
                 }
-            }
-
-            set_selection ();
+            }            
         }
         
         private async void load_apps_from_dir (File app_dir) {
@@ -174,16 +184,20 @@ namespace Ilia {
         }
 
         // launch a desktop app
-        public void execute_app (Gtk.TreeIter selection) {            
+        public void execute_app_from_selection (Gtk.TreeIter selection) {            
             session_controller.launched ();       
             
             string cmd_path;
             filter.@get (selection, ITEM_VIEW_COLUMN_NAME, out cmd_path);
             
+            if (cmd_path != null) execute_app(cmd_path);
+        }
+
+        private void execute_app(string cmd_path) {
             string commandline = "/usr/bin/x-terminal-emulator -e \"bash -c '" + cmd_path + "; exec bash'\"";            
 
             try {
-                var app_info = AppInfo.create_from_commandline (commandline, cmd_path, AppInfoCreateFlags.NEEDS_TERMINAL);
+                var app_info = AppInfo.create_from_commandline (commandline, cmd_path, AppInfoCreateFlags.NONE);
                 
                 if (!app_info.launch (null, null)) {
                     stderr.printf ("Error: execute_app failed\n");    

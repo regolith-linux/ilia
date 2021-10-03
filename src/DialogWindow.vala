@@ -3,15 +3,14 @@ using Gtk;
 namespace Ilia {
     // Primary UI
     public class DialogWindow : Window, SessionContoller {
-        // Model constants
-        private const int KEY_CODE_ESCAPE = 65307;
-        private const int KEY_CODE_UP = 65364;
-        private const int KEY_CODE_DOWN = 65362;
-        private const int KEY_CODE_ENTER = 65293;
-        private const int KEY_CODE_PGDOWN = 65366;
-        private const int KEY_CODE_PGUP = 65365;
-        private const int KEY_CODE_RIGHT = 65363;
-        private const int KEY_CODE_LEFT = 65361;
+        const int KEY_CODE_ESCAPE = 65307;
+        const int KEY_CODE_UP = 65364;
+        const int KEY_CODE_DOWN = 65362;
+        public const int KEY_CODE_ENTER = 65293;
+        const int KEY_CODE_PGDOWN = 65366;
+        const int KEY_CODE_PGUP = 65365;
+        const int KEY_CODE_RIGHT = 65363;
+        const int KEY_CODE_LEFT = 65361;
 
         private const int TOTAL_PAGES = 2;
 
@@ -43,15 +42,7 @@ namespace Ilia {
             entry = new Gtk.Entry ();
             entry.hexpand = true;
             entry.height_request = 36;
-            entry.set_placeholder_text ("Launch App");
-            entry.primary_icon_name = "system-run";
-            entry.secondary_icon_name = "edit-clear";
-            entry.secondary_icon_activatable = true;
-            entry.icon_press.connect ((position, event) => {
-                if (position == Gtk.EntryIconPosition.SECONDARY) {
-                    entry.text = "";
-                }
-            });
+
             entry.changed.connect (on_entry_changed);      
 
             notebook = new Notebook ();
@@ -65,17 +56,28 @@ namespace Ilia {
             desktopAppPage.initialize.begin (settings, entry, this);
             dialog_pages[0] = desktopAppPage;
 
+            // TODO offload initialization of non-primary pages to background
             var commandPage = new CommandPage();
             commandPage.initialize.begin (settings, entry, this);
             dialog_pages[1] = commandPage;
 
             for (int i = 0; i < TOTAL_PAGES; ++i) {
                 if (dialog_pages[i] != null) {
-                    var label = new Label (null);
-                    label.set_label (dialog_pages[i].get_name ());
-                    notebook.append_page (dialog_pages[i].get_root (), label);
+                    Gtk.Box box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
+                    var label = new Label (dialog_pages[i].get_name ());
+                    var image = new Image.from_icon_name(dialog_pages[i].get_icon_name (), Gtk.IconSize.BUTTON);
+                    var button = new Button();
+                    button.set_can_focus(false);
+                    button.relief = ReliefStyle.NONE;
+                    button.add(image);
+                    box.pack_start(button, false, false, 0);
+                    box.pack_start(label, false, false, 5);
+                    box.show_all();
+                    notebook.append_page (dialog_pages[i].get_root (), box);
                 } 
-            }            
+            }
+            
+            on_page_switch(dialog_pages[active_page].get_root(), active_page);
             
             grid = new Gtk.Grid ();
             grid.attach (entry, 0, 0, 1, 1);
@@ -110,7 +112,7 @@ namespace Ilia {
                     case KEY_CODE_ENTER:
                     case KEY_CODE_PGDOWN:
                     case KEY_CODE_PGUP:
-                        dialog_pages[active_page].grab_focus ();
+                        dialog_pages[active_page].grab_focus (key.keyval);
                         break;
                     case KEY_CODE_RIGHT:
                     case KEY_CODE_LEFT:
@@ -131,6 +133,9 @@ namespace Ilia {
 
         void on_page_switch(Widget page, uint page_num) {
             active_page = page_num;
+
+            entry.set_placeholder_text ("Launch " + dialog_pages[active_page].get_name ());
+            entry.secondary_icon_name = dialog_pages[active_page].get_icon_name ();            
         }
 
         // filter selection based on contents of Entry

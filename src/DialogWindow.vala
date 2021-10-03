@@ -13,7 +13,11 @@ namespace Ilia {
         private const int KEY_CODE_RIGHT = 65363;
         private const int KEY_CODE_LEFT = 65361;
 
-        private DesktopAppPage desktopAppPage;
+        private const int TOTAL_PAGES = 2;
+
+        private DialogPage[] dialog_pages;
+
+        private uint active_page = 0;
 
         // Mode switcher
         private Gtk.Notebook notebook;
@@ -49,25 +53,30 @@ namespace Ilia {
                 }
             });
             entry.changed.connect (on_entry_changed);      
-            
-
-            desktopAppPage = new DesktopAppPage();
-            var widget = desktopAppPage.initialize (settings, entry, this);
-
-            entry.activate.connect (on_entry_activated);
 
             notebook = new Notebook ();
             notebook.set_show_border (true);
             notebook.set_tab_pos (PositionType.BOTTOM);
-            var label = new Label (null);
-            label.set_label ("Apps");
-            notebook.append_page (widget, label);
+            notebook.switch_page.connect (on_page_switch);
 
-            add_tab ("Commands", create_command_widget ());
-            add_fake_tab ("Workspaces");
-            add_fake_tab ("Keybindings");
-            add_fake_tab ("Settings");
+            dialog_pages = new DialogPage[TOTAL_PAGES];
 
+            var desktopAppPage = new DesktopAppPage();
+            desktopAppPage.initialize (settings, entry, this);
+            dialog_pages[1] = desktopAppPage;
+
+            var commandPage = new CommandPage();
+            commandPage.initialize (settings, entry, this);
+            dialog_pages[0] = commandPage;
+
+            for (int i = 0; i < TOTAL_PAGES; ++i) {
+                if (dialog_pages[i] != null) {
+                    var label = new Label (null);
+                    label.set_label (dialog_pages[i].get_name ());
+                    notebook.append_page (dialog_pages[i].get_root (), label);
+                } 
+            }            
+            
             grid = new Gtk.Grid ();
             grid.attach (entry, 0, 0, 1, 1);
             grid.attach (notebook, 0, 1, 1, 1);
@@ -101,7 +110,7 @@ namespace Ilia {
                     case KEY_CODE_ENTER:
                     case KEY_CODE_PGDOWN:
                     case KEY_CODE_PGUP:
-                        desktopAppPage.grab_focus ();
+                        dialog_pages[active_page].grab_focus ();
                         break;
                     case KEY_CODE_RIGHT:
                     case KEY_CODE_LEFT:
@@ -116,16 +125,21 @@ namespace Ilia {
                 return false;
             });
 
+            entry.activate.connect (on_entry_activated);
             entry.grab_focus ();
+        }
+
+        void on_page_switch(Widget page, uint page_num) {
+            active_page = page_num;
         }
 
         // filter selection based on contents of Entry
         void on_entry_changed () {
-            desktopAppPage.on_entry_changed ();
+            dialog_pages[active_page].on_entry_changed ();
         }
 
         void on_entry_activated () {
-            desktopAppPage.on_entry_activated ();
+            dialog_pages[active_page].on_entry_activated ();
         }
 
         // exit
@@ -137,56 +151,6 @@ namespace Ilia {
         public void launched () {
             stack.set_visible_child_name ("spinner");
             spinner.start ();
-        }
-
-        private void add_fake_tab (string label) {
-            var label2 = new Label (null);
-            label2.set_label (label);
-            var button2 = new Button.with_label ("Some Content");
-            notebook.append_page (button2, label2);
-        }
-
-        private void add_tab (string label, Widget child) {
-            var label2 = new Label (null);
-            label2.set_label (label);
-            notebook.append_page (child, label2);
-        }
-
-        // here is where we're at adapting the existing desktop app UI for commands
-        private Widget create_command_widget () {
-            var command_model = new Gtk.ListStore (2, typeof (string), typeof (string));
-            // model.set_sort_column_id (1, SortType.ASCENDING);
-            // model.set_sort_func (1, app_sort_func);
-
-            // load_apps.begin ();
-
-            //var command_filter = new Gtk.TreeModelFilter (model, null);
-            //filter.set_visible_func (filter_func);
-
-            var command_item_view = new Gtk.TreeView.with_model (command_model);
-
-            // Do not show column headers
-            command_item_view.headers_visible = false;
-
-            // Optimization
-            command_item_view.fixed_height_mode = true;
-
-            // Do not enable Gtk seearch
-            command_item_view.enable_search = false;
-
-            // Launch app on one click
-            command_item_view.set_activate_on_single_click (true);
-
-            // Launch app on row selection
-             // command_item_view.row_activated.connect (on_row_activated);
-
-
-            var scrolled = new Gtk.ScrolledWindow (null, null);
-            scrolled.add (command_item_view);
-            scrolled.expand = true;
-
-            return scrolled;
-            // return new Button.with_label ("Some Content");
         }
     }
 }

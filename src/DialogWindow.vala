@@ -11,20 +11,19 @@ namespace Ilia {
         const int KEY_CODE_PGUP = 65365;
         const int KEY_CODE_RIGHT = 65363;
         const int KEY_CODE_LEFT = 65361;
-
+        
         private const int TOTAL_PAGES = 2;
-
+        // Reference to all active dialog pages
         private DialogPage[] dialog_pages;
-
+        // Specifies the array index for dialog_pages of active page
         private uint active_page = 0;
-
         // Mode switcher
         private Gtk.Notebook notebook;
 
         private Gtk.Stack stack;
-
+        // Filtering text box
         private Gtk.Entry entry;
-
+        // Settings backend
         private GLib.Settings settings;
 
         private Gtk.Grid grid;

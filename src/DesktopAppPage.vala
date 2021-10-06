@@ -117,6 +117,7 @@ namespace Ilia {
         // filter selection based on contents of Entry
         void on_entry_changed () {
             filter.refilter ();
+            model.set_sort_func (1, app_sort_func);
             set_selection ();
         }
 
@@ -128,10 +129,24 @@ namespace Ilia {
         }
 
         private int app_sort_func (TreeModel model, TreeIter a, TreeIter b) {
+            string query_string = entry.get_text ().down ().strip ();
             DesktopAppInfo app_a;
             model.@get (a, ITEM_VIEW_COLUMN_APPINFO, out app_a);
             DesktopAppInfo app_b;
             model.@get (b, ITEM_VIEW_COLUMN_APPINFO, out app_b);
+
+            var app_a_has_prefix = app_a.get_name ().down ().has_prefix (query_string);
+            var app_b_has_prefix = app_b.get_name ().down ().has_prefix (query_string);            
+
+            if (query_string.length > 1 && (app_a_has_prefix || app_b_has_prefix)) {
+                if (app_b_has_prefix && !app_b_has_prefix) {
+                    stdout.printf("boosted %s\n", app_a.get_name ());
+                    return -1;
+                } else if (!app_a_has_prefix && app_b_has_prefix) {
+                    stdout.printf("boosted %s\n", app_b.get_name ());
+                    return 1;
+                }
+            }
 
             var a_count = app_count (app_a);
             var b_count = app_count (app_b);
@@ -160,20 +175,20 @@ namespace Ilia {
 
         // traverse the model and show items with metadata that matches entry filter string
         private bool filter_func (Gtk.TreeModel m, Gtk.TreeIter iter) {
-            string queryString = entry.get_text ().down ().strip ();
+            string query_string = entry.get_text ().down ().strip ();
 
-            if (queryString.length > 0) {
+            if (query_string.length > 0) {
                 GLib.Value app_info;
                 string strval;
                 model.get_value (iter, ITEM_VIEW_COLUMN_NAME, out app_info);
                 strval = app_info.get_string ();
 
-                if (strval != null && strval.down ().contains (queryString)) return true;
+                if (strval != null && strval.down ().contains (query_string)) return true;
 
                 model.get_value (iter, ITEM_VIEW_COLUMN_KEYWORDS, out app_info);
                 strval = app_info.get_string ();
 
-                return strval != null && strval.down ().contains (queryString);
+                return strval != null && strval.down ().contains (query_string);
             } else {
                 return true;
             }

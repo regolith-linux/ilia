@@ -9,7 +9,7 @@ namespace Ilia {
         private const int ITEM_VIEW_COLUMN_APPINFO = 3;
 
         // Number of past launches to store (to determine sort rank)
-        private const uint HISTORY_MAX_LEN = 32;        
+        private const uint HISTORY_MAX_LEN = 32;
         // Max number of files to read in sequence before yeilding
         private const int FS_FILE_READ_COUNT = 128;
         // The widget to display list of available options
@@ -29,8 +29,10 @@ namespace Ilia {
 
         private SessionContoller session_controller;
 
-        private string[] launch_counts;
-        
+        private string[] launch_history;
+
+        private HashTable<string, int> launch_counts;
+
         private int icon_size;
 
         private Gtk.Widget root_widget;
@@ -38,8 +40,8 @@ namespace Ilia {
         public string get_name () {
             return "Apps";
         }
-        
-        public string get_icon_name() {
+
+        public string get_icon_name () {
             return "system-run";
         }
 
@@ -48,19 +50,20 @@ namespace Ilia {
             this.entry = entry;
             this.session_controller = sessionController;
 
-            launch_counts = settings.get_strv ("app-launch-counts");
+            launch_history = settings.get_strv ("app-launch-counts");
+            launch_counts = load_launch_counts (launch_history);
             icon_size = settings.get_int ("icon-size");
 
             model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (DesktopAppInfo));
 
             filter = new Gtk.TreeModelFilter (model, null);
-            filter.set_visible_func (filter_func);            
+            filter.set_visible_func (filter_func);
 
             create_item_view ();
 
             load_apps.begin ((obj, res) => {
                 load_apps.end (res);
-                
+
                 model.set_sort_func (1, app_sort_func);
                 model.set_sort_column_id (1, SortType.ASCENDING);
 
@@ -125,7 +128,7 @@ namespace Ilia {
         void on_entry_activated () {
             if (filter.get_iter_first (out iter)) {
                 execute_app (iter);
-            }            
+            }
         }
 
         private int app_sort_func (TreeModel model, TreeIter a, TreeIter b) {
@@ -136,20 +139,20 @@ namespace Ilia {
             model.@get (b, ITEM_VIEW_COLUMN_APPINFO, out app_b);
 
             var app_a_has_prefix = app_a.get_name ().down ().has_prefix (query_string);
-            var app_b_has_prefix = app_b.get_name ().down ().has_prefix (query_string);            
+            var app_b_has_prefix = app_b.get_name ().down ().has_prefix (query_string);
 
             if (query_string.length > 1 && (app_a_has_prefix || app_b_has_prefix)) {
                 if (app_b_has_prefix && !app_b_has_prefix) {
-                    stdout.printf("boosted %s\n", app_a.get_name ());
+                    stdout.printf ("boosted %s\n", app_a.get_name ());
                     return -1;
                 } else if (!app_a_has_prefix && app_b_has_prefix) {
-                    stdout.printf("boosted %s\n", app_b.get_name ());
+                    stdout.printf ("boosted %s\n", app_b.get_name ());
                     return 1;
                 }
             }
 
-            var a_count = app_count (app_a);
-            var b_count = app_count (app_b);
+            var a_count = launch_counts.get (app_a.get_id ());
+            var b_count = launch_counts.get (app_b.get_id ());
 
             if (a_count > 0 || b_count > 0) {
                 if (a_count > b_count) {
@@ -164,13 +167,23 @@ namespace Ilia {
             return app_a.get_name ().ascii_casecmp (app_b.get_name ());
         }
 
-        private int app_count (DesktopAppInfo app) {
-            var count = 0;
-            for (int i = 0; i < launch_counts.length; ++i) {
-                if (launch_counts[i] == app.get_id ()) count++;
+        private HashTable<string, int> load_launch_counts (string[] history) {
+            var table = new HashTable<string, int>(str_hash, str_equal);
+
+            for (int i = 0; i < history.length; ++i) {
+                var app_name = history[i];
+                if (table.contains (app_name)) {
+                    table.replace (app_name, table.get (app_name) + 1);
+                } else {
+                    table.insert (app_name, 1);
+                }
             }
 
-            return count;
+            table.foreach ((key, val) => {
+                print ("%s => %d\n", key, val);
+            });
+
+            return table;
         }
 
         // traverse the model and show items with metadata that matches entry filter string
@@ -205,7 +218,7 @@ namespace Ilia {
             // ~/.local/share/applications
             var home_dir = File.new_for_path (Environment.get_home_dir ());
             var local_app_dir = home_dir.get_child (".local").get_child ("share").get_child ("applications");
-            if (local_app_dir.query_exists ()) yield load_apps_from_dir (local_app_dir);            
+            if (local_app_dir.query_exists ()) yield load_apps_from_dir (local_app_dir);
         }
 
         private async void load_apps_from_dir (File app_dir) {
@@ -310,7 +323,7 @@ namespace Ilia {
         }
 
         // launch a desktop app
-        public void execute_app (Gtk.TreeIter selection) {            
+        public void execute_app (Gtk.TreeIter selection) {
             session_controller.launched ();
 
             DesktopAppInfo app_info;
@@ -327,23 +340,23 @@ namespace Ilia {
 
                 if (result) {
                     string key = app_info.get_id ();
-                    if (launch_counts == null) {
-                        launch_counts = { key };
+                    if (launch_history == null) {
+                        launch_history = { key };
                     } else {
-                        launch_counts += key;
+                        launch_history += key;
                     }
 
-                    if (launch_counts.length <= HISTORY_MAX_LEN) {
-                        settings.set_strv ("app-launch-counts", launch_counts);
+                    if (launch_history.length <= HISTORY_MAX_LEN) {
+                        settings.set_strv ("app-launch-counts", launch_history);
                     } else {
-                        settings.set_strv ("app-launch-counts", launch_counts[1 : HISTORY_MAX_LEN]);
+                        settings.set_strv ("app-launch-counts", launch_history[1 : HISTORY_MAX_LEN]);
                     }
                 } else {
                     stderr.printf ("Failed to launch %s\n", app_info.get_name ());
-                }                
+                }
             } catch (GLib.Error e) {
                 stderr.printf ("%s\n", e.message);
-            }            
+            }
         }
     }
 }

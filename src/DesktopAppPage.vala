@@ -179,9 +179,11 @@ namespace Ilia {
                 }
             }
 
+            /*
             table.foreach ((key, val) => {
                 print ("%s => %d\n", key, val);
             });
+             */
 
             return table;
         }

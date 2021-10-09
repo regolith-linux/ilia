@@ -30,7 +30,7 @@ namespace Ilia {
 
         private Gtk.Spinner spinner;
 
-        public DialogWindow () {
+        public DialogWindow (string focus_page) {
             settings = new GLib.Settings ("org.regolith-linux.ilia");
 
             stack = new Stack();
@@ -49,34 +49,7 @@ namespace Ilia {
             notebook.set_tab_pos (PositionType.BOTTOM);
             notebook.switch_page.connect (on_page_switch);
 
-            dialog_pages = new DialogPage[TOTAL_PAGES];
-
-            var desktopAppPage = new DesktopAppPage();
-            desktopAppPage.initialize.begin (settings, entry, this);
-            dialog_pages[0] = desktopAppPage;
-
-            // TODO offload initialization of non-primary pages to background
-            var commandPage = new CommandPage();
-            commandPage.initialize.begin (settings, entry, this);
-            dialog_pages[1] = commandPage;
-
-            for (int i = 0; i < TOTAL_PAGES; ++i) {
-                if (dialog_pages[i] != null) {
-                    Gtk.Box box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
-                    var label = new Label (dialog_pages[i].get_name ());
-                    var image = new Image.from_icon_name(dialog_pages[i].get_icon_name (), Gtk.IconSize.BUTTON);
-                    var button = new Button();
-                    button.set_can_focus(false);
-                    button.relief = ReliefStyle.NONE;
-                    button.add(image);
-                    box.pack_start(button, false, false, 0);
-                    box.pack_start(label, false, false, 5);
-                    box.show_all();
-                    notebook.append_page (dialog_pages[i].get_root (), box);
-                } 
-            }
-            
-            on_page_switch(dialog_pages[active_page].get_root(), active_page);
+            init_pages (focus_page);
             
             grid = new Gtk.Grid ();
             grid.attach (entry, 0, 0, 1, 1);
@@ -128,6 +101,47 @@ namespace Ilia {
 
             entry.activate.connect (on_entry_activated);
             entry.grab_focus ();
+        }
+
+        private void init_pages(string focus_page) {
+            active_page = 0;
+            dialog_pages = new DialogPage[TOTAL_PAGES];
+
+            switch (focus_page. down()) {
+                case "apps": 
+                    dialog_pages[0] = new DesktopAppPage();
+                    dialog_pages[0].initialize.begin (settings, entry, this);
+                    break;
+                case "terminal":                    
+                    dialog_pages[0] = new CommandPage();
+                    dialog_pages[0].initialize.begin (settings, entry, this);
+                    break;                    
+                default: 
+                    stderr.printf("Unknown page type %s, aborting.\n", focus_page);
+                    break;
+            }            
+
+            // Exit if unable to load active page
+            if (dialog_pages[0] == null) Process.exit(1);
+
+            // This allows for multiple page loads.  Until startup performance is addressed, only load one page.
+            for (int i = 0; i < TOTAL_PAGES; ++i) {
+                if (dialog_pages[i] != null) {
+                    Gtk.Box box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
+                    var label = new Label (dialog_pages[i].get_name ());
+                    var image = new Image.from_icon_name(dialog_pages[i].get_icon_name (), Gtk.IconSize.BUTTON);
+                    var button = new Button();
+                    button.set_can_focus(false);
+                    button.relief = ReliefStyle.NONE;
+                    button.add(image);
+                    box.pack_start(button, false, false, 0);
+                    box.pack_start(label, false, false, 5);
+                    box.show_all();
+                    notebook.append_page (dialog_pages[i].get_root (), box);
+                } 
+            }
+            
+            on_page_switch(dialog_pages[active_page].get_root(), active_page);
         }
 
         void on_page_switch(Widget page, uint page_num) {

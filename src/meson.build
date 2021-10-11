@@ -29,6 +29,7 @@ ilia_sources += ['DesktopAppPage.vala']
 ilia_sources += ['DialogPage.vala']
 ilia_sources += ['DialogWindow.vala']
 ilia_sources += ['Ilia.vala']
+ilia_sources += ['RoficationPage.vala']
 ilia_sources += ['SessionController.vala']
 ilia_link_args = ['-rdynamic']
 

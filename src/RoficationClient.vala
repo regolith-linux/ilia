@@ -3,7 +3,7 @@
  * 
  * This client, once constructed, can only send one command.
  */
-namespace Lago {
+namespace Ilia {
     enum ROFICATION_COMMAND {
         COUNT
     }
@@ -25,11 +25,11 @@ namespace Lago {
         }
     }
 
-    public class Client {
+    public class RoficationClient {
         private UnixSocketAddress socket_addr;
         private int buffer_size = 1024 * 512;
 
-        public Client (string socket_str) throws GLib.Error {
+        public RoficationClient (string socket_str) throws GLib.Error {
             this.socket_addr = new UnixSocketAddress (socket_str);
         }
 

@@ -1,2 +1,8 @@
+src/CommandPage.vala
+src/DesktopAppPage.vala
+src/DialogPage.vala
 src/DialogWindow.vala
 src/Ilia.vala
+src/RoficationClient.vala
+src/RoficationPage.vala
+src/SessionController.vala

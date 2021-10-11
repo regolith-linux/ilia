@@ -7,6 +7,7 @@ project_version: 0.1.0
 vala_binary: src/ilia
 *version: 0.1.0
 vala_check_package: gio-unix-2.0
+vala_check_package: json-glib-1.0
 *vala_check_package: atk
 *vala_check_package: cairo-gobject
 *vala_check_package: gdk-3.0
@@ -17,16 +18,32 @@ vala_check_package: gio-unix-2.0
 *vala_check_package: gtk+-3.0
 *vala_check_package: pango
 *vala_check_package: x11
+*vala_source: CommandPage.vala
+*vala_source: DesktopAppPage.vala
+*vala_source: DialogPage.vala
 *vala_source: DialogWindow.vala
 *vala_source: Ilia.vala
+*vala_source: RoficationClient.vala
+*vala_source: RoficationPage.vala
+*vala_source: SessionController.vala
 
 
 *po: po
 
+*translate: vala src/CommandPage.vala
+*translate: vala src/DesktopAppPage.vala
+*translate: vala src/DialogPage.vala
 *translate: vala src/DialogWindow.vala
 *translate: vala src/Ilia.vala
+*translate: vala src/RoficationClient.vala
+*translate: vala src/RoficationPage.vala
+*translate: vala src/SessionController.vala
 
 *data: data/local
 
 *doc: doc
+
+*scheme: data/org.regolith-linux.ilia.gschema.xml
+
+*build_external_program: glib-compile-schemas
 

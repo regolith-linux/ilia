@@ -115,7 +115,11 @@ namespace Ilia {
                 case "terminal":                    
                     dialog_pages[0] = new CommandPage();
                     dialog_pages[0].initialize.begin (settings, entry, this);
-                    break;                    
+                    break;   
+                case "notifications":                    
+                    dialog_pages[0] = new RoficationPage();
+                    dialog_pages[0].initialize.begin (settings, entry, this);
+                    break;                  
                 default: 
                     stderr.printf("Unknown page type %s, aborting.\n", focus_page);
                     break;

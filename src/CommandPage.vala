@@ -31,7 +31,7 @@ namespace Ilia {
             return "utilities-terminal";
         }
 
-        public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) {
+        public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error {
             this.entry = entry;
             this.session_controller = sessionController;
 

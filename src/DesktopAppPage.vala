@@ -45,7 +45,7 @@ namespace Ilia {
             return "system-run";
         }
 
-        public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) {
+        public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error {
             this.settings = settings;
             this.entry = entry;
             this.session_controller = sessionController;

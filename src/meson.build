@@ -13,6 +13,7 @@ cfgfile_1 = configure_file(
 	configuration: cfg_ilia)
 
 ilia_deps = [gio_unix_2_0_dep]
+ilia_deps += [json_glib_1_0_dep]
 ilia_deps += [atk_dep]
 ilia_deps += [cairo_gobject_dep]
 ilia_deps += [gdk_3_0_dep]
@@ -29,6 +30,7 @@ ilia_sources += ['DesktopAppPage.vala']
 ilia_sources += ['DialogPage.vala']
 ilia_sources += ['DialogWindow.vala']
 ilia_sources += ['Ilia.vala']
+ilia_sources += ['RoficationClient.vala']
 ilia_sources += ['RoficationPage.vala']
 ilia_sources += ['SessionController.vala']
 ilia_link_args = ['-rdynamic']

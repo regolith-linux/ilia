@@ -1,7 +1,7 @@
 /**
  * A client library for i3-wm that deserializes into idomatic Vala response objects.
  */
-namespace Grelier {
+namespace Ilia {
     enum I3_COMMAND {
         RUN_COMMAND,
         GET_WORKSPACES,
@@ -47,15 +47,17 @@ namespace Grelier {
         }
     }
 
-    public class Client {
+    public class I3Client {
         private Socket socket;
         private uint8[] magic_number = "i3-ipc".data;
         private uint8[] terminator = { '\0' };
         private int bytes_to_payload = 14;
         private int buffer_size = 1024 * 128;
 
-        public Client (string i3Socket) throws GLib.Error {
-            var socketAddress = new UnixSocketAddress (i3Socket);
+        public I3Client () throws GLib.Error {
+            var socket_path = Environment.get_variable("I3SOCK");
+
+            var socketAddress = new UnixSocketAddress (socket_path);
 
             socket = new Socket (SocketFamily.UNIX, SocketType.STREAM, SocketProtocol.DEFAULT);
             assert (socket != null);
@@ -64,7 +66,7 @@ namespace Grelier {
             socket.set_blocking (true);
         }
 
-        ~Client () {
+        ~I3Client () {
             if (socket != null) {
                 socket.close ();
             }

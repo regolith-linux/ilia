@@ -32,7 +32,7 @@ public class ConfigParser {
     this.line_prefix = line_prefix;
   }
 
-  public Map<string, ArrayList<Keybinding>> parse() throws PARSE_ERROR, GLib.Error, Grelier.I3_ERROR {    
+  public Map<string, ArrayList<Keybinding>> parse() throws PARSE_ERROR, GLib.Error, Ilia.I3_ERROR {    
     string[] lines = config.split("\n");
 
     if (lines == null || lines.length == 0) return Map.empty<string, ArrayList<Keybinding>>();;

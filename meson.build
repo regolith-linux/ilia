@@ -6,6 +6,7 @@ add_global_arguments('-DGETTEXT_PACKAGE="ilia"',language: 'c')
 
 find_program ('glib-compile-schemas')
 gio_unix_2_0_dep = dependency('gio-unix-2.0')
+json_glib_1_0_dep = dependency('json-glib-1.0')
 atk_dep = dependency('atk')
 cairo_gobject_dep = dependency('cairo-gobject')
 gdk_3_0_dep = dependency('gdk-3.0')

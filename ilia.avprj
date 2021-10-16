@@ -7,6 +7,7 @@ project_version: 0.1.0
 vala_binary: src/ilia
 *version: 0.1.0
 vala_check_package: gio-unix-2.0
+vala_check_package: json-glib-1.0
 *vala_check_package: atk
 *vala_check_package: cairo-gobject
 *vala_check_package: gdk-3.0
@@ -26,6 +27,7 @@ vala_check_package: gio-unix-2.0
 *vala_source: SessionController.vala
 *vala_source: keybindings/ConfigParser.vala
 *vala_source: keybindings/I3Ipc.vala
+*vala_source: keybindings/KeybindingsPage.vala
 
 
 *po: po
@@ -38,6 +40,7 @@ vala_check_package: gio-unix-2.0
 *translate: vala src/SessionController.vala
 *translate: vala src/keybindings/ConfigParser.vala
 *translate: vala src/keybindings/I3Ipc.vala
+*translate: vala src/keybindings/KeybindingsPage.vala
 
 *data: data/local
 

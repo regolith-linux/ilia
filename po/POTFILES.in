@@ -1,2 +1,8 @@
+src/CommandPage.vala
+src/DesktopAppPage.vala
+src/DialogPage.vala
 src/DialogWindow.vala
 src/Ilia.vala
+src/SessionController.vala
+src/keybindings/ConfigParser.vala
+src/keybindings/I3Ipc.vala

@@ -11,22 +11,39 @@ vala_check_package: gio-unix-2.0
 *vala_check_package: cairo-gobject
 *vala_check_package: gdk-3.0
 *vala_check_package: gdk-pixbuf-2.0
+*vala_check_package: gee-0.8
 *vala_check_package: gio-2.0
 *vala_check_package: glib-2.0
 *vala_check_package: gobject-2.0
 *vala_check_package: gtk+-3.0
 *vala_check_package: pango
 *vala_check_package: x11
+*vala_source: CommandPage.vala
+*vala_source: DesktopAppPage.vala
+*vala_source: DialogPage.vala
 *vala_source: DialogWindow.vala
 *vala_source: Ilia.vala
+*vala_source: SessionController.vala
+*vala_source: keybindings/ConfigParser.vala
+*vala_source: keybindings/I3Ipc.vala
 
 
 *po: po
 
+*translate: vala src/CommandPage.vala
+*translate: vala src/DesktopAppPage.vala
+*translate: vala src/DialogPage.vala
 *translate: vala src/DialogWindow.vala
 *translate: vala src/Ilia.vala
+*translate: vala src/SessionController.vala
+*translate: vala src/keybindings/ConfigParser.vala
+*translate: vala src/keybindings/I3Ipc.vala
 
 *data: data/local
 
 *doc: doc
+
+*scheme: data/org.regolith-linux.ilia.gschema.xml
+
+*build_external_program: glib-compile-schemas
 

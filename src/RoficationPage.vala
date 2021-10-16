@@ -6,10 +6,7 @@ namespace Ilia {
     class RoficationPage : DialogPage, GLib.Object {
         private const int ITEM_VIEW_COLUMNS = 4;
         private const int ITEM_VIEW_COLUMN_APP = 0;
-        private const int ITEM_VIEW_COLUMN_SUMMARY = 1;
-        private const int ITEM_VIEW_COLUMN_BODY = 2;
-        private const int ITEM_VIEW_COLUMN_URGENCY = 3;
-
+        private const int ITEM_VIEW_COLUMN_DETAIL = 1;
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -84,10 +81,13 @@ namespace Ilia {
 
             // Create columns
             item_view.insert_column_with_attributes (-1, "App", new CellRendererText (), "text", ITEM_VIEW_COLUMN_APP);
-            item_view.insert_column_with_attributes (-1, "Summary", new CellRendererText (), "text", ITEM_VIEW_COLUMN_SUMMARY);
-            item_view.insert_column_with_attributes (-1, "Body", new CellRendererText (), "text", ITEM_VIEW_COLUMN_BODY);
-            item_view.insert_column_with_attributes (-1, "Urgency", new CellRendererText (), "text", ITEM_VIEW_COLUMN_URGENCY);
-
+            // item_view.insert_column_with_attributes (-1, "Summary", new CellRendererText (), "text", ITEM_VIEW_COLUMN_SUMMARY);
+            var wrapping_cell_renderer = new CellRendererText ();
+            wrapping_cell_renderer.wrap_mode = Pango.WrapMode.WORD;
+            wrapping_cell_renderer.wrap_width = 300;
+            item_view.insert_column_with_attributes (-1, "Body", wrapping_cell_renderer, "text", ITEM_VIEW_COLUMN_DETAIL);
+            //item_view.insert_column_with_attributes (-1, "Urgency", new CellRendererText (), "text", ITEM_VIEW_COLUMN_URGENCY);
+            
             // Launch app on one click
             item_view.set_activate_on_single_click (true);
 
@@ -127,17 +127,13 @@ namespace Ilia {
             string query_string = entry.get_text ().down ().strip ();
             GLib.Value table_info;
 
-            if (query_string.length > 0) {
-                model.get_value (iter, ITEM_VIEW_COLUMN_SUMMARY, out table_info);
-                string summary = table_info.get_string ();
-                
-                model.get_value (iter, ITEM_VIEW_COLUMN_BODY, out table_info);
+            if (query_string.length > 0) {                
+                model.get_value (iter, ITEM_VIEW_COLUMN_DETAIL, out table_info);
                 string body = table_info.get_string ();
                 
                 model.get_value (iter, ITEM_VIEW_COLUMN_APP, out table_info);
                 string app = table_info.get_string ();
 
-                if (summary != null && summary.down ().contains (query_string)) return true;
                 if (body != null && body.down ().contains (query_string)) return true;
                 if (app != null && app.down ().contains (query_string)) return true;
 
@@ -151,13 +147,12 @@ namespace Ilia {
             var notifications = rofi_client.get_notifications ();
 
             foreach (var notification in notifications) {
+                var detail = notification.summary + "\n" + notification.body;                
                 model.append (out iter);
                 model.set (
                     iter,
                     ITEM_VIEW_COLUMN_APP, notification.application,
-                    ITEM_VIEW_COLUMN_SUMMARY, notification.summary,
-                    ITEM_VIEW_COLUMN_BODY, notification.body,
-                    ITEM_VIEW_COLUMN_URGENCY, notification.urgency.to_string ()
+                    ITEM_VIEW_COLUMN_DETAIL, detail
                 );
             }
         }

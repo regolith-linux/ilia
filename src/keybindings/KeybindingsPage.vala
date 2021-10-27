@@ -4,10 +4,9 @@ using Gee;
 namespace Ilia {
     // A dialog page that lists system commands on the path and allows for free-from launching in a terminal.
     class KeybingingsPage : DialogPage, GLib.Object {
-        private const int ITEM_VIEW_COLUMNS = 3;
+        private const int ITEM_VIEW_COLUMNS = 2;
         private const int ITEM_VIEW_COLUMN_KEYBINDING = 0;
-        private const int ITEM_VIEW_COLUMN_ACTION = 1;
-        private const int ITEM_VIEW_COLUMN_CATEGORY = 2;
+        private const int ITEM_VIEW_COLUMN_SUMMARY = 1;
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -36,7 +35,7 @@ namespace Ilia {
             this.entry = entry;
             this.session_controller = sessionController;
 
-            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (string), typeof (string), typeof (string));
+            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (string), typeof (string));
 
             filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);
@@ -46,6 +45,7 @@ namespace Ilia {
             load_apps.begin ((obj, res) => {
                 load_apps.end (res);
 
+                item_view.columns_autosize ();
                 model.set_sort_column_id (1, SortType.ASCENDING);
                 // model.set_sort_func (0, app_sort_func);
                 set_selection ();
@@ -77,8 +77,7 @@ namespace Ilia {
 
             // Create columns
             item_view.insert_column_with_attributes (-1, "Keybinding", new CellRendererText (), "text", ITEM_VIEW_COLUMN_KEYBINDING);
-            item_view.insert_column_with_attributes (-1, "Action", new CellRendererText (), "text", ITEM_VIEW_COLUMN_ACTION);
-            item_view.insert_column_with_attributes (-1, "Category", new CellRendererText (), "text", ITEM_VIEW_COLUMN_CATEGORY);
+            item_view.insert_column_with_attributes (-1, "Action", new CellRendererText (), "text", ITEM_VIEW_COLUMN_SUMMARY);
 
             // Launch app on one click
             item_view.set_activate_on_single_click (true);
@@ -121,7 +120,7 @@ namespace Ilia {
             if (queryString.length > 0) {
                 GLib.Value gval;
                 string strval;
-                model.get_value (iter, ITEM_VIEW_COLUMN_ACTION, out gval);
+                model.get_value (iter, ITEM_VIEW_COLUMN_SUMMARY, out gval);
                 strval = gval.get_string ();
 
                 return (strval != null && strval.down ().contains (queryString));
@@ -142,15 +141,24 @@ namespace Ilia {
                 var bindings = entry.value;
 
                 foreach (var binding in bindings) {
+                    var formatted_spec = format_spec (binding.spec);
+                    var summary = category + " " + binding.label;
                     model.append (out iter);
                     model.set (
                         iter,
-                        ITEM_VIEW_COLUMN_KEYBINDING, binding.spec,
-                        ITEM_VIEW_COLUMN_ACTION, binding.label,
-                        ITEM_VIEW_COLUMN_CATEGORY, category
+                        ITEM_VIEW_COLUMN_KEYBINDING, formatted_spec,
+                        ITEM_VIEW_COLUMN_SUMMARY, summary
                     );
                 }
             }
+        }
+
+        public static string format_spec (string raw_keybinding) {
+            // TODO: this won't work for keybindings with < > characters
+            return raw_keybinding
+                .replace ("<", "")
+                .replace (">", " ")
+                .replace ("  ", " ");
         }
 
         // Automatically set the first item in the list as selected.

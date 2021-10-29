@@ -4,9 +4,10 @@ using Gee;
 namespace Ilia {
     // A dialog page that lists system commands on the path and allows for free-from launching in a terminal.
     class KeybingingsPage : DialogPage, GLib.Object {
-        private const int ITEM_VIEW_COLUMNS = 2;
+        private const int ITEM_VIEW_COLUMNS = 3;
         private const int ITEM_VIEW_COLUMN_KEYBINDING = 0;
         private const int ITEM_VIEW_COLUMN_SUMMARY = 1;
+        private const int ITEM_VIEW_COLUMN_EXEC = 2;
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -35,7 +36,7 @@ namespace Ilia {
             this.entry = entry;
             this.session_controller = sessionController;
 
-            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (string), typeof (string));
+            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (string), typeof (string), typeof (string));
 
             filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);
@@ -77,7 +78,7 @@ namespace Ilia {
 
             // Create columns
             item_view.insert_column_with_attributes (-1, "Keybinding", new CellRendererText (), "text", ITEM_VIEW_COLUMN_KEYBINDING);
-            item_view.insert_column_with_attributes (-1, "Action", new CellRendererText (), "text", ITEM_VIEW_COLUMN_SUMMARY);
+            item_view.insert_column_with_attributes (-1, "Action", new CellRendererText (), "text", ITEM_VIEW_COLUMN_SUMMARY);            
 
             // Launch app on one click
             item_view.set_activate_on_single_click (true);
@@ -147,7 +148,8 @@ namespace Ilia {
                     model.set (
                         iter,
                         ITEM_VIEW_COLUMN_KEYBINDING, formatted_spec,
-                        ITEM_VIEW_COLUMN_SUMMARY, summary
+                        ITEM_VIEW_COLUMN_SUMMARY, summary,
+                        ITEM_VIEW_COLUMN_EXEC, binding.exec
                     );
                 }
             }
@@ -175,13 +177,23 @@ namespace Ilia {
             session_controller.launched ();
 
             string cmd_path;
-            filter.@get (selection, ITEM_VIEW_COLUMN_KEYBINDING, out cmd_path);
+            filter.@get (selection, ITEM_VIEW_COLUMN_EXEC, out cmd_path);
 
             if (cmd_path != null) execute_app (cmd_path);
         }
 
-        private void execute_app (string cmd_path) {
-            stdout.printf ("keybinding: %s\n", cmd_path);
+        private void execute_app (string exec) {            
+            string commandline = "/usr/bin/i3-msg \"" + exec + "\"";            
+            stdout.printf ("running: %s\n", commandline);
+            try {
+                var app_info = AppInfo.create_from_commandline (commandline, null, AppInfoCreateFlags.NONE);
+                
+                if (!app_info.launch (null, null)) {
+                    stderr.printf ("Error: execute_app failed\n");    
+                }            
+            } catch (GLib.Error err) {
+                stderr.printf ("Error: execute_app failed: %s\n", err.message);
+            }
         }
     }
 }

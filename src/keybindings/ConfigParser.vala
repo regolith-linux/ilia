@@ -45,6 +45,7 @@ public class ConfigParser {
         }
 
         Keybinding last_keybinding = null;
+        var variableMap = new HashTable<string, string>(str_hash, str_equal);
 
         foreach (unowned string line in lines) {
             string trimmedLine = line.strip ();
@@ -53,10 +54,12 @@ public class ConfigParser {
                     trimmedLine = trimmedLine.substring (line_prefix.length);
                 }
                 last_keybinding = parseLine (trimmedLine, config_map);
-            } else if (execMatch(trimmedLine) && last_keybinding != null) {
-                last_keybinding.exec = parseExecLine(trimmedLine);
+            } else if (execMatch (trimmedLine) && last_keybinding != null) {
+                last_keybinding.exec = parseExecLine (trimmedLine, variableMap);
                 // stdout.printf("got %s\n", last_keybinding.exec);
                 last_keybinding = null;
+            } else if (setFromResourceMatch (trimmedLine)) {
+                parseSetFromResourceLine (trimmedLine, variableMap);
             }
         }
 
@@ -65,15 +68,48 @@ public class ConfigParser {
         return config_map;
     }
 
-    private bool execMatch (string line) {
-        return line.length > MIN_LINE_LENGTH &&
-                line.has_prefix("bindsym ");
+    private void parseSetFromResourceLine (string line, HashTable<string, string> varmap) {
+        var sp1 = line.index_of_char (' ');
+        var sp2 = line.index_of_char (' ', sp1 + 1);
+        var sp3 = line.index_of_char (' ', sp2 + 1);
+
+        var key = line.substring (sp1, (sp2 - sp1)).strip();
+        var val = line.substring (sp3 + 1).strip ().strip();
+
+        if (key.length > 0 && val.length > 0) {
+            varmap.insert (key, val);
+        } 
     }
 
-    private string parseExecLine(string line) {
-        var sp1 = line.index_of_char(' ');
-        var sp2 = line.index_of_char(' ', sp1 + 1);
-        return line.substring(sp2 + 1).strip ();
+    // set_from_resource $i3-wm.floatingwindow.border.size i3-wm.floatingwindow.border.size 1
+    private bool setFromResourceMatch (string line) {
+        return line.length > MIN_LINE_LENGTH &&
+               line.has_prefix ("set_from_resource ");
+    }
+
+    private bool execMatch (string line) {
+        return line.length > MIN_LINE_LENGTH &&
+               line.has_prefix ("bindsym ");
+    }
+
+    private string parseExecLine (string line, HashTable<string, string> varmap) {
+        var sp1 = line.index_of_char (' ');
+        var sp2 = line.index_of_char (' ', sp1 + 1);
+
+        var exec_expr = line.substring (sp2 + 1).strip ();
+
+        string[] tokens = exec_expr.split (" ");
+        string final_expr = "";
+
+        foreach (unowned string token in tokens) {
+            if (varmap.contains (token)) {
+                final_expr = final_expr + varmap.get (token) + " ";
+            } else {
+                final_expr = final_expr + token + " ";
+            }
+        }
+
+        return final_expr;
     }
 
     private bool lineMatch (string line, string prefix) {

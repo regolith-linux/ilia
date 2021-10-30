@@ -102,6 +102,7 @@ public class ConfigParser {
         string final_expr = "";
 
         foreach (unowned string token in tokens) {
+            // TODO: Read from Xresources
             if (varmap.contains (token)) {
                 final_expr = final_expr + varmap.get (token) + " ";
             } else {

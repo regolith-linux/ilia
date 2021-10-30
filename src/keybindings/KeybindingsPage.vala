@@ -43,8 +43,8 @@ namespace Ilia {
 
             create_item_view ();
 
-            load_apps.begin ((obj, res) => {
-                load_apps.end (res);
+            read_i3_config.begin ((obj, res) => {
+                read_i3_config.end (res);
 
                 item_view.columns_autosize ();
                 model.set_sort_column_id (1, SortType.ASCENDING);
@@ -78,7 +78,7 @@ namespace Ilia {
 
             // Create columns
             item_view.insert_column_with_attributes (-1, "Keybinding", new CellRendererText (), "text", ITEM_VIEW_COLUMN_KEYBINDING);
-            item_view.insert_column_with_attributes (-1, "Action", new CellRendererText (), "text", ITEM_VIEW_COLUMN_SUMMARY);            
+            item_view.insert_column_with_attributes (-1, "Action", new CellRendererText (), "text", ITEM_VIEW_COLUMN_SUMMARY);
 
             // Launch app on one click
             item_view.set_activate_on_single_click (true);
@@ -89,7 +89,7 @@ namespace Ilia {
 
         public void grab_focus (uint keycode) {
             if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
-                execute_app (entry.text);
+                execute_keybinding (entry.text);
             }
 
             item_view.grab_focus ();
@@ -130,37 +130,43 @@ namespace Ilia {
             }
         }
 
-        private async void load_apps () {
-            var i3_client = new I3Client ();
-            var config_file = i3_client.getConfig ().config;
-            var parser = new ConfigParser (config_file, "");
+        // Read the active i3 configuration and populate the model with keybindings
+        private async void read_i3_config () {
+            try {
+                var i3_client = new I3Client ();
+                var config_file = i3_client.getConfig ().config;
+                var parser = new ConfigParser (config_file, "");
 
-            Map<string, ArrayList<Keybinding> > kbmodel = parser.parse ();
+                Map<string, ArrayList<Keybinding> > kbmodel = parser.parse ();
 
-            foreach (var entry in kbmodel.entries) {
-                var category = entry.key;
-                var bindings = entry.value;
+                foreach (var entry in kbmodel.entries) {
+                    var category = entry.key;
+                    var bindings = entry.value;
 
-                foreach (var binding in bindings) {
-                    var formatted_spec = format_spec (binding.spec);
-                    var summary = category + " " + binding.label;
-                    model.append (out iter);
-                    model.set (
-                        iter,
-                        ITEM_VIEW_COLUMN_KEYBINDING, formatted_spec,
-                        ITEM_VIEW_COLUMN_SUMMARY, summary,
-                        ITEM_VIEW_COLUMN_EXEC, binding.exec
-                    );
+                    foreach (var binding in bindings) {
+                        var formatted_spec = format_spec (binding.spec);
+                        var summary = category + " " + binding.label;
+                        model.append (out iter);
+                        model.set (
+                            iter,
+                            ITEM_VIEW_COLUMN_KEYBINDING, formatted_spec,
+                            ITEM_VIEW_COLUMN_SUMMARY, summary,
+                            ITEM_VIEW_COLUMN_EXEC, binding.exec
+                        );
+                    }
                 }
+            } catch (GLib.Error err) {
+                // TODO consistent error handling
+                stderr.printf ("Failed to read config from i3: %s\n", err.message);
             }
         }
 
         public static string format_spec (string raw_keybinding) {
             // TODO: this won't work for keybindings with < > characters
             return raw_keybinding
-                .replace ("<", "")
-                .replace (">", " ")
-                .replace ("  ", " ");
+                    .replace ("<", "")
+                    .replace (">", " ")
+                    .replace ("  ", " ");
         }
 
         // Automatically set the first item in the list as selected.
@@ -179,20 +185,20 @@ namespace Ilia {
             string cmd_path;
             filter.@get (selection, ITEM_VIEW_COLUMN_EXEC, out cmd_path);
 
-            if (cmd_path != null) execute_app (cmd_path);
+            if (cmd_path != null) execute_keybinding (cmd_path);
         }
 
-        private void execute_app (string exec) {            
-            string commandline = "/usr/bin/i3-msg \"" + exec + "\"";            
-            stdout.printf ("running: %s\n", commandline);
+        private void execute_keybinding (string exec) {
+            string commandline = "/usr/bin/i3-msg \"" + exec + "\"";
+
             try {
                 var app_info = AppInfo.create_from_commandline (commandline, null, AppInfoCreateFlags.NONE);
-                
+
                 if (!app_info.launch (null, null)) {
-                    stderr.printf ("Error: execute_app failed\n");    
-                }            
+                    stderr.printf ("Error: execute_keybinding failed\n");
+                }
             } catch (GLib.Error err) {
-                stderr.printf ("Error: execute_app failed: %s\n", err.message);
+                stderr.printf ("Error: execute_keybinding failed: %s\n", err.message);
             }
         }
     }

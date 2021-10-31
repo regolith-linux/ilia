@@ -4,16 +4,16 @@ Priority: optional
 Maintainer: Ken Gilmer <kgilmer@gmail.com>
 Build-Depends: debhelper (>= 10),
                gettext,
-               libgtk-3-dev (>= 3.22),
-               meson,
-               libglib2.0-dev,
-               valac-0.48-vapi,
-               libgee-0.8-dev,
-               libgee-0.8-2,
                gir1.2-gee-0.8,
+               intltool,
+               libgee-0.8-dev,
+               libglib2.0-dev,
+               libgtk-3-dev (>= 3.22),
+               libjsonrpc-glib-1.0-dev,
+               meson,
                po-debconf, 
-               valac-bin, 
-               intltool
+               valac-0.48-vapi,
+               valac-bin
 Standards-Version: 4.1.2
 Homepage: https://github.com/regolith-linux/ilia
 
@@ -23,6 +23,6 @@ Depends:
   ${shlibs:Depends}, 
   ${misc:Depends},
   libgee-0.8-2
-Description: General purpose application launcher
- Launch desktop apps via a simple filterable menu.
-
+Description: General purpose desktop executor
+ Invoke actions upon apps, commands, notifications, 
+and keybindings via a simple filterable menu.

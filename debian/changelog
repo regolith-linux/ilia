@@ -1,3 +1,23 @@
+ilia (0.4.0-1ubuntu1) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Extract desktop app loading into class.  Introduce general interface for pages.
+  * WIP, bug w/ intermittent launch failure
+  * Add spinner UI to clean up app launch lifecycle
+  * CP: multi page
+  * WIP: terminal page
+  * Add UI polish
+  * Prefer apps that start with query string.  Misc cleanup.
+  * Use hashtable for app launch frequency lookups
+  * Add ability to specify primary page on command line
+  * WIP: able to view keybindings over IPC from i3
+  * Keybindings viewable
+  * parse i3 config file to extract default values for variables
+  * Better source organization
+  * Fix debian dependencies
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 30 Oct 2021 17:55:26 -0700
+
 ilia (0.3.0-1) focal; urgency=medium
 
   [ Ken Gilmer ]

@@ -25,4 +25,4 @@ Depends:
   libgee-0.8-2
 Description: General purpose desktop executor
  Invoke actions upon apps, commands, notifications, 
-and keybindings via a simple filterable menu.
+ and keybindings via a simple filterable menu.

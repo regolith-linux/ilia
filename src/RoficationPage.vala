@@ -4,9 +4,10 @@ namespace Ilia {
     // A dialog page that allows management of notifications
     // [{"id": 1, "summary": "summary1", "body": "body1", "application": "Slack", "urgency": 1, "actions": []}]
     class RoficationPage : DialogPage, GLib.Object {
-        private const int ITEM_VIEW_COLUMNS = 4;
-        private const int ITEM_VIEW_COLUMN_APP = 0;
-        private const int ITEM_VIEW_COLUMN_DETAIL = 1;
+        private const int ITEM_VIEW_COLUMNS = 3;
+        private const int ITEM_VIEW_COLUMN_ICON = 0;
+        private const int ITEM_VIEW_COLUMN_APP = 1;
+        private const int ITEM_VIEW_COLUMN_DETAIL = 2;
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -26,7 +27,7 @@ namespace Ilia {
         private RoficationClient rofi_client;
 
         public string get_name () {
-            return "Rofication";
+            return "Notifications";
         }
 
         public string get_icon_name () {
@@ -37,7 +38,7 @@ namespace Ilia {
             this.entry = entry;
             this.session_controller = sessionController;
 
-            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (string), typeof (string), typeof (string), typeof (string));
+            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string));
 
             filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);
@@ -80,14 +81,13 @@ namespace Ilia {
             item_view.enable_search = false;
 
             // Create columns
+            item_view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", ITEM_VIEW_COLUMN_ICON);
             item_view.insert_column_with_attributes (-1, "App", new CellRendererText (), "text", ITEM_VIEW_COLUMN_APP);
-            // item_view.insert_column_with_attributes (-1, "Summary", new CellRendererText (), "text", ITEM_VIEW_COLUMN_SUMMARY);
             var wrapping_cell_renderer = new CellRendererText ();
             wrapping_cell_renderer.wrap_mode = Pango.WrapMode.WORD;
             wrapping_cell_renderer.wrap_width = 300;
             item_view.insert_column_with_attributes (-1, "Body", wrapping_cell_renderer, "text", ITEM_VIEW_COLUMN_DETAIL);
-            //item_view.insert_column_with_attributes (-1, "Urgency", new CellRendererText (), "text", ITEM_VIEW_COLUMN_URGENCY);
-            
+
             // Launch app on one click
             item_view.set_activate_on_single_click (true);
 
@@ -127,10 +127,10 @@ namespace Ilia {
             string query_string = entry.get_text ().down ().strip ();
             GLib.Value table_info;
 
-            if (query_string.length > 0) {                
+            if (query_string.length > 0) {
                 model.get_value (iter, ITEM_VIEW_COLUMN_DETAIL, out table_info);
                 string body = table_info.get_string ();
-                
+
                 model.get_value (iter, ITEM_VIEW_COLUMN_APP, out table_info);
                 string app = table_info.get_string ();
 
@@ -145,16 +145,49 @@ namespace Ilia {
 
         private async void load_notifications () throws GLib.Error {
             var notifications = rofi_client.get_notifications ();
+            var icon_theme = Gtk.IconTheme.get_default ();
 
             foreach (var notification in notifications) {
-                var detail = notification.summary + "\n" + notification.body;                
+                var iconPixBuff = load_icon (icon_theme, notification);
+
+                string detail;
+                if (notification.summary.length > 0 && notification.body.length > 0) {
+                    detail = notification.summary + "\n" + notification.body;
+                } else if (notification.summary.length == 0 && notification.body.length > 0) {
+                    detail = notification.body;
+                } else if (notification.summary.length > 0 && notification.body.length == 0) {
+                    detail = notification.summary;
+                } else {
+                    detail = "<no content>";
+                }
+
+
                 model.append (out iter);
                 model.set (
                     iter,
+                    ITEM_VIEW_COLUMN_ICON, iconPixBuff,
                     ITEM_VIEW_COLUMN_APP, notification.application,
                     ITEM_VIEW_COLUMN_DETAIL, detail
                 );
             }
+        }
+
+        private Gdk.Pixbuf ? load_icon (Gtk.IconTheme icon_theme, NotificationDesc notification) {
+            try {
+                var icon_info = icon_theme.lookup_icon (notification.icon, 32, Gtk.IconLookupFlags.FORCE_SIZE); // from icon theme
+                if (icon_info != null) {
+                    return icon_info.load_icon ();
+                }
+
+                icon_info = icon_theme.lookup_icon ("emblem-generic", 32, Gtk.IconLookupFlags.FORCE_SIZE);
+                if (icon_info != null) {
+                    return icon_info.load_icon ();
+                }
+            } catch (GLib.Error err) {
+                stderr.printf ("Error: load_icon failed: %s\n", err.message);
+            }
+
+            return null;
         }
 
         // Automatically set the first item in the list as selected.
@@ -168,11 +201,9 @@ namespace Ilia {
 
         // launch a desktop app
         public void execute_app_from_selection (Gtk.TreeIter selection) {
-           
         }
 
         private void execute_app (string cmd_path) {
-
         }
     }
 }

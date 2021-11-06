@@ -13,6 +13,7 @@ namespace Ilia {
         public string summary { get; private set; }
         public string body { get; private set; }
         public string application { get; private set; }
+        public string icon { get; private set; }
         public int64 urgency { get; private set; }
         // TODO add 'actions' (list of string)
 
@@ -21,6 +22,7 @@ namespace Ilia {
             summary = responseJson.get_string_member ("summary");
             body = responseJson.get_string_member ("body");
             application = responseJson.get_string_member ("application");
+            icon = responseJson.get_string_member ("application");
             urgency = responseJson.get_int_member ("urgency");
         }
     }

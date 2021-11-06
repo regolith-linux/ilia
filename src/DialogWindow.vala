@@ -120,6 +120,10 @@ namespace Ilia {
                     dialog_pages[0] = new RoficationPage();
                     dialog_pages[0].initialize.begin (settings, entry, this);
                     break;                  
+                case "keybindings":
+                    dialog_pages[0] = new KeybingingsPage();
+                    dialog_pages[0].initialize.begin (settings, entry, this);
+                    break;             
                 default: 
                     stderr.printf("Unknown page type %s, aborting.\n", focus_page);
                     break;

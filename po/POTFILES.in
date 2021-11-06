@@ -6,3 +6,6 @@ src/Ilia.vala
 src/RoficationClient.vala
 src/RoficationPage.vala
 src/SessionController.vala
+src/keybindings/ConfigParser.vala
+src/keybindings/I3Ipc.vala
+src/keybindings/KeybindingsPage.vala

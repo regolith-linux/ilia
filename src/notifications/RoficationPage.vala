@@ -2,12 +2,13 @@ using Gtk;
 
 namespace Ilia {
     // A dialog page that allows management of notifications
-    // [{"id": 1, "summary": "summary1", "body": "body1", "application": "Slack", "urgency": 1, "actions": []}]
+    // [{"id": 2, "summary": "Hello! January", "body": "", "application": "notify-send", "icon": "face-wink", "urgency": 1, "actions": [], "hints": {"urgency": 1}}]
     class RoficationPage : DialogPage, GLib.Object {
-        private const int ITEM_VIEW_COLUMNS = 3;
+        private const int ITEM_VIEW_COLUMNS = 4;
         private const int ITEM_VIEW_COLUMN_ICON = 0;
         private const int ITEM_VIEW_COLUMN_APP = 1;
         private const int ITEM_VIEW_COLUMN_DETAIL = 2;
+        private const int ITEM_VIEW_COLUMN_ID = 3;
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -26,6 +27,8 @@ namespace Ilia {
 
         private RoficationClient rofi_client;
 
+        private int selected_notification_id = -1;
+
         public string get_name () {
             return "Notifications";
         }
@@ -38,7 +41,7 @@ namespace Ilia {
             this.entry = entry;
             this.session_controller = sessionController;
 
-            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string));
+            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (string));
 
             filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);
@@ -50,8 +53,7 @@ namespace Ilia {
                 try {
                     load_notifications.end (res);
 
-                    model.set_sort_column_id (0, SortType.ASCENDING);
-                    // model.set_sort_func (0, app_sort_func);
+                    model.set_sort_column_id (1, SortType.ASCENDING);
                     set_selection ();
                 } catch (GLib.Error err) {
                     stderr.printf ("Error: load_notifications failed: %s\n", err.message);
@@ -93,6 +95,8 @@ namespace Ilia {
 
             // Launch app on row selection
             item_view.row_activated.connect (on_row_activated);
+
+            item_view.get_selection ().changed.connect (on_selection);
         }
 
         public void grab_focus (uint keycode) {
@@ -101,6 +105,17 @@ namespace Ilia {
             }
 
             item_view.grab_focus ();
+        }
+
+        private void on_selection (Gtk.TreeSelection selection) {
+            Gtk.TreeModel model;
+            Gtk.TreeIter iter;
+            if (selection.get_selected (out model, out iter)) {
+                string notification_id;
+                filter.@get (iter, ITEM_VIEW_COLUMN_ID, out notification_id);
+
+                selected_notification_id = int.parse (notification_id);
+            }
         }
 
         // called on enter from TreeView
@@ -146,6 +161,7 @@ namespace Ilia {
         private async void load_notifications () throws GLib.Error {
             var notifications = rofi_client.get_notifications ();
             var icon_theme = Gtk.IconTheme.get_default ();
+            model.clear ();
 
             foreach (var notification in notifications) {
                 var iconPixBuff = load_icon (icon_theme, notification);
@@ -167,7 +183,8 @@ namespace Ilia {
                     iter,
                     ITEM_VIEW_COLUMN_ICON, iconPixBuff,
                     ITEM_VIEW_COLUMN_APP, notification.application,
-                    ITEM_VIEW_COLUMN_DETAIL, detail
+                    ITEM_VIEW_COLUMN_DETAIL, detail,
+                    ITEM_VIEW_COLUMN_ID, notification.id.to_string ()
                 );
             }
         }
@@ -199,11 +216,58 @@ namespace Ilia {
             selection.select_path (path);
         }
 
+        public bool key_event (Gdk.EventKey event) {
+            if (event.keyval == 65535) {
+                if ((event.state & Gdk.ModifierType.SHIFT_MASK) == Gdk.ModifierType.SHIFT_MASK) {
+                    delete_all_notifications ();
+                } else {
+                    delete_selected_notification ();
+                }
+                return true;
+            }
+
+            return false;
+        }
+
+        private void delete_selected_notification () {
+            if (selected_notification_id > -1) {
+                try {
+                    rofi_client.delete_notification_by_id (selected_notification_id);
+
+                    load_notifications.begin ();
+                    set_selection ();
+                } catch (GLib.Error err) {
+                    stderr.printf ("Error: delete_selected_notification failed: %s\n", err.message);
+                }
+
+                selected_notification_id = -1;
+            }
+        }
+
+        private void delete_all_notifications () {
+            filter.foreach (delete_func);
+            load_notifications.begin ();
+            set_selection ();
+        }
+
+        public bool delete_func (TreeModel model, TreePath path, TreeIter iter) {
+            string notification_id;
+            filter.@get (iter, ITEM_VIEW_COLUMN_ID, out notification_id);
+
+            try {
+                rofi_client.delete_notification_by_id (int.parse (notification_id));
+            } catch (GLib.Error err) {
+                stderr.printf ("Error: delete_func failed: %s\n", err.message);
+            }
+
+            return false;
+        }
+
         // launch a desktop app
         public void execute_app_from_selection (Gtk.TreeIter selection) {
         }
 
-        private void execute_app (string cmd_path) {
+        private void execute_app (string notification_id) {
         }
     }
 }

@@ -84,6 +84,10 @@ namespace Ilia {
             item_view.row_activated.connect (on_row_activated);
         }
 
+        public bool key_event(Gdk.EventKey event_key) {
+            return false;
+        }
+
         public void grab_focus (uint keycode) {    
             if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
                 execute_app(entry.text);

@@ -21,5 +21,8 @@ namespace Ilia {
         public abstract string get_name ();
 
         public abstract string get_icon_name ();
+
+        // Pass key event to a page.  Page returns true if key was handled.
+        public abstract bool key_event(Gdk.EventKey event_key);
     }
 }

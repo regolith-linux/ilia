@@ -92,7 +92,9 @@ namespace Ilia {
                         break;
                     default:
                         // stdout.printf ("Keycode: %u\n", key.keyval);
-                        entry.grab_focus_without_selecting ();
+                        if (!dialog_pages[active_page].key_event(key)) {
+                            entry.grab_focus_without_selecting ();
+                        }                                                
                         break;
                 }
 

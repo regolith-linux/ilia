@@ -1,3 +1,14 @@
+ilia (0.6.0-1) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Can read/display notifications
+  * Icon and layout for notifications
+  * Allow pages to handle key events
+  * Enable delete notification function
+  * Do not handle any key events
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 06 Nov 2021 18:57:27 -0700
+
 ilia (0.4.0-1ubuntu1) focal; urgency=medium
 
   [ Ken Gilmer ]

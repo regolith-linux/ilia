@@ -29,7 +29,7 @@ namespace Ilia {
 
     public class RoficationClient {
         private UnixSocketAddress socket_addr;
-        private int buffer_size = 1024 * 512;
+        private int buffer_size = 1024 * 8;
 
         public RoficationClient (string socket_str) throws GLib.Error {
             this.socket_addr = new UnixSocketAddress (socket_str);
@@ -41,11 +41,17 @@ namespace Ilia {
             ssize_t sent = socket.send ("list\n".data);
             debug ("Sent " + sent.to_string () + " bytes to notification backend.\n");
             
+            var str_builder = new StringBuilder ();
             uint8[] buffer = new uint8[buffer_size];
-            ssize_t len = socket.receive (buffer);
-            debug ("Received  " + len.to_string () + " bytes from notification backend.\n");
+            ssize_t len = 0;
 
-            string payload = (string) buffer;
+            do {
+                len = socket.receive_with_blocking (buffer, true);
+                debug ("Received  " + len.to_string () + " bytes from notification backend.\n");
+                if (len > 0) str_builder.append_len((string) buffer, len);
+            } while (len > 0);
+        
+            string payload = str_builder.str;
 
             socket.close ();
 

@@ -1,3 +1,11 @@
+ilia (0.6.1-1ubuntu1) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Update readme
+  * Fix message truncation bug
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Mon, 08 Nov 2021 19:04:32 -0800
+
 ilia (0.6.0-1) focal; urgency=medium
 
   [ Ken Gilmer ]

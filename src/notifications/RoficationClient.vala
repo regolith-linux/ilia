@@ -72,14 +72,22 @@ namespace Ilia {
         }
 
         public void delete_notification_by_id (int64 id) throws GLib.Error {
+            stdout.printf("Before socket open\n");
             var socket = open_socket (socket_addr);
+            stdout.printf("After socket open\n");
+
             var message = "del:" + id.to_string () + "\n";
             debug (message);
 
+            stdout.printf("Before socket send\n");
             ssize_t sent = socket.send (message.data);
+            stdout.printf("After socket open\n");
+
 
             debug ("Sent " + sent.to_string () + " bytes to notification backend.\n");
+            stdout.printf("Before socket close\n");
             socket.close ();
+            stdout.printf("After socket close\n");
         }
 
         public void delete_notification_by_app (string app) throws GLib.Error {

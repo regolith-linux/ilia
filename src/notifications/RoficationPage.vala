@@ -233,7 +233,7 @@ namespace Ilia {
             if (selected_notification_id > -1) {
                 try {
                     rofi_client.delete_notification_by_id (selected_notification_id);
-
+                    stdout.printf( "Deleting notification %d\n", selected_notification_id);
                     load_notifications.begin ();
                     set_selection ();
                 } catch (GLib.Error err) {
@@ -241,6 +241,8 @@ namespace Ilia {
                 }
 
                 selected_notification_id = -1;
+            } else  {
+                stdout.printf("no selected notification\n");
             }
         }
 
@@ -251,15 +253,19 @@ namespace Ilia {
         }
 
         public bool delete_func (TreeModel model, TreePath path, TreeIter iter) {
+            stdout.printf( "Starting\n");
             string notification_id;
             filter.@get (iter, ITEM_VIEW_COLUMN_ID, out notification_id);
 
             try {
-                rofi_client.delete_notification_by_id (int.parse (notification_id));
+                var id = int.parse (notification_id);
+                stdout.printf( "Deleting notification %d\n", id);
+                rofi_client.delete_notification_by_id (id);
             } catch (GLib.Error err) {
                 stderr.printf ("Error: delete_func failed: %s\n", err.message);
             }
 
+            stdout.printf( "Ending\n");
             return false;
         }
 

@@ -13,6 +13,7 @@ Ilia provides pages to view and select from the following types of things:
 * System Commands (`terminal`)
 * Desktop Keybindings (`keybindings`)
 * Notifications (`notifications`)
+* Text List (`textlist`)
 
 ## Usage
 

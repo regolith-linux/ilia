@@ -1,3 +1,10 @@
+ilia (0.7.0-1) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Add textlist page
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 14 Nov 2021 19:12:08 -0800
+
 ilia (0.6.2-1) focal; urgency=medium
 
   [ Ken Gilmer ]

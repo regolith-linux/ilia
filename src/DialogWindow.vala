@@ -11,7 +11,7 @@ namespace Ilia {
         const int KEY_CODE_PGUP = 65365;
         const int KEY_CODE_RIGHT = 65363;
         const int KEY_CODE_LEFT = 65361;
-        
+
         private const int TOTAL_PAGES = 2;
         // Reference to all active dialog pages
         private DialogPage[] dialog_pages;
@@ -33,16 +33,16 @@ namespace Ilia {
         public DialogWindow (string focus_page) {
             settings = new GLib.Settings ("org.regolith-linux.ilia");
 
-            stack = new Stack();
-            stack.set_vexpand(true);
-            stack.set_hexpand(true);
+            stack = new Stack ();
+            stack.set_vexpand (true);
+            stack.set_hexpand (true);
             add (stack);
 
             entry = new Gtk.Entry ();
             entry.hexpand = true;
             entry.height_request = 36;
 
-            entry.changed.connect (on_entry_changed);      
+            entry.changed.connect (on_entry_changed);
 
             notebook = new Notebook ();
             notebook.set_show_border (true);
@@ -50,14 +50,14 @@ namespace Ilia {
             notebook.switch_page.connect (on_page_switch);
 
             init_pages (focus_page);
-            
+
             grid = new Gtk.Grid ();
             grid.attach (entry, 0, 0, 1, 1);
             grid.attach (notebook, 0, 1, 1, 1);
-            stack.add_named(grid, "primary");
+            stack.add_named (grid, "primary");
 
-            spinner = new Spinner();
-            stack.add_named(spinner, "spinner");
+            spinner = new Spinner ();
+            stack.add_named (spinner, "spinner");
 
             set_decorated (false);
             set_resizable (false);
@@ -92,9 +92,9 @@ namespace Ilia {
                         break;
                     default:
                         // stdout.printf ("Keycode: %u\n", key.keyval);
-                        if (!dialog_pages[active_page].key_event(key)) {
+                        if (!dialog_pages[active_page].key_event (key)) {
                             entry.grab_focus_without_selecting ();
-                        }                                                
+                        }
                         break;
                 }
 
@@ -105,60 +105,64 @@ namespace Ilia {
             entry.grab_focus ();
         }
 
-        private void init_pages(string focus_page) {
+        private void init_pages (string focus_page) {
             active_page = 0;
             dialog_pages = new DialogPage[TOTAL_PAGES];
 
-            switch (focus_page. down()) {
-                case "apps": 
-                    dialog_pages[0] = new DesktopAppPage();
+            switch (focus_page.down ()) {
+                case "apps":
+                    dialog_pages[0] = new DesktopAppPage ();
                     dialog_pages[0].initialize.begin (settings, entry, this);
                     break;
-                case "terminal":                    
-                    dialog_pages[0] = new CommandPage();
+                case "terminal":
+                    dialog_pages[0] = new CommandPage ();
                     dialog_pages[0].initialize.begin (settings, entry, this);
-                    break;   
-                case "notifications":                    
-                    dialog_pages[0] = new RoficationPage();
+                    break;
+                case "notifications":
+                    dialog_pages[0] = new RoficationPage ();
                     dialog_pages[0].initialize.begin (settings, entry, this);
-                    break;                  
+                    break;
                 case "keybindings":
-                    dialog_pages[0] = new KeybingingsPage();
+                    dialog_pages[0] = new KeybingingsPage ();
                     dialog_pages[0].initialize.begin (settings, entry, this);
-                    break;             
-                default: 
-                    stderr.printf("Unknown page type %s, aborting.\n", focus_page);
                     break;
-            }            
+                case "textlist":
+                    dialog_pages[0] = new TextListPage ();
+                    dialog_pages[0].initialize.begin (settings, entry, this);
+                    break;
+                default:
+                    stderr.printf ("Unknown page type %s, aborting.\n", focus_page);
+                    break;
+            }
 
             // Exit if unable to load active page
-            if (dialog_pages[0] == null) Process.exit(1);
+            if (dialog_pages[0] == null) Process.exit (1);
 
             // This allows for multiple page loads.  Until startup performance is addressed, only load one page.
             for (int i = 0; i < TOTAL_PAGES; ++i) {
                 if (dialog_pages[i] != null) {
                     Gtk.Box box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
                     var label = new Label (dialog_pages[i].get_name ());
-                    var image = new Image.from_icon_name(dialog_pages[i].get_icon_name (), Gtk.IconSize.BUTTON);
-                    var button = new Button();
-                    button.set_can_focus(false);
+                    var image = new Image.from_icon_name (dialog_pages[i].get_icon_name (), Gtk.IconSize.BUTTON);
+                    var button = new Button ();
+                    button.set_can_focus (false);
                     button.relief = ReliefStyle.NONE;
-                    button.add(image);
-                    box.pack_start(button, false, false, 0);
-                    box.pack_start(label, false, false, 5);
-                    box.show_all();
+                    button.add (image);
+                    box.pack_start (button, false, false, 0);
+                    box.pack_start (label, false, false, 5);
+                    box.show_all ();
                     notebook.append_page (dialog_pages[i].get_root (), box);
-                } 
+                }
             }
-            
-            on_page_switch(dialog_pages[active_page].get_root(), active_page);
+
+            on_page_switch (dialog_pages[active_page].get_root (), active_page);
         }
 
-        void on_page_switch(Widget page, uint page_num) {
+        void on_page_switch (Widget page, uint page_num) {
             active_page = page_num;
 
             entry.set_placeholder_text ("Launch " + dialog_pages[active_page].get_name ());
-            entry.secondary_icon_name = dialog_pages[active_page].get_icon_name ();            
+            entry.secondary_icon_name = dialog_pages[active_page].get_icon_name ();
         }
 
         // filter selection based on contents of Entry
@@ -174,6 +178,10 @@ namespace Ilia {
         public void action_quit () {
             hide ();
             close ();
+        }
+
+        public void quit() {
+            action_quit ();
         }
 
         public void launched () {

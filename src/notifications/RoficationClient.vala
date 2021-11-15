@@ -73,10 +73,32 @@ namespace Ilia {
 
         public void delete_notification_by_id (int64 id) throws GLib.Error {
             var socket = open_socket (socket_addr);
+
             var message = "del:" + id.to_string () + "\n";
             debug (message);
 
             ssize_t sent = socket.send (message.data);
+
+            debug ("Sent " + sent.to_string () + " bytes to notification backend.\n");
+            socket.close ();
+        }
+
+        public void delete_notifications_by_ids (string[] ids) throws GLib.Error {
+            var str_builder = new StringBuilder ();
+
+            bool first = true;
+            foreach (string item in ids) {
+                if (item != null) {
+                    if (!first) str_builder.append(",");
+                    str_builder.append(item);
+                    first = false;
+                }
+            }
+            var cmd = "delm:" + str_builder.str + "\n";
+
+            var socket = open_socket (socket_addr);
+            
+            ssize_t sent = socket.send (cmd.data);
 
             debug ("Sent " + sent.to_string () + " bytes to notification backend.\n");
             socket.close ();

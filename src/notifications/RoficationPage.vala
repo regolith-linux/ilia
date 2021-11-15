@@ -214,6 +214,13 @@ namespace Ilia {
 
             selection.set_mode (SelectionMode.SINGLE);
             selection.select_path (path);
+
+            if (filter.get_iter_first (out iter)) {
+                string notification_id;
+                filter.@get (iter, ITEM_VIEW_COLUMN_ID, out notification_id);
+                
+                selected_notification_id = int.parse (notification_id);
+            }
         }
 
         public bool key_event (Gdk.EventKey event) {
@@ -235,32 +242,31 @@ namespace Ilia {
                     rofi_client.delete_notification_by_id (selected_notification_id);
 
                     load_notifications.begin ();
+                    selected_notification_id = -1;
                     set_selection ();
                 } catch (GLib.Error err) {
                     stderr.printf ("Error: delete_selected_notification failed: %s\n", err.message);
-                }
-
-                selected_notification_id = -1;
-            }
+                }                
+            } 
         }
 
         private void delete_all_notifications () {
-            filter.foreach (delete_func);
-            load_notifications.begin ();
-            set_selection ();
-        }
+            string[] ids = new string[10];
+            for (bool next = filter.get_iter_first (out iter); next; next = filter.iter_next (ref iter)) {
+                string notification_id;
+                filter.@get (iter, ITEM_VIEW_COLUMN_ID, out notification_id);
 
-        public bool delete_func (TreeModel model, TreePath path, TreeIter iter) {
-            string notification_id;
-            filter.@get (iter, ITEM_VIEW_COLUMN_ID, out notification_id);
+                ids += notification_id;
+            }
 
             try {
-                rofi_client.delete_notification_by_id (int.parse (notification_id));
+                if (ids.length > 0) rofi_client.delete_notifications_by_ids (ids);
+                
+                load_notifications.begin ();
+                set_selection ();
             } catch (GLib.Error err) {
                 stderr.printf ("Error: delete_func failed: %s\n", err.message);
             }
-
-            return false;
         }
 
         // launch a desktop app

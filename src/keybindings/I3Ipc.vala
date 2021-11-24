@@ -47,6 +47,50 @@ namespace Ilia {
         }
     }
 
+    public class WindowProperties {
+        public string clazz { get; private set; }
+        public string instance { get; private set; }
+        public string machine { get; private set; }
+        public string title { get; private set; }
+
+        internal WindowProperties (Json.Object responseJson) {
+            clazz = responseJson.get_string_member ("class");
+            instance = responseJson.get_string_member ("instance");
+            machine = responseJson.get_string_member ("machine");
+            title = responseJson.get_string_member ("title");
+        }
+    }
+
+    public class TreeReply {
+        public string id { get; private set; }
+        public string ntype { get; private set; }
+        public bool urgent { get; private set; }
+        public string output { get; private set; }
+        public string name { get; private set; }
+        public WindowProperties windowProperties { get; private set; }
+        public TreeReply[] nodes { get; private set; }
+
+        internal TreeReply (Json.Node responseJson) {
+            id = responseJson.get_object ().get_string_member ("id");
+            ntype = responseJson.get_object ().get_string_member ("type");
+            urgent = responseJson.get_object ().get_boolean_member ("urgent");
+            output = responseJson.get_object ().get_string_member ("output");
+            name = responseJson.get_object ().get_string_member ("name");
+            windowProperties = new WindowProperties(responseJson.get_object ().get_object_member ("window_properties"));
+
+            var jnodes = responseJson.get_object ().get_array_member("nodes");
+
+            if (jnodes == null || jnodes.get_length () == 0) {
+                nodes = new TreeReply[0];
+            } else {
+                nodes = new TreeReply[jnodes.get_length ()];
+                jnodes.foreach_element ((arr, index, node) => {
+                    nodes[index] = new TreeReply(node);
+                });
+            }
+        }
+    }
+
     public class I3Client {
         private Socket socket;
         private uint8[] magic_number = "i3-ipc".data;
@@ -135,6 +179,16 @@ namespace Ilia {
             }
 
             return new ConfigReply (response);
+        }
+
+        public TreeReply getTree() throws I3_ERROR, GLib.Error {
+            var response = i3_ipc (I3_COMMAND.GET_TREE);
+
+            if (response == null) {
+                throw new I3_ERROR.RPC_ERROR ("No Response");
+            }
+
+            return new TreeReply (response);
         }
     }
 }

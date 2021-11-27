@@ -38,6 +38,7 @@ ilia_sources += ['Main.vala']
 ilia_sources += ['notifications/RoficationClient.vala']
 ilia_sources += ['notifications/RoficationPage.vala']
 ilia_sources += ['SessionController.vala']
+ilia_sources += ['windows/WindowPage.vala']
 ilia_link_args = ['-rdynamic']
 
 executable('ilia',ilia_sources,

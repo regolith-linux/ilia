@@ -130,6 +130,10 @@ namespace Ilia {
                     dialog_pages[0] = new TextListPage ();
                     dialog_pages[0].initialize.begin (settings, entry, this);
                     break;
+                case "windows":
+                    dialog_pages[0] = new WindowPage ();
+                    dialog_pages[0].initialize.begin (settings, entry, this);
+                    break;
                 default:
                     stderr.printf ("Unknown page type %s, aborting.\n", focus_page);
                     break;

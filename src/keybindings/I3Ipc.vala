@@ -54,10 +54,10 @@ namespace Ilia {
         public string title { get; private set; }
 
         internal WindowProperties (Json.Object responseJson) {
-            clazz = responseJson.get_string_member ("class");
-            instance = responseJson.get_string_member ("instance");
-            machine = responseJson.get_string_member ("machine");
-            title = responseJson.get_string_member ("title");
+            if (responseJson.has_member("class")) clazz = responseJson.get_string_member ("class");
+            if (responseJson.has_member("instance")) instance = responseJson.get_string_member ("instance");
+            if (responseJson.has_member("machine")) machine = responseJson.get_string_member ("machine");
+            if (responseJson.has_member("title")) title = responseJson.get_string_member ("title");
         }
     }
 
@@ -71,13 +71,20 @@ namespace Ilia {
         public TreeReply[] nodes { get; private set; }
 
         internal TreeReply (Json.Node responseJson) {
-            id = responseJson.get_object ().get_string_member ("id");
-            ntype = responseJson.get_object ().get_string_member ("type");
-            urgent = responseJson.get_object ().get_boolean_member ("urgent");
-            output = responseJson.get_object ().get_string_member ("output");
-            name = responseJson.get_object ().get_string_member ("name");
-            windowProperties = new WindowProperties(responseJson.get_object ().get_object_member ("window_properties"));
+            var obj = responseJson.get_object ();
 
+            id = obj.get_string_member ("id");
+            ntype = obj.get_string_member ("type");
+            urgent = obj.get_boolean_member ("urgent");
+            name = obj.get_string_member ("name");
+
+            if (obj.has_member ("output")) {
+                output = obj.get_string_member ("output");
+            }            
+            if (obj.has_member ("window_properties")) {
+                windowProperties = new WindowProperties(obj.get_object_member ("window_properties"));
+            }
+            
             var jnodes = responseJson.get_object ().get_array_member("nodes");
 
             if (jnodes == null || jnodes.get_length () == 0) {

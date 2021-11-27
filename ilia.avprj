@@ -8,6 +8,7 @@ vala_binary: src/ilia
 *version: 0.1.0
 vala_check_package: gio-unix-2.0
 vala_check_package: json-glib-1.0
+vala_check_package: tracker-sparql-2.0
 *vala_check_package: atk
 *vala_check_package: cairo-gobject
 *vala_check_package: gdk-3.0
@@ -19,32 +20,36 @@ vala_check_package: json-glib-1.0
 *vala_check_package: gtk+-3.0
 *vala_check_package: pango
 *vala_check_package: x11
-*vala_source: CommandPage.vala
-*vala_source: DesktopAppPage.vala
 *vala_source: DialogPage.vala
 *vala_source: DialogWindow.vala
-*vala_source: Ilia.vala
-*vala_source: RoficationClient.vala
-*vala_source: RoficationPage.vala
+*vala_source: Main.vala
 *vala_source: SessionController.vala
+*vala_source: apps/DesktopAppPage.vala
+*vala_source: commands/CommandPage.vala
 *vala_source: keybindings/ConfigParser.vala
 *vala_source: keybindings/I3Ipc.vala
 *vala_source: keybindings/KeybindingsPage.vala
+*vala_source: notifications/RoficationClient.vala
+*vala_source: notifications/RoficationPage.vala
+*vala_source: textlist/TextListPage.vala
+*vala_source: windows/WindowPage.vala
 
 
 *po: po
 
-*translate: vala src/CommandPage.vala
-*translate: vala src/DesktopAppPage.vala
 *translate: vala src/DialogPage.vala
 *translate: vala src/DialogWindow.vala
-*translate: vala src/Ilia.vala
-*translate: vala src/RoficationClient.vala
-*translate: vala src/RoficationPage.vala
+*translate: vala src/Main.vala
 *translate: vala src/SessionController.vala
+*translate: vala src/apps/DesktopAppPage.vala
+*translate: vala src/commands/CommandPage.vala
 *translate: vala src/keybindings/ConfigParser.vala
 *translate: vala src/keybindings/I3Ipc.vala
 *translate: vala src/keybindings/KeybindingsPage.vala
+*translate: vala src/notifications/RoficationClient.vala
+*translate: vala src/notifications/RoficationPage.vala
+*translate: vala src/textlist/TextListPage.vala
+*translate: vala src/windows/WindowPage.vala
 
 *data: data/local
 

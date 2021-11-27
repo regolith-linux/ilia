@@ -3,9 +3,10 @@ using Gtk;
 namespace Ilia {
     // A dialog page that lists system commands on the path and allows for free-from launching in a terminal.
     class WindowPage : DialogPage, GLib.Object {
-        private const int ITEM_VIEW_COLUMNS = 2;
-        private const int ITEM_VIEW_COLUMN_APP = 0;
+        private const int ITEM_VIEW_COLUMNS = 3;
+        private const int ITEM_VIEW_COLUMN_APP_ICON = 0;
         private const int ITEM_VIEW_COLUMN_TITLE = 1;
+        private const int ITEM_VIEW_COLUMN_ID = 2;
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -21,20 +22,26 @@ namespace Ilia {
         private SessionContoller session_controller;
 
         private Gtk.Widget root_widget;
+        // Active icon theme
+        private Gtk.IconTheme icon_theme;
+
+        private int icon_size;
 
         public string get_name () {
             return "Windows";
         }
 
         public string get_icon_name () {
-            return "utilities-terminal";
+            return "applications-other";
         }
 
         public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error {
             this.entry = entry;
             this.session_controller = sessionController;
 
-            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (string), typeof (string));
+            icon_size = settings.get_int ("icon-size");
+
+            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string));
 
             filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);
@@ -42,7 +49,7 @@ namespace Ilia {
             create_item_view ();
 
             load_apps ();
-            model.set_sort_column_id (0, SortType.ASCENDING);
+            model.set_sort_column_id (1, SortType.ASCENDING);
             // model.set_sort_func (0, app_sort_func);
             set_selection ();
 
@@ -71,7 +78,7 @@ namespace Ilia {
             item_view.enable_search = false;
 
             // Create columns
-            item_view.insert_column_with_attributes (-1, "App", new CellRendererText (), "text", ITEM_VIEW_COLUMN_APP);
+            item_view.insert_column_with_attributes (-1, "App", new CellRendererPixbuf (), "pixbuf", ITEM_VIEW_COLUMN_APP_ICON);
             item_view.insert_column_with_attributes (-1, "Title", new CellRendererText (), "text", ITEM_VIEW_COLUMN_TITLE);
 
             // Launch app on one click
@@ -87,7 +94,7 @@ namespace Ilia {
 
         public void grab_focus (uint keycode) {
             if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
-                execute_app (entry.text);
+                execute_app_from_selection (iter);
             }
 
             item_view.grab_focus ();
@@ -133,7 +140,10 @@ namespace Ilia {
                 var i3_client = new I3Client ();
                 var node = i3_client.getTree ();
 
-                traverse_nodes (node);
+                if (node != null) {
+                    icon_theme = Gtk.IconTheme.get_default ();
+                    traverse_nodes (node);
+                }                
             } catch (GLib.Error err) {
                 // TODO consistent error handling
                 stderr.printf ("Failed to read or parse window tree from i3: %s\n", err.message);
@@ -141,12 +151,16 @@ namespace Ilia {
         }
 
         private void traverse_nodes (TreeReply node) {
-            if (node.ntype == "con" && node.windowProperties != null) {
+            if (node.ntype == "con" && node.window_type == "normal") {
+
+                var pixbuf = load_icon (node.windowProperties.instance, icon_size);
+
                 model.append (out iter);
                 model.set (
                     iter,
+                    ITEM_VIEW_COLUMN_APP_ICON, pixbuf,
                     ITEM_VIEW_COLUMN_TITLE, node.name,
-                    ITEM_VIEW_COLUMN_APP, node.windowProperties.title
+                    ITEM_VIEW_COLUMN_ID, node.id               
                 );
             }
 
@@ -155,6 +169,41 @@ namespace Ilia {
                     traverse_nodes (node.nodes[i]);
                 }
             }
+        }
+
+        private Gdk.Pixbuf ? load_icon (string ? icon_name, int size) {
+            Gtk.IconInfo icon_info;
+
+            try {
+                if (icon_name == null) {
+                    icon_info = icon_theme.lookup_icon ("applications-other", size, Gtk.IconLookupFlags.FORCE_SIZE);
+                    return icon_info.load_icon ();
+                }
+
+                icon_info = icon_theme.lookup_icon (icon_name, size, Gtk.IconLookupFlags.FORCE_SIZE); // from icon theme
+                if (icon_info != null) {
+                    return icon_info.load_icon ();
+                }
+
+                if (GLib.File.new_for_path (icon_name).query_exists ()) {
+                    try {
+                        return new Gdk.Pixbuf.from_file_at_size (icon_name, size, size);
+                    } catch (Error e) {
+                        stderr.printf ("%s\n", e.message);
+                    }
+                }
+
+                try {
+                    icon_info = icon_theme.lookup_icon ("applications-other", size, Gtk.IconLookupFlags.FORCE_SIZE);
+                    return icon_info.load_icon ();
+                } catch (Error e) {
+                    stderr.printf ("%s\n", e.message);
+                }
+            } catch (Error e) {
+                stderr.printf ("%s\n", e.message);
+            }
+
+            return null;
         }
 
         // Automatically set the first item in the list as selected.
@@ -166,21 +215,30 @@ namespace Ilia {
             selection.select_path (path);
         }
 
-        // launch a desktop app
+        // switch to window
         public void execute_app_from_selection (Gtk.TreeIter selection) {
-            /*
-            string cmd_path;
-            filter.@get (selection, ITEM_VIEW_COLUMN_NAME, out cmd_path);
+            string id;
+            filter.@get (selection, ITEM_VIEW_COLUMN_ID, out id);
 
-            if (cmd_path != null) execute_app (cmd_path);
-             */
+            execute_app (id);
         }
 
-        private void execute_app (string cmd_path) {
-            /*
-            stdout.printf ("%s\n", cmd_path);
-            session_controller.quit ();
-             */
+        // i3-msg [window_role="gnome-terminal-window-6bee2ec0-eb8b-4b10-aafc-7c2708201d43" title="Terminal"] focus
+        private void execute_app (string id) {
+            string exec = "[con_id=\"" + id + "\"] focus";
+            string commandline = "/usr/bin/i3-msg " + exec;
+
+            stdout.printf("running %s\n", commandline);
+
+            try {
+                var app_info = AppInfo.create_from_commandline (commandline, null, AppInfoCreateFlags.NONE);
+
+                if (!app_info.launch (null, null)) {
+                    stderr.printf ("Error: execute_keybinding failed\n");
+                }
+            } catch (GLib.Error err) {
+                stderr.printf ("Error: execute_keybinding failed: %s\n", err.message);
+            }
         }
     }
 }

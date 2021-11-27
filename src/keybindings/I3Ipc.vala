@@ -50,6 +50,7 @@ namespace Ilia {
     public class WindowProperties {
         public string clazz { get; private set; }
         public string instance { get; private set; }
+        public string window_role { get; private set; }
         public string machine { get; private set; }
         public string title { get; private set; }
 
@@ -58,12 +59,14 @@ namespace Ilia {
             if (responseJson.has_member("instance")) instance = responseJson.get_string_member ("instance");
             if (responseJson.has_member("machine")) machine = responseJson.get_string_member ("machine");
             if (responseJson.has_member("title")) title = responseJson.get_string_member ("title");
+            if (responseJson.has_member("window_role")) window_role = responseJson.get_string_member ("window_role");
         }
     }
 
     public class TreeReply {
         public string id { get; private set; }
         public string ntype { get; private set; }
+        public string window_type { get; private set; }
         public bool urgent { get; private set; }
         public string output { get; private set; }
         public string name { get; private set; }
@@ -73,11 +76,14 @@ namespace Ilia {
         internal TreeReply (Json.Node responseJson) {
             var obj = responseJson.get_object ();
 
-            id = obj.get_string_member ("id");
+            id = obj.get_int_member ("id").to_string ();
             ntype = obj.get_string_member ("type");
             urgent = obj.get_boolean_member ("urgent");
             name = obj.get_string_member ("name");
 
+            if (obj.has_member ("window_type")) {
+                window_type = obj.get_string_member ("window_type");
+            }
             if (obj.has_member ("output")) {
                 output = obj.get_string_member ("output");
             }            

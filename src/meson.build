@@ -39,6 +39,7 @@ ilia_sources += ['keybindings/KeybindingsPage.vala']
 ilia_sources += ['notifications/RoficationClient.vala']
 ilia_sources += ['notifications/RoficationPage.vala']
 ilia_sources += ['textlist/TextListPage.vala']
+ilia_sources += ['tracker/TrackerPage.vala']
 ilia_sources += ['windows/WindowPage.vala']
 ilia_link_args = ['-rdynamic']
 

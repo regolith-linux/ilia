@@ -157,8 +157,7 @@ namespace Ilia {
             if (cmd_path != null) execute_app(cmd_path);
         }
 
-        private void execute_app (string cmd_path) {
-            stdout.printf("%s\n", cmd_path);
+        private void execute_app (string cmd_path) {            
             session_controller.quit();
         }
     }

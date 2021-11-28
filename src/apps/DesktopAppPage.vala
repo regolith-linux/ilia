@@ -147,10 +147,10 @@ namespace Ilia {
 
             if (query_string.length > 1 && (app_a_has_prefix || app_b_has_prefix)) {
                 if (app_b_has_prefix && !app_b_has_prefix) {
-                    stdout.printf ("boosted %s\n", app_a.get_name ());
+                    // stdout.printf ("boosted %s\n", app_a.get_name ());
                     return -1;
                 } else if (!app_a_has_prefix && app_b_has_prefix) {
-                    stdout.printf ("boosted %s\n", app_b.get_name ());
+                    // stdout.printf ("boosted %s\n", app_b.get_name ());
                     return 1;
                 }
             }

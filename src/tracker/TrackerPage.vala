@@ -148,7 +148,7 @@ namespace Ilia {
                 var queryterm = entry.get_text ();
                 var connection = Tracker.Sparql.Connection.get ();
                 var query = "SELECT DISTINCT nie:url(?f) nie:title(?f) nie:mimeType(?f) WHERE { ?f fts:match '" + queryterm + "' }";
-                stdout.printf ("query: %s\n", query);
+                // stdout.printf ("query: %s\n", query);
                 var cursor = connection.query (query);
                 long length = 0;
 
@@ -168,9 +168,7 @@ namespace Ilia {
 
                         var icon = ContentType.get_icon (mimeType);
                         var iconNames = ((ThemedIcon) icon).get_names ();
-                        var iconPixbuf = load_icon (iconNames, icon_size);
-
-                        stdout.printf ("got %s %s\n", uri, title);
+                        var iconPixbuf = load_icon (iconNames, icon_size);                       
 
                         model.append (out iter);
                         model.set (

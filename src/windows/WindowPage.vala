@@ -227,7 +227,7 @@ namespace Ilia {
             string exec = "[con_id=\"" + id + "\"] focus";
             string commandline = "/usr/bin/i3-msg " + exec;
 
-            stdout.printf("running %s\n", commandline);
+            // stdout.printf("running %s\n", commandline);
 
             try {
                 var app_info = AppInfo.create_from_commandline (commandline, null, AppInfoCreateFlags.NONE);

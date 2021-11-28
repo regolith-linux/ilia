@@ -1,7 +1,6 @@
 using Gtk;
 
 namespace Ilia {
-    // A dialog page that lists system commands on the path and allows for free-from launching in a terminal.
     class WindowPage : DialogPage, GLib.Object {
         private const int ITEM_VIEW_COLUMNS = 3;
         private const int ITEM_VIEW_COLUMN_APP_ICON = 0;

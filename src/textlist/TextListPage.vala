@@ -84,7 +84,7 @@ namespace Ilia {
 
         public void grab_focus (uint keycode) {
             if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
-                execute_app (entry.text);
+                print (entry.text);
             }
 
             item_view.grab_focus ();
@@ -93,7 +93,7 @@ namespace Ilia {
         // called on enter from TreeView
         private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
             filter.get_iter (out iter, path);
-            execute_app_from_selection (iter);
+            print_selection (iter);
         }
 
         // filter selection based on contents of Entry
@@ -105,7 +105,7 @@ namespace Ilia {
         // called on enter when in text box
         void on_entry_activated () {
             if (filter.get_iter_first (out iter)) {
-                execute_app_from_selection (iter);
+                print_selection (iter);
             }
         }
 
@@ -150,14 +150,16 @@ namespace Ilia {
         }
 
         // launch a desktop app
-        public void execute_app_from_selection (Gtk.TreeIter selection) {
+        public void print_selection (Gtk.TreeIter selection) {
             string cmd_path;
             filter.@get (selection, ITEM_VIEW_COLUMN_NAME, out cmd_path);
             
-            if (cmd_path != null) execute_app(cmd_path);
+            if (cmd_path != null) print(cmd_path);
         }
 
-        private void execute_app (string cmd_path) {            
+        private void print (string selection) {        
+            stdout.printf("%s\n", selection);
+
             session_controller.quit();
         }
     }

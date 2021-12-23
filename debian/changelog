@@ -1,3 +1,10 @@
+ilia (0.9.2-1) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Fix textlist return selected value
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 23 Dec 2021 10:46:54 -0800
+
 ilia (0.9.1-1ubuntu1) focal; urgency=medium
 
   [ Ken Gilmer ]

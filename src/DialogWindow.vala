@@ -32,7 +32,6 @@ namespace Ilia {
             Object(type: Gtk.WindowType.POPUP);
             window_position = WindowPosition.CENTER_ALWAYS;
 
-
             settings = new GLib.Settings ("org.regolith-linux.ilia");
 
             entry = new Gtk.Entry ();

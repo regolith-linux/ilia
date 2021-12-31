@@ -58,7 +58,17 @@ Gdk.Seat ? grab_inputs (Gdk.Window gdkwin) {
         return null;
     }
 
-    var grabStatus = seat.grab (gdkwin, Gdk.SeatCapabilities.ALL, true, null, null, null);
+    int attempt = 0;
+    Gdk.GrabStatus? grabStatus = null;
+
+    do {
+        grabStatus = seat.grab (gdkwin, Gdk.SeatCapabilities.ALL, true, null, null, null);
+        if (grabStatus != Gdk.GrabStatus.SUCCESS) {
+            GLib.Thread.usleep(10000);
+            attempt++;
+        }        
+    } while (grabStatus != Gdk.GrabStatus.SUCCESS && attempt < 5);
+
     if (grabStatus != Gdk.GrabStatus.SUCCESS) {
         stdout.printf ("Failed to grab input: %d\n", grabStatus);
         return null;

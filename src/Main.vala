@@ -14,8 +14,57 @@ public static int main (string[] args) {
     window.destroy.connect (Gtk.main_quit);
     window.show_all ();
 
+    // Use the Gdk window to grab global inputs.
+    Gdk.Window gdkwin = window.get_window ();
+    var seat = grab_inputs (gdkwin);
+
+    if (seat == null) {
+        stderr.printf ("Failed to aquire access to input devices, aborting.");
+        return 1;
+    }
+
+    // Handle mouse clicks by determining if a click is in or out of bounds
+    window.button_press_event.connect ((event) => {
+        int window_width = 0, window_height = 0;
+        window.get_size (out window_width, out window_height);
+
+        int mouse_x = (int) event.x;
+        int mouse_y = (int) event.y;
+
+        var click_out_bounds = ((mouse_x < 0 || mouse_y < 0) || (mouse_x > window_width || mouse_y > window_height));
+
+        if (click_out_bounds) {
+            window.quit ();
+        }
+
+        return !click_out_bounds;
+    });
+
     Gtk.main ();
     return 0;
+}
+
+// Grabs the input devices for a given window
+Gdk.Seat ? grab_inputs (Gdk.Window gdkwin) {
+    var display = gdkwin.get_display (); // Gdk.Display.get_default();
+    if (display == null) {
+        stderr.printf ("Failed to get Display\n");
+        return null;
+    }
+
+    var seat = display.get_default_seat ();
+    if (seat == null) {
+        stdout.printf ("Failed to get Seat from Display\n");
+        return null;
+    }
+
+    var grabStatus = seat.grab (gdkwin, Gdk.SeatCapabilities.ALL, true, null, null, null);
+    if (grabStatus != Gdk.GrabStatus.SUCCESS) {
+        stdout.printf ("Failed to grab input: %d\n", grabStatus);
+        return null;
+    } else {
+        return seat;
+    }
 }
 
 /**

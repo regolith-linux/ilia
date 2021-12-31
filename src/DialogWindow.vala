@@ -19,8 +19,6 @@ namespace Ilia {
         private uint active_page = 0;
         // Mode switcher
         private Gtk.Notebook notebook;
-
-        private Gtk.Stack stack;
         // Filtering text box
         private Gtk.Entry entry;
         // Settings backend
@@ -28,15 +26,14 @@ namespace Ilia {
 
         private Gtk.Grid grid;
 
-        private Gtk.Spinner spinner;
+        protected Gdk.Seat seat;
 
         public DialogWindow (string focus_page) {
-            settings = new GLib.Settings ("org.regolith-linux.ilia");
+            Object(type: Gtk.WindowType.POPUP);
+            window_position = WindowPosition.CENTER_ALWAYS;
 
-            stack = new Stack ();
-            stack.set_vexpand (true);
-            stack.set_hexpand (true);
-            add (stack);
+
+            settings = new GLib.Settings ("org.regolith-linux.ilia");
 
             entry = new Gtk.Entry ();
             entry.hexpand = true;
@@ -54,18 +51,9 @@ namespace Ilia {
             grid = new Gtk.Grid ();
             grid.attach (entry, 0, 0, 1, 1);
             grid.attach (notebook, 0, 1, 1, 1);
-            stack.add_named (grid, "primary");
-
-            spinner = new Spinner ();
-            stack.add_named (spinner, "spinner");
-
-            set_decorated (false);
-            set_resizable (false);
-            set_keep_above (true);
-            set_property ("skip-taskbar-hint", true);
+            add (grid);
 
             set_default_size (settings.get_int ("window-width"), settings.get_int ("window-height"));
-            stick ();
 
             // Exit if focus leaves us
             focus_out_event.connect (() => {
@@ -184,6 +172,7 @@ namespace Ilia {
 
         // exit
         public void action_quit () {
+            if (seat != null) seat.ungrab ();
             hide ();
             close ();
         }
@@ -193,8 +182,7 @@ namespace Ilia {
         }
 
         public void launched () {
-            stack.set_visible_child_name ("spinner");
-            spinner.start ();
+            action_quit ();
         }
     }
 }

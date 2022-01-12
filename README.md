@@ -44,7 +44,13 @@ This page uses the comment format specified by [Remontoire](https://github.com/r
 
 ## Build
 
-Ilia uses `meson` and `ninja` to build.  Example:
+Ilia uses `meson` and `ninja` to build.  
+
+```
+sudo apt install meson ninja-build valac libjson-glib-dev libtracker-sparql-2.0-dev libgee-0.8-dev
+```
+
+Example:
 
 ```
 git clone https://github.com/regolith-linux/ilia.git

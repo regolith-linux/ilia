@@ -47,9 +47,13 @@ This page uses the comment format specified by [Remontoire](https://github.com/r
 Ilia uses `meson` and `ninja` to build.  
 
 ```
-sudo apt install meson ninja-build valac libjson-glib-dev libtracker-sparql-2.0-dev libgee-0.8-dev
+sudo apt install ninja-build valac libjson-glib-dev libtracker-sparql-2.0-dev libgee-0.8-dev
 ```
+meson needs to be installed with pip for some reason
 
+```
+sudo pip3 install meson
+```
 Example:
 
 ```

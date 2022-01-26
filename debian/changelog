@@ -1,3 +1,10 @@
+ilia (0.9.5-1) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Add sleep after app launch to prevent intermittent launch failures
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Tue, 25 Jan 2022 20:49:19 -0800
+
 ilia (0.9.4-1) focal; urgency=medium
 
   [ Ken Gilmer ]

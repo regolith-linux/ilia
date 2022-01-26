@@ -29,5 +29,12 @@
         Size of icons.
       </description>
     </key>
+        <key name="post-launch-sleep" type="i">
+      <default>100000</default>
+      <summary>Microseconds to wait for launching app before exit</summary>
+      <description>
+        Wait time for app launch to occur
+      </description>
+    </key>
 	</schema>
 </schemalist>

@@ -35,6 +35,8 @@ namespace Ilia {
 
         private int icon_size;
 
+        private int post_launch_sleep;
+
         private Gtk.Widget root_widget;
 
         public string get_name () {
@@ -53,6 +55,7 @@ namespace Ilia {
             launch_history = settings.get_strv ("app-launch-counts");
             launch_counts = load_launch_counts (launch_history);
             icon_size = settings.get_int ("icon-size");
+            post_launch_sleep = settings.get_int("post-launch-sleep");
 
             model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (DesktopAppInfo));
 
@@ -335,14 +338,8 @@ namespace Ilia {
             DesktopAppInfo app_info;
             filter.@get (selection, ITEM_VIEW_COLUMN_APPINFO, out app_info);
 
-            AppLaunchContext ctx = new AppLaunchContext ();
-
-            ctx.launch_failed.connect ((startup_notify_id) => {
-                stderr.printf ("Failed to launch %s(%n)\n", app_info.get_name (), startup_notify_id);
-            });
-
             try {
-                var result = app_info.launch (null, null);
+                var result = app_info.launch_uris (null, null);
 
                 if (result) {
                     string key = app_info.get_id ();
@@ -360,6 +357,7 @@ namespace Ilia {
                 } else {
                     stderr.printf ("Failed to launch %s\n", app_info.get_name ());
                 }
+                GLib.Thread.usleep(post_launch_sleep);
             } catch (GLib.Error e) {
                 stderr.printf ("%s\n", e.message);
             }

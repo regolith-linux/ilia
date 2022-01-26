@@ -64,13 +64,13 @@ Gdk.Seat ? grab_inputs (Gdk.Window gdkwin) {
     do {
         grabStatus = seat.grab (gdkwin, Gdk.SeatCapabilities.ALL, true, null, null, null);
         if (grabStatus != Gdk.GrabStatus.SUCCESS) {
-            GLib.Thread.usleep(10000);
             attempt++;
+            GLib.Thread.usleep(10000);            
         }        
     } while (grabStatus != Gdk.GrabStatus.SUCCESS && attempt < 5);
 
     if (grabStatus != Gdk.GrabStatus.SUCCESS) {
-        stdout.printf ("Failed to grab input: %d\n", grabStatus);
+        stderr.printf ("Failed to grab input: %d\n", grabStatus);
         return null;
     } else {
         return seat;

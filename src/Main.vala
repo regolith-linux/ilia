@@ -7,6 +7,8 @@ public static int main (string[] args) {
     Gtk.init (ref args);
 
     var arg_map = parse_args (args);
+    if (arg_map.contains("-h") || arg_map.contains("--help")) print_help();
+
     var focus_page = arg_map.get("-p") ?? "Apps";
 
     var window = new Ilia.DialogWindow (focus_page);
@@ -75,6 +77,19 @@ Gdk.Seat ? grab_inputs (Gdk.Window gdkwin) {
     } else {
         return seat;
     }
+}
+
+void print_help() {
+    stdout.printf("Usage: ilia [-p page]\n");
+    stdout.printf("\npages:\n");
+    stdout.printf("\t'apps' - launch desktop applications\n");
+    stdout.printf("\t'terminal' - launch a terminal command\n");
+    stdout.printf("\t'notifications' - launch notifications manager\n");
+    stdout.printf("\t'keybindings' - launch keybindings viewer\n");
+    stdout.printf("\t'textlist' - select an item from a specified list\n");
+    stdout.printf("\t'windows' - navigate to a window\n");
+    stdout.printf("\t'tracker' - search for files by content\n");
+    Process.exit(0);
 }
 
 /**

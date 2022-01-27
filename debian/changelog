@@ -1,3 +1,10 @@
+ilia (0.9.6-1) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Add help flag to print all page types
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 26 Jan 2022 18:51:41 -0800
+
 ilia (0.9.5-1) focal; urgency=medium
 
   [ Ken Gilmer ]

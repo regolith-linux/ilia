@@ -5,7 +5,7 @@ namespace Ilia {
     class CommandPage : DialogPage, GLib.Object {
         private const int ITEM_VIEW_COLUMNS = 1;
         private const int ITEM_VIEW_COLUMN_NAME = 0;
-        
+
         // Max number of files to read in sequence before yeilding
         private const int FS_FILE_READ_COUNT = 64;
         // The widget to display list of available options
@@ -22,7 +22,7 @@ namespace Ilia {
         private SessionContoller session_controller;
 
         private Gtk.Widget root_widget;
-        
+
         public string get_name () {
             return "Terminal";
         }
@@ -44,7 +44,7 @@ namespace Ilia {
 
             load_apps.begin ((obj, res) => {
                 load_apps.end (res);
-                
+
                 model.set_sort_column_id (0, SortType.ASCENDING);
                 // model.set_sort_func (0, app_sort_func);
                 set_selection ();
@@ -54,7 +54,7 @@ namespace Ilia {
             scrolled.add (item_view);
             scrolled.expand = true;
 
-            root_widget = scrolled;        
+            root_widget = scrolled;
         }
 
         public Gtk.Widget get_root () {
@@ -88,7 +88,7 @@ namespace Ilia {
             return false;
         }
 
-        public void grab_focus (uint keycode) {    
+        public void grab_focus (uint keycode) {
             if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
                 execute_app(entry.text);
             }
@@ -112,7 +112,7 @@ namespace Ilia {
         void on_entry_activated () {
             if (filter.get_iter_first (out iter)) {
                 execute_app_from_selection (iter);
-            }            
+            }
         }
 
         /*
@@ -150,9 +150,9 @@ namespace Ilia {
                 if (path_dir.query_exists ()) {
                     yield load_apps_from_dir (path_dir);
                 }
-            }            
+            }
         }
-        
+
         private async void load_apps_from_dir (File app_dir) {
             try {
                 var enumerator = yield app_dir.enumerate_children_async (FileAttribute.STANDARD_NAME, FileQueryInfoFlags.NOFOLLOW_SYMLINKS, Priority.DEFAULT);
@@ -166,12 +166,12 @@ namespace Ilia {
 
                     foreach (var info in app_files) {
                         string file_path = app_dir.get_child (info.get_name ()).get_path ();
-                        
+
                         model.append (out iter);
                         model.set (
                             iter,
                             ITEM_VIEW_COLUMN_NAME, file_path
-                        );                        
+                        );
                     }
                 }
             } catch (Error err) {
@@ -189,24 +189,24 @@ namespace Ilia {
         }
 
         // launch a desktop app
-        public void execute_app_from_selection (Gtk.TreeIter selection) {            
-            session_controller.launched ();       
-            
+        public void execute_app_from_selection (Gtk.TreeIter selection) {
             string cmd_path;
             filter.@get (selection, ITEM_VIEW_COLUMN_NAME, out cmd_path);
-            
+
             if (cmd_path != null) execute_app(cmd_path);
         }
 
         private void execute_app(string cmd_path) {
-            string commandline = "/usr/bin/x-terminal-emulator -e \"bash -c '" + cmd_path + "; exec bash'\"";            
+            string commandline = "/usr/bin/x-terminal-emulator -e \"bash -c '" + cmd_path + "; exec bash'\"";
 
             try {
                 var app_info = AppInfo.create_from_commandline (commandline, cmd_path, AppInfoCreateFlags.NONE);
-                
+
                 if (!app_info.launch (null, null)) {
-                    stderr.printf ("Error: execute_app failed\n");    
-                }            
+                    stderr.printf ("Error: execute_app failed\n");
+                }
+
+                session_controller.quit ();
             } catch (GLib.Error err) {
                 stderr.printf ("Error: execute_app failed: %s\n", err.message);
             }

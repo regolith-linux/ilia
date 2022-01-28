@@ -332,9 +332,7 @@ namespace Ilia {
         }
 
         // launch a desktop app
-        public void execute_app (Gtk.TreeIter selection) {
-            session_controller.launched ();
-
+        public void execute_app (Gtk.TreeIter selection) {            
             DesktopAppInfo app_info;
             filter.@get (selection, ITEM_VIEW_COLUMN_APPINFO, out app_info);
 
@@ -358,6 +356,7 @@ namespace Ilia {
                     stderr.printf ("Failed to launch %s\n", app_info.get_name ());
                 }
                 GLib.Thread.usleep(post_launch_sleep);
+                session_controller.quit ();
             } catch (GLib.Error e) {
                 stderr.printf ("%s\n", e.message);
             }

@@ -1,3 +1,10 @@
+ilia (0.9.7-1) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Fix window launcher to close after action.  Misc cleanup
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 27 Jan 2022 18:43:24 -0800
+
 ilia (0.9.6-1) focal; urgency=medium
 
   [ Ken Gilmer ]

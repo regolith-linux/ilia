@@ -182,9 +182,7 @@ namespace Ilia {
         }
 
         // launch a desktop app
-        public void execute_app_from_selection (Gtk.TreeIter selection) {
-            session_controller.launched ();
-
+        public void execute_app_from_selection (Gtk.TreeIter selection) {            
             string cmd_path;
             filter.@get (selection, ITEM_VIEW_COLUMN_EXEC, out cmd_path);
 
@@ -200,6 +198,7 @@ namespace Ilia {
                 if (!app_info.launch (null, null)) {
                     stderr.printf ("Error: execute_keybinding failed\n");
                 }
+                session_controller.quit ();
             } catch (GLib.Error err) {
                 stderr.printf ("Error: execute_keybinding failed: %s\n", err.message);
             }

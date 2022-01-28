@@ -56,7 +56,7 @@ namespace Ilia {
 
             // Exit if focus leaves us
             focus_out_event.connect (() => {
-                action_quit ();
+                quit ();
                 return false;
             });
 
@@ -64,7 +64,7 @@ namespace Ilia {
             key_press_event.connect ((key) => {
                 switch (key.keyval) {
                     case KEY_CODE_ESCAPE:
-                        action_quit ();
+                        quit ();
                         break;
                     case KEY_CODE_UP:
                     case KEY_CODE_DOWN:
@@ -169,19 +169,10 @@ namespace Ilia {
             dialog_pages[active_page].on_entry_activated ();
         }
 
-        // exit
-        public void action_quit () {
+        public void quit() {
             if (seat != null) seat.ungrab ();
             hide ();
             close ();
-        }
-
-        public void quit() {
-            action_quit ();
-        }
-
-        public void launched () {
-            action_quit ();
         }
     }
 }

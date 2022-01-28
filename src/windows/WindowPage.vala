@@ -47,7 +47,7 @@ namespace Ilia {
 
             create_item_view ();
 
-            load_apps ();
+            load_windows ();
             model.set_sort_column_id (1, SortType.ASCENDING);
             // model.set_sort_func (0, app_sort_func);
             set_selection ();
@@ -93,7 +93,7 @@ namespace Ilia {
 
         public void grab_focus (uint keycode) {
             if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
-                execute_app_from_selection (iter);
+                _from_selection (iter);
             }
 
             item_view.grab_focus ();
@@ -102,7 +102,7 @@ namespace Ilia {
         // called on enter from TreeView
         private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
             filter.get_iter (out iter, path);
-            execute_app_from_selection (iter);
+            _from_selection (iter);
         }
 
         // filter selection based on contents of Entry
@@ -114,7 +114,7 @@ namespace Ilia {
         // called on enter when in text box
         void on_entry_activated () {
             if (filter.get_iter_first (out iter)) {
-                execute_app_from_selection (iter);
+                _from_selection (iter);
             }
         }
 
@@ -134,7 +134,7 @@ namespace Ilia {
             }
         }
 
-        private void load_apps () {
+        private void load_windows () {
             try {
                 var i3_client = new I3Client ();
                 var node = i3_client.getTree ();
@@ -215,15 +215,15 @@ namespace Ilia {
         }
 
         // switch to window
-        public void execute_app_from_selection (Gtk.TreeIter selection) {
+        public void _from_selection (Gtk.TreeIter selection) {
             string id;
             filter.@get (selection, ITEM_VIEW_COLUMN_ID, out id);
 
-            execute_app (id);
+            focus_window (id);
         }
 
         // i3-msg [window_role="gnome-terminal-window-6bee2ec0-eb8b-4b10-aafc-7c2708201d43" title="Terminal"] focus
-        private void execute_app (string id) {
+        private void focus_window (string id) {
             string exec = "[con_id=\"" + id + "\"] focus";
             string commandline = "/usr/bin/i3-msg " + exec;
 
@@ -235,6 +235,7 @@ namespace Ilia {
                 if (!app_info.launch (null, null)) {
                     stderr.printf ("Error: execute_keybinding failed\n");
                 }
+                session_controller.quit ();
             } catch (GLib.Error err) {
                 stderr.printf ("Error: execute_keybinding failed: %s\n", err.message);
             }

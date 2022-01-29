@@ -42,8 +42,8 @@ namespace Ilia {
 
             create_item_view ();
 
-            load_apps.begin ((obj, res) => {
-                load_apps.end (res);
+            load_commands_from_path.begin ((obj, res) => {
+                load_commands_from_path.end (res);
 
                 model.set_sort_column_id (0, SortType.ASCENDING);
                 // model.set_sort_func (0, app_sort_func);
@@ -90,7 +90,7 @@ namespace Ilia {
 
         public void grab_focus (uint keycode) {
             if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
-                execute_app(entry.text);
+                execute_command(entry.text);
             }
 
             item_view.grab_focus ();
@@ -99,7 +99,7 @@ namespace Ilia {
         // called on enter from TreeView
         private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
             filter.get_iter (out iter, path);
-            execute_app_from_selection (iter);
+            execute_command_from_selection (iter);
         }
 
         // filter selection based on contents of Entry
@@ -111,20 +111,9 @@ namespace Ilia {
         // called on enter when in text box
         void on_entry_activated () {
             if (filter.get_iter_first (out iter)) {
-                execute_app_from_selection (iter);
+                execute_command_from_selection (iter);
             }
         }
-
-        /*
-        private int app_sort_func (TreeModel model, TreeIter a, TreeIter b) {
-            string app_a;
-            model.@get (a, ITEM_VIEW_COLUMN_NAME, out app_a);
-            string app_b;
-            model.@get (b, ITEM_VIEW_COLUMN_NAME, out app_b);
-
-            return app_a.ascii_casecmp (app_b);
-        }
-        */
 
         // traverse the model and show items with metadata that matches entry filter string
         private bool filter_func (Gtk.TreeModel m, Gtk.TreeIter iter) {
@@ -142,18 +131,18 @@ namespace Ilia {
             }
         }
 
-        private async void load_apps () {
+        private async void load_commands_from_path () {
             var paths = Environment.get_variable("PATH");
 
             foreach (unowned string path in paths.split (":")) {
                 var path_dir = File.new_for_path (path);
                 if (path_dir.query_exists ()) {
-                    yield load_apps_from_dir (path_dir);
+                    yield load_commands_from_dir (path_dir);
                 }
             }
         }
 
-        private async void load_apps_from_dir (File app_dir) {
+        private async void load_commands_from_dir (File app_dir) {
             try {
                 var enumerator = yield app_dir.enumerate_children_async (FileAttribute.STANDARD_NAME, FileQueryInfoFlags.NOFOLLOW_SYMLINKS, Priority.DEFAULT);
 
@@ -189,26 +178,33 @@ namespace Ilia {
         }
 
         // launch a desktop app
-        public void execute_app_from_selection (Gtk.TreeIter selection) {
+        public void execute_command_from_selection (Gtk.TreeIter selection) {
             string cmd_path;
             filter.@get (selection, ITEM_VIEW_COLUMN_NAME, out cmd_path);
 
-            if (cmd_path != null) execute_app(cmd_path);
+            if (cmd_path != null) execute_command(cmd_path);
         }
 
-        private void execute_app(string cmd_path) {
-            string commandline = "/usr/bin/x-terminal-emulator -e \"bash -c '" + cmd_path + "; exec bash'\"";
+        private void execute_command(string cmd_path) {
+            // TODO ~ Enalbe two launch modes with some modifier.  By default terminal exits when program exits.
+            //  todo is to add another mode in which the terminal does not exit after program completes.
+
+            //string commandline = "/usr/bin/x-terminal-emulator -e \"bash -c '" + cmd_path + "; exec bash'\"";
+            //string commandline = "x-terminal-emulator -e \"bash -c '" + cmd_path + "'\"";
+            string commandline = "x-terminal-emulator -e '" + cmd_path + "'";
+
+            // stdout.printf("%s\n", commandline);
 
             try {
                 var app_info = AppInfo.create_from_commandline (commandline, cmd_path, AppInfoCreateFlags.NONE);
 
                 if (!app_info.launch (null, null)) {
-                    stderr.printf ("Error: execute_app failed\n");
+                    stderr.printf ("Error: execute_command failed\n");
                 }
 
                 session_controller.quit ();
             } catch (GLib.Error err) {
-                stderr.printf ("Error: execute_app failed: %s\n", err.message);
+                stderr.printf ("Error: execute_command failed: %s\n", err.message);
             }
         }
     }

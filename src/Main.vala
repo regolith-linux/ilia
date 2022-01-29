@@ -7,13 +7,14 @@ public static int main (string[] args) {
     Gtk.init (ref args);
 
     var arg_map = parse_args (args);
-    if (arg_map.contains("-h") || arg_map.contains("--help")) print_help();
+    if (arg_map.contains ("-h") || arg_map.contains ("--help")) print_help ();
 
-    var focus_page = arg_map.get("-p") ?? "Apps";
+    var focus_page = arg_map.get ("-p") ?? "Apps";
 
     var window = new Ilia.DialogWindow (focus_page);
-    
+
     window.destroy.connect (Gtk.main_quit);
+
     window.show_all ();
 
     // Use the Gdk window to grab global inputs.
@@ -26,6 +27,7 @@ public static int main (string[] args) {
     }
 
     // Handle mouse clicks by determining if a click is in or out of bounds
+    // If we get a mouse click out of bounds of the window, exit.
     window.button_press_event.connect ((event) => {
         int window_width = 0, window_height = 0;
         window.get_size (out window_width, out window_height);
@@ -61,14 +63,14 @@ Gdk.Seat ? grab_inputs (Gdk.Window gdkwin) {
     }
 
     int attempt = 0;
-    Gdk.GrabStatus? grabStatus = null;
+    Gdk.GrabStatus ? grabStatus = null;
 
     do {
         grabStatus = seat.grab (gdkwin, Gdk.SeatCapabilities.ALL, true, null, null, null);
         if (grabStatus != Gdk.GrabStatus.SUCCESS) {
             attempt++;
-            GLib.Thread.usleep(10000);            
-        }        
+            GLib.Thread.usleep (10000);
+        }
     } while (grabStatus != Gdk.GrabStatus.SUCCESS && attempt < 5);
 
     if (grabStatus != Gdk.GrabStatus.SUCCESS) {
@@ -79,24 +81,24 @@ Gdk.Seat ? grab_inputs (Gdk.Window gdkwin) {
     }
 }
 
-void print_help() {
-    stdout.printf("Usage: ilia [-p page]\n");
-    stdout.printf("\npages:\n");
-    stdout.printf("\t'apps' - launch desktop applications\n");
-    stdout.printf("\t'terminal' - launch a terminal command\n");
-    stdout.printf("\t'notifications' - launch notifications manager\n");
-    stdout.printf("\t'keybindings' - launch keybindings viewer\n");
-    stdout.printf("\t'textlist' - select an item from a specified list\n");
-    stdout.printf("\t'windows' - navigate to a window\n");
-    stdout.printf("\t'tracker' - search for files by content\n");
-    Process.exit(0);
+void print_help () {
+    stdout.printf ("Usage: ilia [-p page]\n");
+    stdout.printf ("\npages:\n");
+    stdout.printf ("\t'apps' - launch desktop applications\n");
+    stdout.printf ("\t'terminal' - launch a terminal command\n");
+    stdout.printf ("\t'notifications' - launch notifications manager\n");
+    stdout.printf ("\t'keybindings' - launch keybindings viewer\n");
+    stdout.printf ("\t'textlist' - select an item from a specified list\n");
+    stdout.printf ("\t'windows' - navigate to a window\n");
+    stdout.printf ("\t'tracker' - search for files by content\n");
+    Process.exit (0);
 }
 
 /**
-* Convert ["-v", "-s", "asdf", "-f", "qwe"] => {("-v", null), ("-s", "adsf"), ("-f", "qwe")}
-* Populates key of "cmd" with first arg.
-* NOTE: Currently does not support quoted parameter values.
-*/
+ * Convert ["-v", "-s", "asdf", "-f", "qwe"] => {("-v", null), ("-s", "adsf"), ("-f", "qwe")}
+ * Populates key of "cmd" with first arg.
+ * NOTE: Currently does not support quoted parameter values.
+ */
 HashTable<string, string ? > parse_args (string[] args) {
     var arg_hashtable = new HashTable<string, string ? >(str_hash, str_equal);
 
@@ -117,7 +119,7 @@ HashTable<string, string ? > parse_args (string[] args) {
             arg_hashtable.set (last_key, token);
             last_key = null;
         } else {
-            // ignore              
+            // ignore
         }
     }
 
@@ -125,10 +127,10 @@ HashTable<string, string ? > parse_args (string[] args) {
         arg_hashtable.set (last_key, null);
     }
     /*
-    foreach (var key in arg_hashtable.get_keys ()) {
+       foreach (var key in arg_hashtable.get_keys ()) {
         stdout.printf ("%s => %s\n", key, arg_hashtable.lookup(key));
-    }
-    */
+       }
+     */
 
     return arg_hashtable;
 }

@@ -11,6 +11,11 @@ namespace Ilia {
         const int KEY_CODE_PGUP = 65365;
         const int KEY_CODE_RIGHT = 65363;
         const int KEY_CODE_LEFT = 65361;
+        const int KEY_CODE_PLUS = 43;
+        const int KEY_CODE_MINUS = 45;
+
+        const int MIN_WINDOW_WIDTH = 160;
+        const int MIN_WINDOW_HEIGHT = 100;
 
         private const int TOTAL_PAGES = 2;
         // Reference to all active dialog pages
@@ -29,7 +34,7 @@ namespace Ilia {
         protected Gdk.Seat seat;
 
         public DialogWindow (string focus_page) {
-            Object(type: Gtk.WindowType.POPUP);
+            Object(type: Gtk.WindowType.POPUP); // Window is unmanaged
             window_position = WindowPosition.CENTER_ALWAYS;
 
             settings = new GLib.Settings ("org.regolith-linux.ilia");
@@ -62,6 +67,8 @@ namespace Ilia {
 
             // Route keys based on function
             key_press_event.connect ((key) => {
+                bool key_handled = false;
+
                 switch (key.keyval) {
                     case KEY_CODE_ESCAPE:
                         quit ();
@@ -77,6 +84,14 @@ namespace Ilia {
                     case KEY_CODE_LEFT:
                         notebook.grab_focus ();
                         break;
+                    case KEY_CODE_PLUS:
+                        change_size(128);
+                        key_handled = true;
+                        break;
+                    case KEY_CODE_MINUS:
+                        change_size(-128);
+                        key_handled = true;
+                        break;
                     default:
                         // stdout.printf ("Keycode: %u\n", key.keyval);
                         if (!dialog_pages[active_page].key_event (key)) {
@@ -85,7 +100,7 @@ namespace Ilia {
                         break;
                 }
 
-                return false;
+                return key_handled;
             });
 
             entry.activate.connect (on_entry_activated);
@@ -151,6 +166,23 @@ namespace Ilia {
             }
 
             on_page_switch (dialog_pages[active_page].get_root (), active_page);
+        }
+
+        // Resize the dialog, bigger or smaller
+        void change_size(int delta) {
+            int width, height;
+            get_size(out width, out height);
+
+            width += delta;
+            height += delta;
+
+            // Ignore changes past min bounds
+            if (width < MIN_WINDOW_WIDTH || height < MIN_WINDOW_HEIGHT) return;            
+
+            resize (width, height);
+
+            settings.set_int("window-width", width);
+            settings.set_int("window-height", height);
         }
 
         void on_page_switch (Widget page, uint page_num) {

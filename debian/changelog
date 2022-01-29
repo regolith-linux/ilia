@@ -1,3 +1,10 @@
+ilia (0.9.8-1) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Add feature to resize dialog
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 29 Jan 2022 09:12:00 -0800
+
 ilia (0.9.7-1) focal; urgency=medium
 
   [ Ken Gilmer ]

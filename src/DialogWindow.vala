@@ -3,16 +3,18 @@ using Gtk;
 namespace Ilia {
     // Primary UI
     public class DialogWindow : Window, SessionContoller {
-        const int KEY_CODE_ESCAPE = 65307;
-        const int KEY_CODE_UP = 65364;
-        const int KEY_CODE_DOWN = 65362;
+        public const int KEY_CODE_ESCAPE = 65307;
+        public const int KEY_CODE_LEFT_ALT = 65513;
+        public const int KEY_CODE_RIGHT_ALT = 65514;
+        public const int KEY_CODE_UP = 65364;
+        public const int KEY_CODE_DOWN = 65362;
         public const int KEY_CODE_ENTER = 65293;
-        const int KEY_CODE_PGDOWN = 65366;
-        const int KEY_CODE_PGUP = 65365;
-        const int KEY_CODE_RIGHT = 65363;
-        const int KEY_CODE_LEFT = 65361;
-        const int KEY_CODE_PLUS = 43;
-        const int KEY_CODE_MINUS = 45;
+        public const int KEY_CODE_PGDOWN = 65366;
+        public const int KEY_CODE_PGUP = 65365;
+        public const int KEY_CODE_RIGHT = 65363;
+        public const int KEY_CODE_LEFT = 65361;
+        public const int KEY_CODE_PLUS = 43;
+        public const int KEY_CODE_MINUS = 45;
 
         const int MIN_WINDOW_WIDTH = 160;
         const int MIN_WINDOW_HEIGHT = 100;

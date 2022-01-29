@@ -9,9 +9,9 @@ public static int main (string[] args) {
     var arg_map = parse_args (args);
     if (arg_map.contains ("-h") || arg_map.contains ("--help")) print_help ();
 
-    var focus_page = arg_map.get ("-p") ?? "Apps";
+    var page = arg_map.get ("-p") ?? "Apps";
 
-    var window = new Ilia.DialogWindow (focus_page);
+    var window = new Ilia.DialogWindow (page);
 
     window.destroy.connect (Gtk.main_quit);
 

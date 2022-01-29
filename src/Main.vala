@@ -15,6 +15,8 @@ public static int main (string[] args) {
 
     window.destroy.connect (Gtk.main_quit);
 
+    initialize_style (window, arg_map);
+
     window.show_all ();
 
     // Use the Gdk window to grab global inputs.
@@ -46,6 +48,25 @@ public static int main (string[] args) {
 
     Gtk.main ();
     return 0;
+}
+
+private void initialize_style (Gtk.Window window, HashTable<string, string ? > arg_map) {
+    Gtk.CssProvider css_provider = new Gtk.CssProvider ();
+    if (arg_map.contains ("-t")) {
+        try {
+            var file = File.new_for_path (arg_map.get ("-t"));
+
+            if (!file.query_exists ()) {
+                printerr ("File '%s' does not exist.\n", file.get_path ());
+                Process.exit (1);
+            }
+            css_provider.load_from_file (file);
+
+            Gtk.StyleContext.add_provider_for_screen (Gdk.Screen.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
+        } catch (GLib.Error ex) {
+            error ("Failed to initalize style: " + ex.message);
+        }
+    }
 }
 
 // Grabs the input devices for a given window

@@ -144,7 +144,8 @@ namespace Ilia {
                 // Alt-enter causes selection to be added to the stack, items reset to actions available on the app
 
                 // TODO: Add selected item to stack
-
+                    current status: building the layout to handle the collapsible section to view the 
+                    selectect action.  implement the TODOs in this function
                 // TODO: Discard apps and populate with actions of app
 
                 // TODO: Set "mode" to action selection (vs app selection) mode

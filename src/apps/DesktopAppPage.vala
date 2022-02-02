@@ -14,6 +14,8 @@ namespace Ilia {
         private const int FS_FILE_READ_COUNT = 128;
         // The widget to display list of available options
         private Gtk.TreeView item_view;
+        // The widget for alt-action selection
+        private Gtk.ListBox listbox;
         // Model for selections
         private Gtk.ListStore model;
         // Access state from model
@@ -62,7 +64,7 @@ namespace Ilia {
             filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);
 
-            create_item_view ();
+            root_widget = create_page_widget ();
 
             load_apps.begin ((obj, res) => {
                 load_apps.end (res);
@@ -72,24 +74,24 @@ namespace Ilia {
 
                 set_selection ();
             });
-
-            var scrolled = new Gtk.ScrolledWindow (null, null);
-            scrolled.add (item_view);
-            scrolled.expand = true;
-
-            root_widget = scrolled;
         }
 
         public Gtk.Widget get_root () {
             return root_widget;
         }
 
-        public bool key_event(Gdk.EventKey event_key) {
+        public bool key_event(Gdk.EventKey event_key) {            
             return false;
         }
 
         // Initialize the view displaying selections
-        private void create_item_view () {
+        private Widget create_page_widget () {
+            Gtk.Box box = new Gtk.Box (Gtk.Orientation.VERTICAL, 0);
+            this.add(box);            
+    
+            var listbox = new ListBox();
+            box.pack_start (listbox, false, false, 0);
+
             item_view = new Gtk.TreeView.with_model (filter);
 
             // Do not show column headers
@@ -112,9 +114,44 @@ namespace Ilia {
 
             // Launch app on row selection
             item_view.row_activated.connect (on_row_activated);
+
+            item_view.cursor_changed.connect(() => {
+                var selection = item_view.get_selection();
+
+                if (selection.get_selected (null, out iter)) {
+                    DesktopAppInfo app_info;
+                    filter.@get (iter, ITEM_VIEW_COLUMN_APPINFO, out app_info);
+
+                    stdout.printf("App: %s\n", app_info.get_name());
+                    var actions = app_info.list_actions();
+                    foreach (string action in actions) {
+                        stdout.printf("  Action: %s\n", action);
+                    }
+                }
+            });
+
+            var scrolled = new Gtk.ScrolledWindow (null, null);
+            scrolled.add (item_view);
+            scrolled.expand = true;
+
+            box.pack_start (scrolled, false, false, 0);
+
+            return scrolled;
         }
 
-        public void grab_focus (uint keycode) {
+        public void grab_focus (Gdk.EventKey event_key) {
+            if (event_key.keyval == 65293 && event_key.state == 8) { 
+                // Alt-enter causes selection to be added to the stack, items reset to actions available on the app
+
+                // TODO: Add selected item to stack
+
+                // TODO: Discard apps and populate with actions of app
+
+                // TODO: Set "mode" to action selection (vs app selection) mode
+                stdout.printf("alt enter\n"); 
+            
+            }
+            stdout.printf ("Keycode: %u State: %u\n", event_key.keyval, event_key.state);
             item_view.grab_focus ();
         }
 

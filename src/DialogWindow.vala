@@ -80,7 +80,7 @@ namespace Ilia {
                     case KEY_CODE_ENTER:
                     case KEY_CODE_PGDOWN:
                     case KEY_CODE_PGUP:
-                        dialog_pages[active_page].grab_focus (key.keyval);
+                        dialog_pages[active_page].grab_focus (key);
                         break;
                     case KEY_CODE_RIGHT:
                     case KEY_CODE_LEFT:

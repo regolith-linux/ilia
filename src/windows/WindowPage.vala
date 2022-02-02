@@ -91,8 +91,8 @@ namespace Ilia {
             return false;
         }
 
-        public void grab_focus (uint keycode) {
-            if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
+        public void grab_focus (Gdk.EventKey event_key) {
+            if (event_key.keyval == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
                 _from_selection (iter);
             }
 

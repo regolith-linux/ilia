@@ -66,7 +66,7 @@ Gdk.Seat ? grab_inputs (Gdk.Window gdkwin) {
     Gdk.GrabStatus ? grabStatus = null;
 
     do {
-        grabStatus = seat.grab (gdkwin, Gdk.SeatCapabilities.ALL, true, null, null, null);
+        grabStatus = seat.grab (gdkwin, Gdk.SeatCapabilities.KEYBOARD | Gdk.SeatCapabilities.POINTER, true, null, null, null);
         if (grabStatus != Gdk.GrabStatus.SUCCESS) {
             attempt++;
             GLib.Thread.usleep (10000);
@@ -74,7 +74,7 @@ Gdk.Seat ? grab_inputs (Gdk.Window gdkwin) {
     } while (grabStatus != Gdk.GrabStatus.SUCCESS && attempt < 5);
 
     if (grabStatus != Gdk.GrabStatus.SUCCESS) {
-        stderr.printf ("Failed to grab input: %d\n", grabStatus);
+        stderr.printf ("Aborting, failed to grab input: %d\n", grabStatus);
         return null;
     } else {
         return seat;

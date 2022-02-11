@@ -1,3 +1,11 @@
+ilia (0.9.10) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Misc cleanup
+  * Only grab keyboard and mouse
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 10 Feb 2022 20:47:20 -0800
+
 ilia (0.9.9) focal; urgency=medium
 
   [ Ken Gilmer ]

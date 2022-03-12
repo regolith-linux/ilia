@@ -1,3 +1,10 @@
+ilia (0.9.11-impish) impish; urgency=medium
+
+  [ Ken Gilmer ]
+  * Depend on new major version of libtracker-sparql for impish support
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 12 Mar 2022 15:21:19 -0800
+
 ilia (0.9.10) focal; urgency=medium
 
   [ Ken Gilmer ]

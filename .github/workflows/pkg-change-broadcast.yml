@@ -2,7 +2,7 @@ name: pkg-change-broadcast
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, ubuntu/impish ]
   workflow_dispatch:
 
 jobs:

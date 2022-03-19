@@ -43,7 +43,14 @@ namespace Ilia {
         public string config { get; private set; }
 
         internal ConfigReply (Json.Node responseJson) {
-            config = responseJson.get_object ().get_string_member ("config");
+            var configBuilder = new StringBuilder("");
+            var configs = responseJson.get_object ().get_array_member ("included_configs");
+
+            configs.foreach_element ((arr, index, node) => {
+                configBuilder.append(node.get_object ().get_string_member ("variable_replaced_contents"));
+            });
+
+            config = configBuilder.str;
         }
     }
 

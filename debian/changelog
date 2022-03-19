@@ -1,3 +1,10 @@
+ilia (0.9.12) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Load config partials for keybindings
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Fri, 18 Mar 2022 21:29:11 -0700
+
 ilia (0.9.10) focal; urgency=medium
 
   [ Ken Gilmer ]

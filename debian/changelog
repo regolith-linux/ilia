@@ -1,3 +1,10 @@
+ilia (0.9.12-impish) UNRELEASED; urgency=medium
+
+  [ Ken Gilmer ]
+  * Load config partials for keybindings
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Fri, 18 Mar 2022 21:30:27 -0700
+
 ilia (0.9.11-impish) impish; urgency=medium
 
   [ Ken Gilmer ]

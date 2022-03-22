@@ -1,4 +1,4 @@
-ilia (0.9.12-impish) UNRELEASED; urgency=medium
+ilia (0.9.12-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Load config partials for keybindings

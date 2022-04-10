@@ -1,3 +1,11 @@
+ilia (0.9.13) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Use XDG_DATA_DIRS to source desktop files to address https://github.com/regolith-linux/ilia/issues/11
+  * Update heuristic to grab resources at start time (experimental)
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 10 Apr 2022 09:33:19 -0700
+
 ilia (0.9.12) focal; urgency=medium
 
   [ Ken Gilmer ]

@@ -49,6 +49,10 @@ public static int main (string[] args) {
 }
 
 // Grabs the input devices for a given window
+// Some systems exhibit behavior such that keyboard / mouse cannot be reliably grabbed.
+// As a workaround, this function will continue to attempt to grab these resources over an
+// increasing time window and eventually give up and exit if ultimately unable to aquire
+// the keyboard and mouse resources.
 Gdk.Seat ? grab_inputs (Gdk.Window gdkwin) {
     var display = gdkwin.get_display (); // Gdk.Display.get_default();
     if (display == null) {
@@ -64,14 +68,16 @@ Gdk.Seat ? grab_inputs (Gdk.Window gdkwin) {
 
     int attempt = 0;
     Gdk.GrabStatus ? grabStatus = null;
+    int wait_time = 1000;
 
     do {
         grabStatus = seat.grab (gdkwin, Gdk.SeatCapabilities.KEYBOARD | Gdk.SeatCapabilities.POINTER, true, null, null, null);
         if (grabStatus != Gdk.GrabStatus.SUCCESS) {
             attempt++;
-            GLib.Thread.usleep (10000);
+            wait_time = wait_time * 2;
+            GLib.Thread.usleep (wait_time);
         }
-    } while (grabStatus != Gdk.GrabStatus.SUCCESS && attempt < 5);
+    } while (grabStatus != Gdk.GrabStatus.SUCCESS && attempt < 8);
 
     if (grabStatus != Gdk.GrabStatus.SUCCESS) {
         stderr.printf ("Aborting, failed to grab input: %d\n", grabStatus);

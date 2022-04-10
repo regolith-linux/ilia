@@ -12,6 +12,9 @@ namespace Ilia {
         private const uint HISTORY_MAX_LEN = 32;
         // Max number of files to read in sequence before yeilding
         private const int FS_FILE_READ_COUNT = 128;
+        // Roots of app dirs env var.  See https://github.com/flatpak/flatpak/issues/1286#issuecomment-354554684
+        private const string XDG_DATA_DIRS = "XDG_DATA_DIRS";
+
         // The widget to display list of available options
         private Gtk.TreeView item_view;
         // Model for selections
@@ -220,14 +223,38 @@ namespace Ilia {
             // determine theme for icons
             icon_theme = Gtk.IconTheme.get_default ();
 
-            // populate model with desktop apps from known locations
-            var system_app_dir = File.new_for_path ("/usr/share/applications");
-            if (system_app_dir.query_exists ()) yield load_apps_from_dir (system_app_dir);
+            var app_dirs = find_app_dirs();
 
-            // ~/.local/share/applications
-            var home_dir = File.new_for_path (Environment.get_home_dir ());
-            var local_app_dir = home_dir.get_child (".local").get_child ("share").get_child ("applications");
-            if (local_app_dir.query_exists ()) yield load_apps_from_dir (local_app_dir);
+            foreach (string app_dir in app_dirs) { 
+                // populate model with desktop apps from known locations
+                var system_app_dir = File.new_for_path (app_dir);
+                if (system_app_dir.query_exists ()) yield load_apps_from_dir (system_app_dir);
+            }
+        }
+
+        // Read locations of desktop app file paths from OS via env variable, fallback to const
+        private string[] find_app_dirs() {
+            var app_dir_roots = Environment.get_variable(XDG_DATA_DIRS);
+
+            // Handle edge case of no env data for dirs
+            if (app_dir_roots == null || app_dir_roots.length == 0) {
+                string[] rv = new string[1];
+                rv[0] = "/usr/share/applications";
+    
+                return rv;
+            }
+
+            string[] root_paths = app_dir_roots.split (":");
+            string[] app_paths = new string[root_paths.length];
+            int index = 0;
+
+            foreach (unowned string root_path in root_paths) {
+                app_paths[index] = root_path + "/applications";
+
+                index++;
+            }
+
+            return app_paths;            
         }
 
         private async void load_apps_from_dir (File app_dir) {

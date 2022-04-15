@@ -19,7 +19,7 @@ namespace Ilia {
         const int MIN_WINDOW_WIDTH = 160;
         const int MIN_WINDOW_HEIGHT = 100;
 
-        private const int TOTAL_PAGES = 2;
+        private const int TOTAL_PAGES = 1;
         // Reference to all active dialog pages
         private DialogPage[] dialog_pages;
         // Specifies the array index for dialog_pages of active page

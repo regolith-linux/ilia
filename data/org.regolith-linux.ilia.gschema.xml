@@ -31,9 +31,16 @@
     </key>
         <key name="post-launch-sleep" type="i">
       <default>100000</default>
-      <summary>Microseconds to wait for launching app before exit</summary>
+      <summary>Wait time for app launch to occur</summary>
       <description>
-        Wait time for app launch to occur
+        Microseconds to wait for launching app before exit.        
+      </description>
+    </key>
+    <key name="show-help" type="b">
+      <default>true</default>
+      <summary>Show Help</summary>
+      <description>
+        If true, help is displayed in the dialog.
       </description>
     </key>
 	</schema>

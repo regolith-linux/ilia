@@ -15,6 +15,7 @@ namespace Ilia {
         public const int KEY_CODE_LEFT = 65361;
         public const int KEY_CODE_PLUS = 43;
         public const int KEY_CODE_MINUS = 45;
+        public const int KEY_CODE_QUESTION = 63;
 
         const int MIN_WINDOW_WIDTH = 160;
         const int MIN_WINDOW_HEIGHT = 100;
@@ -32,14 +33,23 @@ namespace Ilia {
         private GLib.Settings settings;
 
         private Gtk.Grid grid;
-
+        // Controls access to keyboard and mouse
         protected Gdk.Seat seat;
+        // Flag to track state of help visibility
+        private bool _show_help;
+        // Child of root_widget that displays help content
+        private Gtk.Box help_widget = null;
+        // root container
+        private Gtk.Box root_box;
 
         public DialogWindow (string focus_page) {
             Object(type: Gtk.WindowType.POPUP); // Window is unmanaged
             window_position = WindowPosition.CENTER_ALWAYS;
 
             settings = new GLib.Settings ("org.regolith-linux.ilia");
+
+            root_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 10);
+            add (root_box);        
 
             entry = new Gtk.Entry ();
             entry.hexpand = true;
@@ -57,9 +67,12 @@ namespace Ilia {
             grid = new Gtk.Grid ();
             grid.attach (entry, 0, 0, 1, 1);
             grid.attach (notebook, 0, 1, 1, 1);
-            add (grid);
+            root_box.pack_start (grid, true, true, 0);
 
             set_default_size (settings.get_int ("window-width"), settings.get_int ("window-height"));
+
+            _show_help = settings.get_boolean ("show-help");
+            update_help ();
 
             // Exit if focus leaves us
             focus_out_event.connect (() => {
@@ -92,6 +105,11 @@ namespace Ilia {
                         break;
                     case KEY_CODE_MINUS:
                         change_size(-128);
+                        key_handled = true;
+                        break;
+                    case KEY_CODE_QUESTION:
+                        toggle_help ();
+                        update_help ();
                         key_handled = true;
                         break;
                     default:
@@ -149,7 +167,7 @@ namespace Ilia {
 
             // Exit if unable to load active page
             if (dialog_pages[0] == null) {
-                stderr.printf ("No page loaded, exiting\n", focus_page);
+                stderr.printf ("No page loaded, exiting\n");
                 Process.exit (1);
             }
 
@@ -172,6 +190,100 @@ namespace Ilia {
 
             on_page_switch (dialog_pages[active_page].get_root (), active_page);
         }
+
+        void toggle_help() {
+            _show_help = !_show_help;
+            settings.set_boolean("show-help", _show_help);
+        }
+
+        void update_help() {
+            if (_show_help) {
+                if (help_widget != null) return;
+
+                help_widget = new Gtk.Box(Gtk.Orientation.VERTICAL, 5);
+                // help_widget.set_margin_right(10);
+                root_box.add(help_widget) ;
+
+                var l1 = new Label("Help");
+                help_widget.pack_start(l1, false, false, 5);
+                l1.show_all ();
+
+                var keybinding_view = new TreeView ();
+                setup_treeview (keybinding_view);
+                help_widget.pack_start(keybinding_view, false, false, 5);
+                keybinding_view.show_all ();
+
+                /*
+                help_widget = new Gtk.Box(Gtk.Orientation.VERTICAL, 5);
+                help_widget.set_margin_right(10);
+                root_box.add(help_widget) ;
+
+                // help_widget = new Label("Help\n?: Toggle Help\n+: Increase Size\n-: Decrease Size");
+                var l1 = new Label("Help");
+                help_widget.pack_start(l1, false, false, 5);
+                l1.show_all ();
+                var l2 = new Label("?: Toggle Help");
+                help_widget.pack_start(l2, false, false, 0);
+                l2.show_all ();
+                var l3 = new Label("+: Increase Size");
+                help_widget.pack_start(l3, false, false, 0);
+                l3.show_all ();
+                var l4 = new Label("-: Decrease Size");
+                help_widget.pack_start(l4, false, false, 0);
+                l4.show_all ();
+                 */
+
+                help_widget.show_all();
+            } else {
+                if (help_widget == null) return;
+                help_widget.destroy ();
+                help_widget = null;
+            }
+        }
+         
+        private void setup_treeview (TreeView view) {
+
+            /*
+             * Use ListStore to hold accountname, accounttype, balance and
+             * color attribute. For more info on how TreeView works take a
+             * look at the GTK+ API.
+             */
+    
+            var listmodel = new Gtk.ListStore (2, typeof (string), typeof (string));
+            view.set_model (listmodel);
+
+            view.headers_visible = false;
+            view.fixed_height_mode = true;
+            view.enable_search = false;
+    
+            view.insert_column_with_attributes (-1, "Key", new CellRendererText (), "text", 0);
+            view.insert_column_with_attributes (-1, "Function", new CellRendererText (), "text", 1);
+    
+            TreeIter iter;
+            listmodel.append (out iter);
+            listmodel.set (iter, 0, "-", 1, "Decrease Size");
+    
+            listmodel.append (out iter);
+            listmodel.set (iter, 0, "+", 1, "Increase Size");
+
+            listmodel.append (out iter);
+            listmodel.set (iter, 0, "?", 1, "Toggle Help");
+        }
+
+         /*
+        void update_help() {
+            if (_show_help) {
+                if (help_widget != null) return;
+                help_widget = new Label("Help\n?: Toggle Help\n+: Increase Size\n-: Decrease Size");
+                root_box.pack_end(help_widget, false, false, 0);
+                help_widget.show_all();
+            } else {
+                if (help_widget == null) return;
+                help_widget.destroy ();
+                help_widget = null;
+            }
+        }
+         */
 
         // Resize the dialog, bigger or smaller
         void change_size(int delta) {

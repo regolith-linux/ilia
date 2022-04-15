@@ -143,12 +143,15 @@ namespace Ilia {
                     dialog_pages[0].initialize.begin (settings, entry, this);
                     break;
                 default:
-                    stderr.printf ("Unknown page type %s, aborting.\n", focus_page);
+                    stderr.printf ("Unknown page type: %s\n", focus_page);
                     break;
             }
 
             // Exit if unable to load active page
-            if (dialog_pages[0] == null) Process.exit (1);
+            if (dialog_pages[0] == null) {
+                stderr.printf ("No page loaded, exiting\n", focus_page);
+                Process.exit (1);
+            }
 
             // This allows for multiple page loads.  Until startup performance is addressed, only load one page.
             for (int i = 0; i < TOTAL_PAGES; ++i) {

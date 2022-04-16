@@ -1,3 +1,12 @@
+ilia (0.10.0) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Fix array size for pages
+  * Better error message for invalid page
+  * Add help feature, enabled by default
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 16 Apr 2022 16:35:32 -0700
+
 ilia (0.9.13) focal; urgency=medium
 
   [ Ken Gilmer ]

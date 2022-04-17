@@ -49,16 +49,18 @@ namespace Ilia {
             settings = new GLib.Settings ("org.regolith-linux.ilia");
 
             root_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 10);
+            root_box.get_style_context ().add_class ("root_box");
             add (root_box);        
 
             entry = new Gtk.Entry ();
+            entry.get_style_context ().add_class ("filter_entry");
             entry.hexpand = true;
             entry.height_request = 36;
 
             entry.changed.connect (on_entry_changed);
 
             notebook = new Notebook ();
-            notebook.set_show_border (true);
+            notebook.get_style_context ().add_class ("notebook");            
             notebook.set_tab_pos (PositionType.BOTTOM);
             notebook.switch_page.connect (on_page_switch);
 
@@ -125,6 +127,10 @@ namespace Ilia {
 
             entry.activate.connect (on_entry_activated);
             entry.grab_focus ();
+        }
+
+        public void set_seat(Gdk.Seat seat) {
+            this.seat = seat;
         }
 
         private void init_pages (string focus_page) {

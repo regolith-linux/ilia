@@ -36,12 +36,5 @@
         Microseconds to wait for launching app before exit.        
       </description>
     </key>
-    <key name="show-help" type="b">
-      <default>true</default>
-      <summary>Show Help</summary>
-      <description>
-        If true, help is displayed in the dialog.
-      </description>
-    </key>
 	</schema>
 </schemalist>

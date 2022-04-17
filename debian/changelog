@@ -1,3 +1,11 @@
+ilia (0.11.0) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Add ability to specify custom stylesheet
+  * Customize style via hardcoded CSS. Enable command line options for specifying css file or no styling.  Misc fixes.
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 16 Apr 2022 22:59:16 -0700
+
 ilia (0.10.0) focal; urgency=medium
 
   [ Ken Gilmer ]

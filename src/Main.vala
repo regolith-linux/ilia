@@ -24,6 +24,8 @@ public static int main (string[] args) {
     if (seat == null) {
         stderr.printf ("Failed to aquire access to input devices, aborting.");
         return 1;
+    } else {
+        window.set_seat (seat);
     }
 
     // Handle mouse clicks by determining if a click is in or out of bounds
@@ -48,9 +50,10 @@ public static int main (string[] args) {
     return 0;
 }
 
-private void initialize_style (Gtk.Window window, HashTable<string, string ? > arg_map) {    
-    if (arg_map.contains ("-t")) {
-        try {
+private void initialize_style (Gtk.Window window, HashTable<string, string ? > arg_map) {
+    try {
+        if (arg_map.contains ("-t")) {
+
             var file = File.new_for_path (arg_map.get ("-t"));
 
             if (!file.query_exists ()) {
@@ -61,9 +64,32 @@ private void initialize_style (Gtk.Window window, HashTable<string, string ? > a
             css_provider.load_from_file (file);
 
             Gtk.StyleContext.add_provider_for_screen (Gdk.Screen.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
-        } catch (GLib.Error ex) {
-            error ("Failed to initalize style: " + ex.message);
+        } else if (!arg_map.contains ("-n")) {
+            string default_css = """
+                window {
+                    font: 14px "JetBrainsMono Nerd Font";
+                }
+
+                .root_box {
+                    margin: 8px;
+                }
+
+                .filter_entry {
+                    border: none;
+                    background: none;
+                }
+
+                .notebook {
+                    border: none;
+                }
+            """;
+            Gtk.CssProvider css_provider = new Gtk.CssProvider ();
+            css_provider.load_from_data (default_css);
+
+            Gtk.StyleContext.add_provider_for_screen (Gdk.Screen.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
         }
+    } catch (GLib.Error ex) {
+        error ("Failed to initalize style: " + ex.message);
     }
 }
 
@@ -107,7 +133,7 @@ Gdk.Seat ? grab_inputs (Gdk.Window gdkwin) {
 }
 
 void print_help () {
-    stdout.printf ("Usage: ilia [-t stylesheet] [-p page]\n");
+    stdout.printf ("Usage: ilia [-t stylesheet] [-n] [-p page]\n");
     stdout.printf ("\npages:\n");
     stdout.printf ("\t'apps' - launch desktop applications\n");
     stdout.printf ("\t'terminal' - launch a terminal command\n");
@@ -116,6 +142,7 @@ void print_help () {
     stdout.printf ("\t'textlist' - select an item from a specified list\n");
     stdout.printf ("\t'windows' - navigate to a window\n");
     stdout.printf ("\t'tracker' - search for files by content\n");
+    stdout.printf ("\n\t -t: specify path to custom stylesheet.  -n: no custom styles\n");
     Process.exit (0);
 }
 

@@ -76,7 +76,8 @@ namespace Ilia {
                 set_selection ();
             });
 
-            var scrolled = new Gtk.ScrolledWindow (null, null);
+            var scrolled = new Gtk.ScrolledWindow (null, null);            
+            scrolled.get_style_context ().add_class ("scrolled_window");
             scrolled.add (item_view);
             scrolled.expand = true;
 
@@ -93,8 +94,8 @@ namespace Ilia {
 
         // Initialize the view displaying selections
         private void create_item_view () {
-            item_view = new Gtk.TreeView.with_model (filter);
-
+            item_view = new Gtk.TreeView.with_model (filter);            
+            item_view.get_style_context ().add_class ("item_view");
             // Do not show column headers
             item_view.headers_visible = false;
 

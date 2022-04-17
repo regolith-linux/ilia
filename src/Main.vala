@@ -66,10 +66,6 @@ private void initialize_style (Gtk.Window window, HashTable<string, string ? > a
             Gtk.StyleContext.add_provider_for_screen (Gdk.Screen.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
         } else if (!arg_map.contains ("-n")) {
             string default_css = """
-                window {
-                    font: 14px "JetBrainsMono Nerd Font";
-                }
-
                 .root_box {
                     margin: 8px;
                 }

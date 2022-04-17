@@ -24,7 +24,6 @@ Depends:
   ${shlibs:Depends}, 
   ${misc:Depends},
   libgee-0.8-2
-Recommends: fonts-nerd-font-jetbrainsmono
 Description: General purpose desktop executor
  Invoke actions upon apps, commands, notifications, 
  and keybindings via a simple filterable menu.

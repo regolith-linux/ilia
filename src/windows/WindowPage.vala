@@ -34,6 +34,18 @@ namespace Ilia {
             return "applications-other";
         }
 
+        public string get_help () {
+            return "This dialog allows for navigating between open windows in the desktop environment.  Selecting a window from the list will cause it to be viewed on screen and focused.";
+        }
+
+        public HashTable<string, string>? get_keybindings() {
+            var keybindings = new HashTable<string, string ? >(str_hash, str_equal);
+
+            keybindings.set("enter", "Navigate to Window");            
+
+            return keybindings;
+        }
+
         public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error {
             this.entry = entry;
             this.session_controller = sessionController;

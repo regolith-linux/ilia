@@ -28,6 +28,18 @@ namespace Ilia {
             return "utilities-terminal";
         }
 
+        public string get_help () {
+            return "This dialog presents a filterable list of items to select from.";
+        }
+
+        public HashTable<string, string>? get_keybindings() {
+            var keybindings = new HashTable<string, string ? >(str_hash, str_equal);
+
+            keybindings.set("enter", "Select Item");            
+
+            return keybindings;
+        }
+
         public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error {
             this.entry = entry;
             this.session_controller = sessionController;

@@ -37,6 +37,19 @@ namespace Ilia {
             return "mail-message-new";
         }
 
+        public string get_help () {
+            return "This dialog manages desktop notifications. Initially all desktop apps are presented. The user may filter the list in the top text box.";
+        }
+
+        public HashTable<string, string>? get_keybindings() {
+            var keybindings = new HashTable<string, string ? >(str_hash, str_equal);
+
+            keybindings.set("del", "Delete Notification");
+            keybindings.set("shift del", "Delete All Notifications");
+
+            return keybindings;
+        }
+
         public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error {
             this.entry = entry;
             this.session_controller = sessionController;
@@ -176,7 +189,6 @@ namespace Ilia {
                 } else {
                     detail = "<no content>";
                 }
-
 
                 model.append (out iter);
                 model.set (

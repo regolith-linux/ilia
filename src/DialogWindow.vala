@@ -36,6 +36,8 @@ namespace Ilia {
         // Controls access to keyboard and mouse
         protected Gdk.Seat seat;
 
+        private Gtk.TreeView keybinding_view;
+
         public DialogWindow (string focus_page) {
             Object(type: Gtk.WindowType.POPUP); // Window is unmanaged
             window_position = WindowPosition.CENTER_ALWAYS;
@@ -68,7 +70,7 @@ namespace Ilia {
             focus_out_event.connect (() => {
                 quit ();
                 return false;
-            });
+            });            
 
             // Route keys based on function
             key_press_event.connect ((key) => {
@@ -109,7 +111,7 @@ namespace Ilia {
             });
 
             entry.activate.connect (on_entry_activated);
-            entry.grab_focus ();
+            entry.grab_focus ();            
         }
 
         public void set_seat(Gdk.Seat seat) {
@@ -181,19 +183,26 @@ namespace Ilia {
             var help_label = new Label ("Help");
             var help_widget = new Gtk.Box(Gtk.Orientation.VERTICAL, 5);
 
-            var l1 = new Label("Keybindings");
-            help_widget.pack_start(l1, false, false, 5);
+            var page_help_label = new Label(dialog_pages[0].get_help ());
+            page_help_label.set_line_wrap (true);
+            help_widget.pack_start(page_help_label, false, false, 5);
 
-            var keybinding_view = new TreeView ();
-            keybinding_view.set_sensitive (false);
-            setup_treeview (keybinding_view);
+            var keybindings_title = new Label("Keybindings");
+            keybindings_title.get_style_context ().add_class ("help_heading");  
+            help_widget.pack_start(keybindings_title, false, false, 5);            
+
+            keybinding_view = new TreeView ();
+            setup_treeview (keybinding_view, dialog_pages[0].get_keybindings ());
             help_widget.pack_start(keybinding_view, false, false, 5);
-            notebook.append_page (help_widget, help_label);        
+            notebook.append_page (help_widget, help_label);            
+            keybinding_view.realize.connect (() => {
+                keybinding_view.columns_autosize ();
+            }); 
 
             on_page_switch (dialog_pages[active_page].get_root (), active_page);
         }
          
-        private void setup_treeview (TreeView view) {
+        private void setup_treeview (TreeView view, HashTable<string, string>? keybindings) {
             var listmodel = new Gtk.ListStore (2, typeof (string), typeof (string));
             view.set_model (listmodel);
 
@@ -205,11 +214,27 @@ namespace Ilia {
             view.insert_column_with_attributes (-1, "Function", new CellRendererText (), "text", 1);
     
             TreeIter iter;
+
+            if (keybindings != null) {
+                keybindings.foreach ((key, val) => {
+                    TreeIter iter2;
+
+                    listmodel.append (out iter2);
+                    listmodel.set (iter2, 0, key, 1, val);                    
+                });            
+            }
+
             listmodel.append (out iter);
             listmodel.set (iter, 0, "-", 1, "Decrease Size");
     
             listmodel.append (out iter);
             listmodel.set (iter, 0, "+", 1, "Increase Size");
+
+            listmodel.append (out iter);
+            listmodel.set (iter, 0, "↑ ↓", 1, "Change Selected Item");
+
+            listmodel.append (out iter);
+            listmodel.set (iter, 0, "Esc", 1, "Exit");
         }
 
         // Resize the dialog, bigger or smaller

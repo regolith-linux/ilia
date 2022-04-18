@@ -34,6 +34,18 @@ namespace Ilia {
             return "applications-other";
         }
 
+        public string get_help () {
+            return "This dialog allows for searching for files based on content. Type in a text query, hit enter and select from the list of files which contain the search string to open it.";
+        }
+
+        public HashTable<string, string>? get_keybindings() {
+            var keybindings = new HashTable<string, string ? >(str_hash, str_equal);
+
+            keybindings.set("enter", "Open File");            
+
+            return keybindings;
+        }
+
         public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error {
             this.entry = entry;
             this.session_controller = sessionController;

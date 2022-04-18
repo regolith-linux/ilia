@@ -31,6 +31,18 @@ namespace Ilia {
             return "input-keyboard";
         }
 
+        public string get_help () {
+            return "This dialog allows for viewing desktop keybindings. Initially all keybindings are presented. The user may filter the list in the top text box. The arrow keys may be used to select from the list, and enter or clicking on an item will perform the keybinding action.";
+        }
+
+        public HashTable<string, string>? get_keybindings() {
+            var keybindings = new HashTable<string, string ? >(str_hash, str_equal);
+
+            keybindings.set("enter", "Invoke Keybinding");            
+
+            return keybindings;
+        }
+
         public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) {
             this.entry = entry;
             this.session_controller = sessionController;

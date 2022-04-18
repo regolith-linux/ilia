@@ -31,6 +31,18 @@ namespace Ilia {
             return "utilities-terminal";
         }
 
+        public string get_help () {
+            return "This dialog allows for the executing commands on the user path. Initially all commands are presented. The user may filter the list in the top text box. The arrow keys may be used to select from the list, and enter or clicking on an item will launch it.";
+        }
+
+        public HashTable<string, string>? get_keybindings() {
+            var keybindings = new HashTable<string, string ? >(str_hash, str_equal);
+
+            keybindings.set("enter", "Execute Command");            
+
+            return keybindings;
+        }
+
         public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error {
             this.entry = entry;
             this.session_controller = sessionController;
@@ -46,7 +58,6 @@ namespace Ilia {
                 load_commands_from_path.end (res);
 
                 model.set_sort_column_id (0, SortType.ASCENDING);
-                // model.set_sort_func (0, app_sort_func);
                 set_selection ();
             });
 

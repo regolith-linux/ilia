@@ -1,3 +1,10 @@
+ilia (0.11.2-jammy) jammy; urgency=medium
+
+  [ Ken Gilmer ]
+  * Numerous tweaks to help facility. Misc cleanup
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 17 Apr 2022 18:31:12 -0700
+
 ilia (0.11.1-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]

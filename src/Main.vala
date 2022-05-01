@@ -52,8 +52,7 @@ public static int main (string[] args) {
 
 private void initialize_style (Gtk.Window window, HashTable<string, string ? > arg_map) {
     try {
-        if (arg_map.contains ("-t")) {
-
+        if (arg_map.contains ("-t") && arg_map.get ("-t") != null) {
             var file = File.new_for_path (arg_map.get ("-t"));
 
             if (!file.query_exists ()) {
@@ -77,6 +76,10 @@ private void initialize_style (Gtk.Window window, HashTable<string, string ? > a
 
                 .notebook {
                     border: none;
+                }
+
+                .keybindings {
+                    font-family: monospace;
                 }
             """;
             Gtk.CssProvider css_provider = new Gtk.CssProvider ();

@@ -1,3 +1,10 @@
+ilia (0.11.3) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Tolerate empty css override. Add class name to keybindings view
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 01 May 2022 12:18:46 -0700
+
 ilia (0.11.2) focal; urgency=medium
 
   [ Ken Gilmer ]

@@ -1,9 +1,15 @@
+ilia (0.11.3-jammy) jammy; urgency=medium
+
+  * Tolerate empty css override. Add class name to keybindings view
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 05 May 2022 21:31:34 -0700
+
 ilia (0.11.2-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Numerous tweaks to help facility. Misc cleanup
 
- -- Regolith Linux <regolith.linux@gmail.com>  Thu, 05 May 2022 21:29:49 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 17 Apr 2022 18:31:12 -0700
 
 ilia (0.11.1-jammy) jammy; urgency=medium
 

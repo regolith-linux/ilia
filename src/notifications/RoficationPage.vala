@@ -4,11 +4,12 @@ namespace Ilia {
     // A dialog page that allows management of notifications
     // [{"id": 2, "summary": "Hello! January", "body": "", "application": "notify-send", "icon": "face-wink", "urgency": 1, "actions": [], "hints": {"urgency": 1}}]
     class RoficationPage : DialogPage, GLib.Object {
-        private const int ITEM_VIEW_COLUMNS = 4;
+        private const int ITEM_VIEW_COLUMNS = 5;
         private const int ITEM_VIEW_COLUMN_ICON = 0;
         private const int ITEM_VIEW_COLUMN_APP = 1;
         private const int ITEM_VIEW_COLUMN_DETAIL = 2;
         private const int ITEM_VIEW_COLUMN_ID = 3;
+        private const int ITEM_VIEW_COLUMN_APP_INFO = 4;
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -28,6 +29,8 @@ namespace Ilia {
         private RoficationClient rofi_client;
 
         private int selected_notification_id = -1;
+
+        private int post_launch_sleep;
 
         public string get_name () {
             return "Notifications";
@@ -54,7 +57,7 @@ namespace Ilia {
             this.entry = entry;
             this.session_controller = sessionController;
 
-            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (string));
+            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (string), typeof (DesktopAppInfo));
 
             filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);
@@ -78,6 +81,8 @@ namespace Ilia {
             scrolled.expand = true;
 
             root_widget = scrolled;
+
+            post_launch_sleep = settings.get_int("post-launch-sleep");
         }
 
         public Gtk.Widget get_root () {
@@ -112,11 +117,7 @@ namespace Ilia {
             item_view.get_selection ().changed.connect (on_selection);
         }
 
-        public void grab_focus (uint keycode) {
-            if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
-                execute_app (entry.text);
-            }
-
+        public void grab_focus (uint keycode) {            
             item_view.grab_focus ();
         }
 
@@ -177,7 +178,9 @@ namespace Ilia {
             model.clear ();
 
             foreach (var notification in notifications) {
-                var iconPixBuff = load_icon (icon_theme, notification);
+                var desktopAppInfo = getDesktopAppInfo(notification.application);
+                
+                var iconPixBuff = load_icon (icon_theme, notification, desktopAppInfo);
 
                 string detail;
                 if (notification.summary.length > 0 && notification.body.length > 0) {
@@ -196,13 +199,33 @@ namespace Ilia {
                     ITEM_VIEW_COLUMN_ICON, iconPixBuff,
                     ITEM_VIEW_COLUMN_APP, notification.application,
                     ITEM_VIEW_COLUMN_DETAIL, detail,
-                    ITEM_VIEW_COLUMN_ID, notification.id.to_string ()
+                    ITEM_VIEW_COLUMN_ID, notification.id.to_string (),
+                    ITEM_VIEW_COLUMN_APP_INFO, desktopAppInfo
                 );
             }
         }
 
-        private Gdk.Pixbuf ? load_icon (Gtk.IconTheme icon_theme, NotificationDesc notification) {
+        private Gdk.Pixbuf ? load_icon (Gtk.IconTheme icon_theme, NotificationDesc notification, DesktopAppInfo? desktopAppInfo) {
             try {
+                if (desktopAppInfo != null) {
+                    var icon = desktopAppInfo.get_icon ();
+                    string icon_name = null;
+                    if (icon != null) icon_name = icon.to_string ();
+
+                    var icon_info = icon_theme.lookup_icon (icon_name, 32, Gtk.IconLookupFlags.FORCE_SIZE); // from icon theme
+                    if (icon_info != null) {
+                        return icon_info.load_icon ();
+                    }
+
+                    if (GLib.File.new_for_path (icon_name).query_exists ()) {
+                        try {
+                            return new Gdk.Pixbuf.from_file_at_size (icon_name, 32, 32);
+                        } catch (Error e) {
+                            stderr.printf ("Error loading icon: %s\n", e.message);
+                        }
+                    }
+                }
+                
                 var icon_info = icon_theme.lookup_icon (notification.icon, 32, Gtk.IconLookupFlags.FORCE_SIZE); // from icon theme
                 if (icon_info != null) {
                     return icon_info.load_icon ();
@@ -217,6 +240,15 @@ namespace Ilia {
             }
 
             return null;
+        }
+
+        private DesktopAppInfo? getDesktopAppInfo(string appName) {            
+            string**[] desktopApps = GLib.DesktopAppInfo.search(appName);
+
+            if (desktopApps.length < 1) return null;
+
+            // Take top search result
+            return new DesktopAppInfo (*desktopApps[0]);
         }
 
         // Automatically set the first item in the list as selected.
@@ -282,10 +314,18 @@ namespace Ilia {
         }
 
         // launch a desktop app
-        public void execute_app_from_selection (Gtk.TreeIter selection) {
-        }
+        public void execute_app_from_selection (Gtk.TreeIter selection) {            
+            DesktopAppInfo app_info;
+            filter.@get (selection, ITEM_VIEW_COLUMN_APP_INFO, out app_info);
 
-        private void execute_app (string notification_id) {
+            try {
+                app_info.launch_uris (null, null);
+                
+                GLib.Thread.usleep(post_launch_sleep);
+                session_controller.quit ();
+            } catch (GLib.Error e) {
+                stderr.printf ("%s\n", e.message);
+            }
         }
     }
 }

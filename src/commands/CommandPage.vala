@@ -202,12 +202,12 @@ namespace Ilia {
 
             //string commandline = "/usr/bin/x-terminal-emulator -e \"bash -c '" + cmd_path + "; exec bash'\"";
             //string commandline = "x-terminal-emulator -e \"bash -c '" + cmd_path + "'\"";
-            string commandline = "x-terminal-emulator -e '" + cmd_path + "'";
+            //string commandline = "x-terminal-emulator -e '" + cmd_path + "'";
 
             // stdout.printf("%s\n", commandline);
 
             try {
-                var app_info = AppInfo.create_from_commandline (commandline, cmd_path, AppInfoCreateFlags.NONE);
+                var app_info = AppInfo.create_from_commandline (cmd_path, null, GLib.AppInfoCreateFlags.NEEDS_TERMINAL);
 
                 if (!app_info.launch (null, null)) {
                     stderr.printf ("Error: execute_command failed\n");

@@ -1,3 +1,11 @@
+ilia (0.11.4) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Minor simplification to command launching
+  * Add ability to launch host app to address https://github.com/regolith-linux/ilia/issues/18. Fix icon loading of notification view.
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Mon, 09 May 2022 21:39:38 -0700
+
 ilia (0.11.3) focal; urgency=medium
 
   [ Ken Gilmer ]

@@ -24,7 +24,7 @@ namespace Ilia {
         private Gtk.Widget root_widget;
 
         public string get_name () {
-            return "Terminal";
+            return "Commands";
         }
 
         public string get_icon_name() {

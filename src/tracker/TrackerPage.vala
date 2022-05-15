@@ -39,7 +39,7 @@ namespace Ilia {
         }
 
         public string get_icon_name () {
-            return "applications-other";
+            return "emblem-documents";
         }
 
         public string get_help () {

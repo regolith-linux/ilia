@@ -1,3 +1,12 @@
+ilia (0.11.5) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Change label to 'Commands' from 'Terminal'
+  * Fix icon in files page
+  * Add option -a for all page mode to address https://github.com/regolith-linux/ilia/issues/17.  Misc cleanup
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 15 May 2022 08:52:57 -0700
+
 ilia (0.11.4) focal; urgency=medium
 
   [ Ken Gilmer ]

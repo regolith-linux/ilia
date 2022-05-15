@@ -1,3 +1,12 @@
+ilia (0.11.5-jammy) jammy; urgency=medium
+
+  [ Ken Gilmer ]
+  * Change label to 'Commands' from 'Terminal'
+  * Fix icon in files page
+  * Add option -a for all page mode to address https://github.com/regolith-linux/ilia/issues/17.  Misc cleanup
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 15 May 2022 08:54:07 -0700
+
 ilia (0.11.4-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]

@@ -1,19 +1,46 @@
 # Ilia - A Desktop Executor
 
-Ilia provides a modal interface prompting the user to select an item from a list.
+Ilia provides a modal interface prompting the user to select an item from a list.  The items in the list are populated by various pages, which also provide the actions associated with their selection.  
 
 ## Status
 
-Ilia is in active development and should be considered unstable and pre-alpha quality.
+Ilia is in active development and should be considered beta quality.
 
 ## Features
 
 Ilia provides pages to view and select from the following types of things:
-* Desktop Apps (`apps`)
-* System Commands (`terminal`)
-* Desktop Keybindings (`keybindings`)
-* Notifications (`notifications`)
-* Text List (`textlist`)
+
+### Desktop Apps (`apps`)
+
+Loads and presents all desktop applications specified in the [XDG desktop entry format](https://specifications.freedesktop.org/desktop-entry-spec/desktop-entry-spec-latest.html) found in directories specified in the `XDG_DATA_DIRS` environment variable.
+
+### System Commands (`terminal`)
+
+Loads all system commands available on the path.  Selecting a command will cause it to be executed from a newly created terminal.
+
+### Desktop Keybindings (`keybindings`)
+
+Loads all i3 keybindings from the running i3 window manager.  Selecting a keybinding will cause the keybinding to be executed in some cases.
+
+## Notifications (`notifications`)
+
+Loads all notifications from the rofication daemon.
+
+## Text List (`textlist`)
+
+Loads items specified on the command-line.  The selected item is returned from the command.  For example, to see and select from a list of all files in a directory:
+
+```
+$ ls | ilia -p textlist
+```
+
+## Windows (`windows`)
+
+Loads all active windows.  The window selected will be navigated to.
+
+### Files (`files`)
+
+Provides a basic front-end to [GNOME Tracker](https://wiki.gnome.org/Projects/Tracker) to search for files with specific content.  Selecting a file will cause it to be loaded with it's default application.
 
 ## Usage
 
@@ -23,6 +50,8 @@ Ex:
 ```
 ilia -p keybindings
 ```
+
+The `-a` option loads all general purpose pages together.
 
 ## Configuration
 
@@ -54,6 +83,8 @@ $ meson ..
 $ ninja
 $ src/ilia
 ```
+
+Note: the `main` branch builds on Ubuntu Focal and Debian Bullseye, and the `ubuntu/jammy` branch builds on Ubuntu Jammy.
 
 ## Package
 

@@ -43,7 +43,7 @@ namespace Ilia {
         private Gtk.Widget root_widget;
 
         public string get_name () {
-            return "Apps";
+            return "<u>A</u>pplications";
         }
 
         public string get_icon_name () {
@@ -52,6 +52,10 @@ namespace Ilia {
 
         public string get_help () {
             return "This dialog allows for the launching of desktop applications. Initially all desktop apps are presented. The user may filter the list in the top text box. The arrow keys may be used to select from the list, and enter or clicking on an item will launch it.";
+        }
+
+        public char get_keybinding() {
+            return 'a';
         }
 
         public HashTable<string, string>? get_keybindings() {

@@ -35,7 +35,7 @@ namespace Ilia {
         private int icon_size;
 
         public string get_name () {
-            return "Files";
+            return "<u>F</u>iles";
         }
 
         public string get_icon_name () {
@@ -44,6 +44,10 @@ namespace Ilia {
 
         public string get_help () {
             return "This dialog allows for searching for files based on content. Type in a text query, hit enter and select from the list of files which contain the search string to open it.";
+        }
+
+        public char get_keybinding() {
+            return 'f';
         }
 
         public HashTable<string, string>? get_keybindings() {

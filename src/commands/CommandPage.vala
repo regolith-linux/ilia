@@ -24,7 +24,7 @@ namespace Ilia {
         private Gtk.Widget root_widget;
 
         public string get_name () {
-            return "Commands";
+            return "<u>C</u>ommands";
         }
 
         public string get_icon_name() {
@@ -33,6 +33,10 @@ namespace Ilia {
 
         public string get_help () {
             return "This dialog allows for the executing commands on the user path. Initially all commands are presented. The user may filter the list in the top text box. The arrow keys may be used to select from the list, and enter or clicking on an item will launch it.";
+        }
+
+        public char get_keybinding() {
+            return 'c';
         }
 
         public HashTable<string, string>? get_keybindings() {

@@ -1,3 +1,11 @@
+ilia (0.11.6) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * document page interface
+  * Add page keybindings in all-page mode
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 15 May 2022 18:02:08 -0700
+
 ilia (0.11.5) focal; urgency=medium
 
   [ Ken Gilmer ]

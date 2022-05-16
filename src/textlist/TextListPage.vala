@@ -32,6 +32,11 @@ namespace Ilia {
             return "This dialog presents a filterable list of items to select from.";
         }
 
+        public char get_keybinding() {
+            // FIXME - this is never used
+            return 't';
+        }
+
         public HashTable<string, string>? get_keybindings() {
             var keybindings = new HashTable<string, string ? >(str_hash, str_equal);
 

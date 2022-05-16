@@ -27,7 +27,7 @@ namespace Ilia {
         private int icon_size;
 
         public string get_name () {
-            return "Windows";
+            return "<u>W</u>indows";
         }
 
         public string get_icon_name () {
@@ -36,6 +36,10 @@ namespace Ilia {
 
         public string get_help () {
             return "This dialog allows for navigating between open windows in the desktop environment.  Selecting a window from the list will cause it to be viewed on screen and focused.";
+        }
+
+        public char get_keybinding() {
+            return 'w';
         }
 
         public HashTable<string, string>? get_keybindings() {

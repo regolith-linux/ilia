@@ -33,7 +33,7 @@ namespace Ilia {
         private int post_launch_sleep;
 
         public string get_name () {
-            return "Notifications";
+            return "<u>N</u>otifications";
         }
 
         public string get_icon_name () {
@@ -42,6 +42,10 @@ namespace Ilia {
 
         public string get_help () {
             return "This dialog manages desktop notifications. Initially all desktop apps are presented. The user may filter the list in the top text box.";
+        }
+
+        public char get_keybinding() {
+            return 'n';
         }
 
         public HashTable<string, string>? get_keybindings() {

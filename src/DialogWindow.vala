@@ -74,7 +74,18 @@ namespace Ilia {
 
             // Route keys based on function
             key_press_event.connect ((key) => {
-                bool key_handled = false;
+                bool key_handled = false;                
+
+                // Enable page nav keybindings in all page mode.
+                if (all_page_mode && (key.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK) { //CTRL
+                    for (int i = 0; i < total_pages; ++i) {
+                        if (dialog_pages[i].get_keybinding() == key.keyval || (dialog_pages[i].get_keybinding() - 32) == key.keyval) {
+                            // Allow both upper/lower case match
+                            notebook.set_current_page (i);
+                            return true;
+                        }
+                    }                    
+                }
 
                 switch (key.keyval) {
                     case KEY_CODE_ESCAPE:
@@ -116,7 +127,6 @@ namespace Ilia {
 
         public override void show_all() {
             base.show_all();
-            stderr.printf ("main active page: %ud\n", active_page);
             notebook.set_current_page ((int) active_page);
             notebook.switch_page.connect (on_page_switch);
         }
@@ -143,7 +153,8 @@ namespace Ilia {
             // This allows for multiple page loads.  Until startup performance is addressed, only load one page.
             for (int i = 0; i < total_pages; ++i) {
                 Gtk.Box box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
-                var label = new Label (dialog_pages[i].get_name ());
+                var label = new Label(null);
+                label.set_markup (dialog_pages[i].get_name ());
                 var image = new Image.from_icon_name (dialog_pages[i].get_icon_name (), Gtk.IconSize.BUTTON);
                 var button = new Button ();
                 button.set_can_focus (false);
@@ -175,7 +186,7 @@ namespace Ilia {
                 help_widget.pack_start(keybindings_title, false, false, 5);
 
                 keybinding_view = new TreeView ();
-                setup_treeview (keybinding_view, dialog_pages[0].get_keybindings ());
+                setup_help_treeview (keybinding_view, dialog_pages[0].get_keybindings ());
                 help_widget.pack_start(keybinding_view, false, false, 5);
                 notebook.append_page (help_widget, help_label);
                 keybinding_view.realize.connect (() => {
@@ -271,7 +282,7 @@ namespace Ilia {
             return page_count;
         }
 
-        private void setup_treeview (TreeView view, HashTable<string, string>? keybindings) {
+        private void setup_help_treeview (TreeView view, HashTable<string, string>? keybindings) {
             var listmodel = new Gtk.ListStore (2, typeof (string), typeof (string));
             view.set_model (listmodel);
 
@@ -327,11 +338,8 @@ namespace Ilia {
             if (page_num == total_pages) { // On help page
                 entry.set_sensitive (false);
             } else if (dialog_pages[page_num] != null) {
-                stderr.printf ("setting active page: %ud, active ways %ud\n", page_num, active_page);
-            
                 active_page = page_num;
-
-                entry.set_placeholder_text (dialog_pages[active_page].get_name ());
+                
                 entry.secondary_icon_name = dialog_pages[active_page].get_icon_name ();
                 entry.set_sensitive (true);
             }

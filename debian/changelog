@@ -1,3 +1,11 @@
+ilia (0.11.6-jammy) jammy; urgency=medium
+
+  [ Ken Gilmer ]
+  * document page interface
+  * Add page keybindings in all-page mode
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 15 May 2022 18:04:50 -0700
+
 ilia (0.11.5-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]

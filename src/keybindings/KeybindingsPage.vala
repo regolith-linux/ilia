@@ -47,7 +47,7 @@ namespace Ilia {
             return keybindings;
         }
 
-        public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) {
+        public async void initialize (GLib.Settings settings, HashTable<string, string ? > arg_map, Gtk.Entry entry, SessionContoller sessionController) {
             this.entry = entry;
             this.session_controller = sessionController;
 

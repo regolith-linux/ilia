@@ -54,7 +54,7 @@ namespace Ilia {
 
             notebook = new Notebook ();
             notebook.get_style_context ().add_class ("notebook");
-            notebook.set_tab_pos (PositionType.BOTTOM);            
+            notebook.set_tab_pos (PositionType.BOTTOM);
 
             init_pages (focus_page, all_page_mode);
 
@@ -74,19 +74,26 @@ namespace Ilia {
 
             // Route keys based on function
             key_press_event.connect ((key) => {
-                bool key_handled = false;                
-
                 // Enable page nav keybindings in all page mode.
-                if (all_page_mode && (key.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK) { //CTRL
+                if ((key.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK) { //ALT
                     for (int i = 0; i < total_pages; ++i) {
                         if (dialog_pages[i].get_keybinding() == key.keyval || (dialog_pages[i].get_keybinding() - 32) == key.keyval) {
                             // Allow both upper/lower case match
                             notebook.set_current_page (i);
                             return true;
                         }
-                    }                    
+                    }
+                    if (key.keyval == KEY_CODE_PLUS) {
+                        change_size(128);
+                        return true;
+                    }
+                    if (key.keyval == KEY_CODE_MINUS) {
+                        change_size(-128);
+                        return true;
+                    }
                 }
 
+                bool key_handled = false;
                 switch (key.keyval) {
                     case KEY_CODE_ESCAPE:
                         quit ();
@@ -102,14 +109,6 @@ namespace Ilia {
                     case KEY_CODE_LEFT:
                         notebook.grab_focus ();
                         break;
-                    case KEY_CODE_PLUS:
-                        change_size(128);
-                        key_handled = true;
-                        break;
-                    case KEY_CODE_MINUS:
-                        change_size(-128);
-                        key_handled = true;
-                        break;
                     default:
                         // stdout.printf ("Keycode: %u\n", key.keyval);
                         if (!dialog_pages[active_page].key_event (key)) {
@@ -122,7 +121,7 @@ namespace Ilia {
             });
 
             entry.activate.connect (on_entry_activated);
-            entry.grab_focus ();            
+            entry.grab_focus ();
         }
 
         public override void show_all() {
@@ -130,18 +129,18 @@ namespace Ilia {
             notebook.set_current_page ((int) active_page);
             notebook.switch_page.connect (on_page_switch);
         }
-        
+
         public void set_seat(Gdk.Seat seat) {
             this.seat = seat;
         }
 
-        private void init_pages (string focus_page, bool all_page_mode) {            
+        private void init_pages (string focus_page, bool all_page_mode) {
             if (all_page_mode) {
                 total_pages = create_all_pages(focus_page, ref active_page);
             } else {
                 total_pages = 1;
                 active_page = 0;
-                create_page(focus_page);                
+                create_page(focus_page);
             }
 
             // Exit if unable to load active page
@@ -161,7 +160,7 @@ namespace Ilia {
                 button.relief = ReliefStyle.NONE;
                 button.add (image);
                 int page = i;
-                button.clicked.connect(() => {                    
+                button.clicked.connect(() => {
                     notebook.set_current_page (page);
                 });
 
@@ -195,7 +194,7 @@ namespace Ilia {
             }
         }
 
-        private void create_page(string focus_page) {            
+        private void create_page(string focus_page) {
             dialog_pages = new DialogPage[1];
 
             switch (focus_page.down ()) {
@@ -305,10 +304,10 @@ namespace Ilia {
             }
 
             listmodel.append (out iter);
-            listmodel.set (iter, 0, "-", 1, "Decrease Dialog Size");
+            listmodel.set (iter, 0, "Alt -", 1, "Decrease Dialog Size");
 
             listmodel.append (out iter);
-            listmodel.set (iter, 0, "+", 1, "Increase Dialog Size");
+            listmodel.set (iter, 0, "Alt +", 1, "Increase Dialog Size");
 
             listmodel.append (out iter);
             listmodel.set (iter, 0, "↑ ↓", 1, "Change Selected Item");
@@ -328,6 +327,13 @@ namespace Ilia {
             // Ignore changes past min bounds
             if (width < MIN_WINDOW_WIDTH || height < MIN_WINDOW_HEIGHT) return;
 
+            var monitor = this.get_screen ().get_display ().get_monitor (0); //Assume first monitor
+            if (monitor != null) {
+                var geometry = monitor.get_geometry ();
+
+                if (width >= geometry.width || height >= geometry.height) return;
+            }
+
             resize (width, height);
 
             settings.set_int("window-width", width);
@@ -339,7 +345,7 @@ namespace Ilia {
                 entry.set_sensitive (false);
             } else if (dialog_pages[page_num] != null) {
                 active_page = page_num;
-                
+
                 entry.secondary_icon_name = dialog_pages[active_page].get_icon_name ();
                 entry.set_sensitive (true);
             }

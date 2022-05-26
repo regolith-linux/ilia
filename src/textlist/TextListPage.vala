@@ -20,12 +20,16 @@ namespace Ilia {
 
         private Gtk.Widget root_widget;
 
+        private string name = "TextList";
+
+        private string icon = "utilities-terminal";
+
         public string get_name () {
-            return "TextList";
+            return name;
         }
 
         public string get_icon_name () {
-            return "utilities-terminal";
+            return icon;
         }
 
         public string get_help () {
@@ -45,9 +49,16 @@ namespace Ilia {
             return keybindings;
         }
 
-        public async void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error {
+        public async void initialize (GLib.Settings settings, HashTable<string, string ? > arg_map, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error {
             this.entry = entry;
             this.session_controller = sessionController;
+
+            if (arg_map.contains("-l")) {
+                this.name = arg_map.get("-l");
+            }
+            if (arg_map.contains("-i")) {
+                this.icon = arg_map.get("-i");
+            }
 
             model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (string), typeof (string));
 

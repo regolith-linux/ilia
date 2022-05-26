@@ -9,10 +9,7 @@ public static int main (string[] args) {
     var arg_map = parse_args (args);
     if (arg_map.contains ("-h") || arg_map.contains ("--help")) print_help_and_exit ();
 
-    var page = arg_map.get ("-p") ?? "Apps";
-    bool all_page_mode = arg_map.contains("-a");
-
-    var window = new Ilia.DialogWindow (page, all_page_mode);
+    var window = new Ilia.DialogWindow (arg_map); //page, all_page_mode);
 
     window.destroy.connect (Gtk.main_quit);
     initialize_style (window, arg_map);
@@ -134,17 +131,19 @@ Gdk.Seat ? grab_inputs (Gdk.Window gdkwin) {
 
 void print_help_and_exit () {
     stdout.printf ("Usage: ilia [-t stylesheet] [-n] [-a] [-p page]\n");
+    stdout.printf ("\n\t-t: specify path to custom stylesheet.\n");
+    stdout.printf ("\n\t-n: no custom styles\n");
+    stdout.printf ("\n\t-a: load all pages\n");
     stdout.printf ("\npages:\n");
     stdout.printf ("\t'apps' - launch desktop applications (default)\n");
     stdout.printf ("\t'terminal' - launch a terminal command\n");
     stdout.printf ("\t'notifications' - launch notifications manager\n");
     stdout.printf ("\t'keybindings' - launch keybindings viewer\n");
     stdout.printf ("\t'textlist' - select an item from a specified list\n");
+    stdout.printf ("\t\t-l: page label\n");
+    stdout.printf ("\t\t-i: page icon\n");
     stdout.printf ("\t'windows' - navigate to a window\n");
     stdout.printf ("\t'tracker' - search for files by content\n");
-    stdout.printf ("\n\t-t: specify path to custom stylesheet.\n");
-    stdout.printf ("\n\t-n: no custom styles\n");
-    stdout.printf ("\n\t-a: load all pages\n");
     Process.exit (0);
 }
 

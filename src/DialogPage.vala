@@ -8,7 +8,7 @@ namespace Ilia {
         /**
          * Initialize the page. Create widgets, load model data, etc.
          */
-        public async abstract void initialize (GLib.Settings settings, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error;
+        public async abstract void initialize (GLib.Settings settings, HashTable<string, string ? > arg_map, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error;
 
         /**
          * Return the root widget of the page

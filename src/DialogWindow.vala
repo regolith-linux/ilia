@@ -39,9 +39,9 @@ namespace Ilia {
 
         private Gtk.TreeView keybinding_view;
 
-        public DialogWindow (string focus_page, bool all_page_mode) {
+        public DialogWindow (HashTable<string, string? > arg_map) {
             Object(type: Gtk.WindowType.POPUP); // Window is unmanaged
-            window_position = WindowPosition.CENTER_ALWAYS;
+            window_position = WindowPosition.CENTER_ALWAYS;            
 
             settings = new GLib.Settings ("org.regolith-linux.ilia");
 
@@ -56,7 +56,10 @@ namespace Ilia {
             notebook.get_style_context ().add_class ("notebook");
             notebook.set_tab_pos (PositionType.BOTTOM);
 
-            init_pages (focus_page, all_page_mode);
+            var focus_page = arg_map.get ("-p") ?? "Apps";
+            bool all_page_mode = arg_map.contains("-a");
+
+            init_pages (arg_map, focus_page, all_page_mode);
 
             grid = new Gtk.Grid ();
             grid.get_style_context ().add_class ("root_box");
@@ -134,13 +137,13 @@ namespace Ilia {
             this.seat = seat;
         }
 
-        private void init_pages (string focus_page, bool all_page_mode) {
+        private void init_pages (HashTable<string, string? > arg_map, string focus_page, bool all_page_mode) {
             if (all_page_mode) {
-                total_pages = create_all_pages(focus_page, ref active_page);
+                total_pages = create_all_pages(arg_map, focus_page, ref active_page);
             } else {
                 total_pages = 1;
                 active_page = 0;
-                create_page(focus_page);
+                create_page(focus_page, arg_map);
             }
 
             // Exit if unable to load active page
@@ -194,37 +197,37 @@ namespace Ilia {
             }
         }
 
-        private void create_page(string focus_page) {
+        private void create_page(string focus_page, HashTable<string, string? > arg_map) {
             dialog_pages = new DialogPage[1];
 
             switch (focus_page.down ()) {
                 case "apps":
                     dialog_pages[0] = new DesktopAppPage ();
-                    dialog_pages[0].initialize.begin (settings, entry, this);
+                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
                     break;
                 case "terminal":
                     dialog_pages[0] = new CommandPage ();
-                    dialog_pages[0].initialize.begin (settings, entry, this);
+                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
                     break;
                 case "notifications":
                     dialog_pages[0] = new RoficationPage ();
-                    dialog_pages[0].initialize.begin (settings, entry, this);
+                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
                     break;
                 case "keybindings":
                     dialog_pages[0] = new KeybingingsPage ();
-                    dialog_pages[0].initialize.begin (settings, entry, this);
+                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
                     break;
                 case "textlist":
                     dialog_pages[0] = new TextListPage ();
-                    dialog_pages[0].initialize.begin (settings, entry, this);
+                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
                     break;
                 case "windows":
                     dialog_pages[0] = new WindowPage ();
-                    dialog_pages[0].initialize.begin (settings, entry, this);
+                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
                     break;
                 case "tracker":
                     dialog_pages[0] = new TrackerPage ();
-                    dialog_pages[0].initialize.begin (settings, entry, this);
+                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
                     break;
                 default:
                     stderr.printf ("Unknown page type: %s\n", focus_page);
@@ -235,22 +238,22 @@ namespace Ilia {
         /**
          * Creates pages for all generally usable pages
          */
-        private int create_all_pages(string focus_page, ref uint start_page) {
+        private int create_all_pages(HashTable<string, string? > arg_map, string focus_page, ref uint start_page) {
             int page_count = 6;
             dialog_pages = new DialogPage[page_count];
 
             dialog_pages[0] = new DesktopAppPage ();
-            dialog_pages[0].initialize.begin (settings, entry, this);
+            dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
             dialog_pages[1] = new CommandPage ();
-            dialog_pages[1].initialize.begin (settings, entry, this);
+            dialog_pages[1].initialize.begin (settings, arg_map, entry, this);
             dialog_pages[2] = new RoficationPage ();
-            dialog_pages[2].initialize.begin (settings, entry, this);
+            dialog_pages[2].initialize.begin (settings, arg_map, entry, this);
             dialog_pages[3] = new KeybingingsPage ();
-            dialog_pages[3].initialize.begin (settings, entry, this);
+            dialog_pages[3].initialize.begin (settings, arg_map, entry, this);
             dialog_pages[4] = new WindowPage ();
-            dialog_pages[4].initialize.begin (settings, entry, this);
+            dialog_pages[4].initialize.begin (settings, arg_map, entry, this);
             dialog_pages[5] = new TrackerPage ();
-            dialog_pages[5].initialize.begin (settings, entry, this);
+            dialog_pages[5].initialize.begin (settings, arg_map, entry, this);
             // last page, help, will be initalized later in init
 
             switch (focus_page.down ()) {

@@ -1,3 +1,11 @@
+ilia (0.11.7) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Update docs
+  * Update dialog resize keys to use alt to allow keyboard entry. Specify max bounds of window size when possible.  Addresses https://github.com/regolith-linux/ilia/issues/20
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 25 May 2022 22:01:19 -0700
+
 ilia (0.11.6) focal; urgency=medium
 
   [ Ken Gilmer ]

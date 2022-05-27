@@ -2,8 +2,9 @@ using Gtk;
 
 namespace Ilia {
     class TextListPage : DialogPage, GLib.Object {
-        private const int ITEM_VIEW_COLUMNS = 1;
-        private const int ITEM_VIEW_COLUMN_NAME = 0;
+        private const int ITEM_VIEW_COLUMNS = 2;
+        private const int ITEM_VIEW_COLUMN_ICON = 0;
+        private const int ITEM_VIEW_COLUMN_NAME = 1;
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -60,16 +61,15 @@ namespace Ilia {
                 this.icon = arg_map.get("-i");
             }
 
-            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (string), typeof (string));
+            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string));
 
             filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);
 
             create_item_view ();
 
-            load_apps ();
-            model.set_sort_column_id (0, SortType.ASCENDING);
-            // model.set_sort_func (0, app_sort_func);
+            load_items (settings.get_int ("icon-size"));
+            model.set_sort_column_id (ITEM_VIEW_COLUMN_NAME, SortType.ASCENDING);
             set_selection ();
 
             var scrolled = new Gtk.ScrolledWindow (null, null);
@@ -97,6 +97,7 @@ namespace Ilia {
             item_view.enable_search = false;
 
             // Create columns
+            item_view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", ITEM_VIEW_COLUMN_ICON);
             item_view.insert_column_with_attributes (-1, "Name", new CellRendererText (), "text", ITEM_VIEW_COLUMN_NAME);
 
             // Launch app on one click
@@ -153,8 +154,10 @@ namespace Ilia {
             }
         }
 
-        private void load_apps () {
-            string ? name = null;
+        private void load_items (int icon_size) {
+            string? name = null;
+            
+            var pixbuf = load_icon (icon, icon_size);
 
             do {
                 name = stdin.read_line ();
@@ -162,10 +165,47 @@ namespace Ilia {
                     model.append (out iter);
                     model.set (
                         iter,
+                        ITEM_VIEW_COLUMN_ICON, pixbuf,
                         ITEM_VIEW_COLUMN_NAME, name
                     );
                 }
             } while (name != null);
+        }
+
+        private Gdk.Pixbuf ? load_icon (string? icon_name, int size) {
+            var icon_theme = Gtk.IconTheme.get_default ();
+            Gtk.IconInfo icon_info;
+
+            try {
+                if (icon_name == null) {
+                    icon_info = icon_theme.lookup_icon ("applications-other", size, Gtk.IconLookupFlags.FORCE_SIZE);
+                    return icon_info.load_icon ();
+                }
+
+                icon_info = icon_theme.lookup_icon (icon_name, size, Gtk.IconLookupFlags.FORCE_SIZE); // from icon theme
+                if (icon_info != null) {
+                    return icon_info.load_icon ();
+                }
+
+                if (GLib.File.new_for_path (icon_name).query_exists ()) {
+                    try {
+                        return new Gdk.Pixbuf.from_file_at_size (icon_name, size, size);
+                    } catch (Error e) {
+                        stderr.printf ("%s\n", e.message);
+                    }
+                }
+
+                try {
+                    icon_info = icon_theme.lookup_icon ("applications-other", size, Gtk.IconLookupFlags.FORCE_SIZE);
+                    return icon_info.load_icon ();
+                } catch (Error e) {
+                    stderr.printf ("%s\n", e.message);
+                }
+            } catch (Error e) {
+                stderr.printf ("%s\n", e.message);
+            }
+
+            return null;
         }
 
         // Automatically set the first item in the list as selected.

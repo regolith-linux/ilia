@@ -6,6 +6,7 @@ namespace Ilia {
         public const int KEY_CODE_ESCAPE = 65307;
         public const int KEY_CODE_LEFT_ALT = 65513;
         public const int KEY_CODE_RIGHT_ALT = 65514;
+        public const int KEY_CODE_SUPER = 65515;
         public const int KEY_CODE_UP = 65364;
         public const int KEY_CODE_DOWN = 65362;
         public const int KEY_CODE_ENTER = 65293;
@@ -41,7 +42,7 @@ namespace Ilia {
 
         public DialogWindow (HashTable<string, string? > arg_map) {
             Object(type: Gtk.WindowType.POPUP); // Window is unmanaged
-            window_position = WindowPosition.CENTER_ALWAYS;            
+            window_position = WindowPosition.CENTER_ALWAYS;      
 
             settings = new GLib.Settings ("org.regolith-linux.ilia");
 
@@ -99,6 +100,7 @@ namespace Ilia {
                 bool key_handled = false;
                 switch (key.keyval) {
                     case KEY_CODE_ESCAPE:
+                    case KEY_CODE_SUPER:
                         quit ();
                         break;
                     case KEY_CODE_UP:

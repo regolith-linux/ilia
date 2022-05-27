@@ -22,11 +22,11 @@ Loads all system commands available on the path.  Selecting a command will cause
 
 Loads all i3 keybindings from the running i3 window manager.  Selecting a keybinding will cause the keybinding to be executed in some cases.
 
-## Notifications (`notifications`)
+### Notifications (`notifications`)
 
 Loads all notifications from the rofication daemon.
 
-## Text List (`textlist`)
+### Text List (`textlist`)
 
 Loads items specified on the command-line.  The selected item is returned from the command.  For example, to see and select from a list of all files in a directory:
 
@@ -34,7 +34,7 @@ Loads items specified on the command-line.  The selected item is returned from t
 $ ls | ilia -p textlist
 ```
 
-## Windows (`windows`)
+### Windows (`windows`)
 
 Loads all active windows.  The window selected will be navigated to.
 

@@ -1,5 +1,5 @@
 /**
- * A client library for i3-wm that deserializes into idomatic Vala response objects.
+ * A client library for i3-wm that deserializes into idomatic Vala response types
  */
 namespace Ilia {
     enum I3_COMMAND {
@@ -132,7 +132,12 @@ namespace Ilia {
 
         ~I3Client () {
             if (socket != null) {
-                socket.close ();
+                try {
+                    socket.close ();
+                } catch (GLib.Error err) {
+                    // TODO consistent error handling
+                    stderr.printf ("Failed to close i3 socket: %s\n", err.message);
+                }
             }
         }
 

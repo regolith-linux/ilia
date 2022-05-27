@@ -1,3 +1,13 @@
+ilia (0.12.1) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Update readme, add a lot of missing details.
+  * Fix headings in readme
+  * Fix warning in socket close
+  * Exit if super pressed to prevent blocking i3
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Fri, 27 May 2022 08:19:13 -0700
+
 ilia (0.12.0) focal; urgency=medium
 
   [ Ken Gilmer ]

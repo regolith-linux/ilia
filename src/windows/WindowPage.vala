@@ -31,7 +31,7 @@ namespace Ilia {
         }
 
         public string get_icon_name () {
-            return "applications-other";
+            return "window-new";
         }
 
         public string get_help () {

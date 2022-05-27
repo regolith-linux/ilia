@@ -1,10 +1,10 @@
 # Ilia - A Desktop Executor
 
-Ilia provides a modal interface prompting the user to select an item from a list.  The items in the list are populated by various pages, which also provide the actions associated with their selection.  
+Ilia provides a modal interface prompting the user to select an item from a list. There are various items or pages that can be selected from by specifying the desired page via a command-line parameter. Also, all pages can be loaded together in "all page" mode.
 
 ## Status
 
-Ilia is in active development and should be considered beta quality.
+Ilia is in active development and should be considered `beta` quality.
 
 ## Features
 
@@ -38,7 +38,7 @@ $ ls | ilia -p textlist
 
 Loads all active windows.  The window selected will be navigated to.
 
-### Files (`files`)
+### Files (`tracker`)
 
 Provides a basic front-end to [GNOME Tracker](https://wiki.gnome.org/Projects/Tracker) to search for files with specific content.  Selecting a file will cause it to be loaded with it's default application.
 
@@ -52,6 +52,16 @@ ilia -p keybindings
 ```
 
 The `-a` option loads all general purpose pages together.
+
+### Text List
+
+The `textlist` page is a bit different than the others pages.  It provides a general purpose utility to provide a list of options for the user select and when the selection occurs, the selected item is returned by the invocation to `ilia`.  In this way the program can be used in scripts to get user input from dynamic data, similar to `rofi`.  The `textlist` page supports two additional parameters for more customization:
+
+```
+'textlist' - select an item from a specified list
+        -l: page label
+        -i: page icon
+```
 
 ## Configuration
 
@@ -88,4 +98,4 @@ Note: the `main` branch builds on Ubuntu Focal and Debian Bullseye, and the `ubu
 
 ## Package
 
-Debian packages for Debian and Ubuntu are available in the [Regolith 2 package repository](https://github.com/regolith-linux/package-repo).
+Debian packages for Debian and Ubuntu are available in the [Regolith 2 package repository](https://github.com/regolith-linux/voulage).

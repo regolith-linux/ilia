@@ -165,7 +165,7 @@ namespace Ilia {
 
                     foreach (var binding in bindings) {
                         var formatted_spec = format_spec (binding.spec);
-                        var summary = category + " " + binding.label;
+                        var summary = category + " - " + binding.label;
                         model.append (out iter);
                         model.set (
                             iter,

@@ -1,3 +1,10 @@
+ilia (0.12.2-jammy) jammy; urgency=medium
+
+  [ Ken Gilmer ]
+  * Add seperator between category and action in keybindings view
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Fri, 27 May 2022 22:03:45 -0700
+
 ilia (0.12.1-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]

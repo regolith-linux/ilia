@@ -9,7 +9,7 @@ public static int main (string[] args) {
     var arg_map = parse_args (args);
     if (arg_map.contains ("-h") || arg_map.contains ("--help")) print_help_and_exit ();
 
-    var window = new Ilia.DialogWindow (arg_map); //page, all_page_mode);
+    var window = new Ilia.DialogWindow (arg_map);
 
     window.destroy.connect (Gtk.main_quit);
     initialize_style (window, arg_map);
@@ -70,6 +70,8 @@ private void initialize_style (Gtk.Window window, HashTable<string, string ? > a
                 .filter_entry {
                     border: none;
                     background: none;
+                    min-height: 36px;
+                    min-width: 320px;
                 }
 
                 .notebook {

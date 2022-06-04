@@ -2,6 +2,8 @@
 
 Ilia provides a modal interface prompting the user to select an item from a list. There are various items or pages that can be selected from by specifying the desired page via a command-line parameter. Also, all pages can be loaded together in "all page" mode.
 
+![Ilia Screenshot](https://regolith-desktop.com/regolith-ilia-keybinding-window.png)
+
 ## Status
 
 Ilia is in active development and should be considered `beta` quality.
@@ -43,6 +45,12 @@ Ilia supports the following configuration via gsettings under the namespace `org
 * window-width: width of window in pixels
 * window-height: height of window in pixels
 * icon-size: size of icons in pixels or 0 to disable icons
+
+### Example: Resetting screen width
+
+```
+gsettings reset org.regolith-linux.ilia window-width
+```
 
 ## Dependencies
 

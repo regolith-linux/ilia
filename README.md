@@ -94,12 +94,12 @@ This page uses the comment format specified by [Remontoire](https://github.com/r
 Ilia uses `meson` and `ninja` to build.  Example:
 
 ```
-$ git clone https://github.com/regolith-linux/ilia.git
-$ mkdir ilia/build
-$ cd ilia/build
-$ meson ..
-$ ninja
-$ src/ilia
+git clone https://github.com/regolith-linux/ilia.git
+mkdir ilia/build
+cd ilia/build
+meson ..
+ninja
+src/ilia
 ```
 
 Note: the `main` branch builds on Ubuntu Focal and Debian Bullseye, and the `ubuntu/jammy` branch builds on Ubuntu Jammy.

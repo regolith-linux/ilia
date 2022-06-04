@@ -1,3 +1,11 @@
+ilia (0.12.3) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Exract hard coded style to CSS
+  * Remove hard code style. Squelch right-click context menu to avoid hang. Addresses https://github.com/regolith-linux/ilia/issues/25.
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 04 Jun 2022 14:18:22 -0700
+
 ilia (0.12.2) focal; urgency=medium
 
   [ Ken Gilmer ]

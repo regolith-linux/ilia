@@ -1,3 +1,11 @@
+ilia (0.12.3-jammy) jammy; urgency=medium
+
+  [ Ken Gilmer ]
+  * Exract hard coded style to CSS
+  * Remove hard code style. Squelch right-click context menu to avoid hang.
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 04 Jun 2022 14:20:04 -0700
+
 ilia (0.12.2-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]

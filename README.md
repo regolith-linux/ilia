@@ -32,7 +32,7 @@ Loads all notifications from the rofication daemon.
 
 Loads items specified on the command-line.  The selected item is returned from the command.  For example, to see and select from a list of all files in a directory:
 
-```
+```shell
 $ ls | ilia -p textlist
 ```
 
@@ -49,7 +49,7 @@ Provides a basic front-end to [GNOME Tracker](https://wiki.gnome.org/Projects/Tr
 Ilia can be launched from a terminal. The `-p` option allows to specify which page to present to the user.
 
 Ex:
-```
+```shell
 ilia -p keybindings
 ```
 
@@ -59,7 +59,7 @@ The `-a` option loads all general purpose pages together.
 
 The `textlist` page is a bit different than the others pages.  It provides a general purpose utility to provide a list of options for the user select and when the selection occurs, the selected item is returned by the invocation to `ilia`.  In this way the program can be used in scripts to get user input from dynamic data, similar to `rofi`.  The `textlist` page supports two additional parameters for more customization:
 
-```
+```shell
 'textlist' - select an item from a specified list
         -l: page label
         -i: page icon
@@ -75,7 +75,7 @@ Ilia supports the following configuration via gsettings under the namespace `org
 
 ### Example: Resetting screen width
 
-```
+```shell
 gsettings reset org.regolith-linux.ilia window-width
 ```
 
@@ -93,7 +93,7 @@ This page uses the comment format specified by [Remontoire](https://github.com/r
 
 Ilia uses `meson` and `ninja` to build.  Example:
 
-```
+```shell
 git clone https://github.com/regolith-linux/ilia.git
 mkdir ilia/build
 cd ilia/build
@@ -107,3 +107,7 @@ Note: the `main` branch builds on Ubuntu Focal and Debian Bullseye, and the `ubu
 ## Package
 
 Debian packages for Debian and Ubuntu are available in the [Regolith 2 package repository](https://github.com/regolith-linux/voulage).
+
+## Inspiration
+
+`ilia`'s design is inspired by the wonderful desktop launcher [`rofi`](https://github.com/davatorium/rofi).

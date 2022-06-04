@@ -49,7 +49,10 @@ namespace Ilia {
             entry = new Gtk.Entry ();
             entry.get_style_context ().add_class ("filter_entry");
             entry.hexpand = true;
-            entry.height_request = 36;
+            entry.button_press_event.connect ((event) => {
+                // Disable context menu as causes de-focus event to exit execution
+                return event.button == 3; // squelch right button click event
+            });
 
             entry.changed.connect (on_entry_changed);
 
@@ -71,7 +74,11 @@ namespace Ilia {
             set_default_size (settings.get_int ("window-width"), settings.get_int ("window-height"));
 
             // Exit if focus leaves us
-            focus_out_event.connect (() => {
+            focus_out_event.connect ((event) => {
+                if (event.type == Gdk.EventType.BUTTON_PRESS) {
+                    stdout.printf("button press\n");
+                }
+                stdout.printf("Exit from focus out quit\n");
                 quit ();
                 return false;
             });
@@ -366,6 +373,7 @@ namespace Ilia {
         }
 
         public void quit() {
+            stdout.printf("Exit from quit\n");
             if (seat != null) seat.ungrab ();
             hide ();
             close ();

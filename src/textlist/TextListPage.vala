@@ -69,7 +69,6 @@ namespace Ilia {
             create_item_view ();
 
             load_items (settings.get_int ("icon-size"));
-            model.set_sort_column_id (ITEM_VIEW_COLUMN_NAME, SortType.ASCENDING);
             set_selection ();
 
             var scrolled = new Gtk.ScrolledWindow (null, null);

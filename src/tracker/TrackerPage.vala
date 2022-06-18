@@ -119,7 +119,7 @@ namespace Ilia {
         }
 
         public void grab_focus (uint keycode) {
-            if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
+            if (keycode == DialogWindow.KEY_CODE_ENTER && filter.get_iter_first (out iter) && entry.text.length > 0) {
                 execute_app_from_selection (iter);
             }
 
@@ -170,17 +170,13 @@ namespace Ilia {
         private void load_apps () {
             try {
                 var queryterm = entry.get_text ();
-                var connection = Tracker.Sparql.Connection.new (
-                    connection_flags,
-                    null,
-                    Tracker.Sparql.get_ontology_nepomuk (),
-                    null); // Tracker.Sparql.Connection.get ();
+                var connection = Tracker.Sparql.Connection.bus_new ("org.freedesktop.Tracker3.Miner.Files", null, null);
                 var query = "SELECT DISTINCT nie:url(?f) nie:title(?f) nie:mimeType(?f) WHERE { ?f fts:match '" + queryterm + "' }";
-                // stdout.printf ("query: %s\n", query);
+
                 var cursor = connection.query (query);
                 long length = 0;
 
-                do {
+                while (cursor.next ()) {
                     var uri = cursor.get_string (0, out length);
 
                     if (uri != null) {
@@ -206,7 +202,7 @@ namespace Ilia {
                             ITEM_VIEW_COLUMN_FILE, uri.substring (7)
                         );
                     }
-                } while (cursor.next ());
+                };
             } catch (Error e) {
                 stderr.printf ("%s\n", e.message);
             }

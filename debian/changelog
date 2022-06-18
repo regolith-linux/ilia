@@ -1,3 +1,10 @@
+ilia (0.12.5) focal; urgency=medium
+
+  [ Fabio Natanael Kepler ]
+  * Remove default sorting of items from textlist page
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Fri, 17 Jun 2022 19:01:21 -0700
+
 ilia (0.12.4) focal; urgency=medium
 
   [ Ken Gilmer ]

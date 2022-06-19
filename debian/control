@@ -23,7 +23,6 @@ Architecture: any
 Depends: 
   ${shlibs:Depends}, 
   ${misc:Depends},
-  gir1.2-xapp-1.0,
   libgee-0.8-2
 Description: General purpose desktop executor
  Invoke actions upon apps, commands, notifications, 

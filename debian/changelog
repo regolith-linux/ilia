@@ -1,3 +1,10 @@
+ilia (0.12.6) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Remove unused dependency, causing errors on ISO release
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 19 Jun 2022 09:10:10 -0700
+
 ilia (0.12.5) focal; urgency=medium
 
   [ Fabio Natanael Kepler ]

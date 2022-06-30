@@ -1,4 +1,5 @@
 using Gtk;
+using GtkLayerShell;
 
 /**
  * Application entry point
@@ -10,21 +11,12 @@ public static int main (string[] args) {
     if (arg_map.contains ("-h") || arg_map.contains ("--help")) print_help_and_exit ();
 
     var window = new Ilia.DialogWindow (arg_map);
-
+    GtkLayerShell.init_for_window(window);
     window.destroy.connect (Gtk.main_quit);
     initialize_style (window, arg_map);
     window.show_all ();
 
-    // Use the Gdk window to grab global inputs.
-    Gdk.Window gdkwin = window.get_window ();
-    var seat = grab_inputs (gdkwin);
-
-    if (seat == null) {
-        stderr.printf ("Failed to aquire access to input devices, aborting.");
-        return 1;
-    } else {
-        window.set_seat (seat);
-    }
+    handle_input_grab(ref window);
 
     // Handle mouse clicks by determining if a click is in or out of bounds
     // If we get a mouse click out of bounds of the window, exit.
@@ -45,6 +37,24 @@ public static int main (string[] args) {
     });
 
     Gtk.main ();
+    return 0;
+}
+
+private int handle_input_grab(ref Ilia.DialogWindow window ) {
+    string session_type = Environment.get_variable ("XDG_SESSION_TYPE");
+    if(session_type == "wayland") {
+        GtkLayerShell.set_keyboard_mode(window, GtkLayerShell.KeyboardMode.EXCLUSIVE);
+        return 0;
+    } 
+    // Use the Gdk window to grab global inputs.
+    Gdk.Window gdkwin = window.get_window ();
+    var seat = grab_inputs (gdkwin);
+
+    if (seat == null) {
+        stderr.printf ("Failed to aquire access to input devices, aborting.");
+        return 1;
+    }
+    window.set_seat (seat);
     return 0;
 }
 

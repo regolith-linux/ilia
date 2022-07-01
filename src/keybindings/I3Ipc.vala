@@ -77,6 +77,7 @@ namespace Ilia {
         public bool urgent { get; private set; }
         public string output { get; private set; }
         public string name { get; private set; }
+        public string app_id { get; private set; }
         public WindowProperties windowProperties { get; private set; }
         public TreeReply[] nodes { get; private set; }
 
@@ -96,6 +97,9 @@ namespace Ilia {
             }            
             if (obj.has_member ("window_properties")) {
                 windowProperties = new WindowProperties(obj.get_object_member ("window_properties"));
+            }
+            if (obj.has_member ("app_id")) {
+                app_id = obj.get_string_member ("app_id");
             }
             
             var jnodes = responseJson.get_object ().get_array_member("nodes");

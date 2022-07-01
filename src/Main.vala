@@ -1,22 +1,27 @@
 using Gtk;
 using GtkLayerShell;
 
+bool IS_SESSION_WAYLAND;
+
 /**
  * Application entry point
  */
 public static int main (string[] args) {
     Gtk.init (ref args);
 
+    // Get session type (wayland or x11) and set the flag
+    string session_type = Environment.get_variable ("XDG_SESSION_TYPE");
+    string gdk_backend = Environment.get_variable ("GDK_BACKEND");
+    IS_SESSION_WAYLAND = session_type == "wayland" && gdk_backend != "x11";
+
     var arg_map = parse_args (args);
     if (arg_map.contains ("-h") || arg_map.contains ("--help")) print_help_and_exit ();
 
     var window = new Ilia.DialogWindow (arg_map);
-    GtkLayerShell.init_for_window(window);
-    window.destroy.connect (Gtk.main_quit);
+    window.destroy.connect (Gtk.main_quit); initialize_style (window, arg_map);
     initialize_style (window, arg_map);
+    handle_backend(ref window);
     window.show_all ();
-
-    handle_input_grab(ref window);
 
     // Handle mouse clicks by determining if a click is in or out of bounds
     // If we get a mouse click out of bounds of the window, exit.
@@ -40,22 +45,27 @@ public static int main (string[] args) {
     return 0;
 }
 
-private int handle_input_grab(ref Ilia.DialogWindow window ) {
-    string session_type = Environment.get_variable ("XDG_SESSION_TYPE");
-    if(session_type == "wayland") {
+/**
+ * Initialize window and its parameters according to the display backend in use
+ */
+private void handle_backend(ref Ilia.DialogWindow window ) {
+    // If session type is wayland, initialise layer shell and grab inputs
+    if(IS_SESSION_WAYLAND) {
+        GtkLayerShell.init_for_window(window);
         GtkLayerShell.set_keyboard_mode(window, GtkLayerShell.KeyboardMode.EXCLUSIVE);
-        return 0;
+        return;
     } 
+
+    // If session type is x11, initialise window parameters
     // Use the Gdk window to grab global inputs.
     Gdk.Window gdkwin = window.get_window ();
     var seat = grab_inputs (gdkwin);
 
     if (seat == null) {
         stderr.printf ("Failed to aquire access to input devices, aborting.");
-        return 1;
+        return;
     }
     window.set_seat (seat);
-    return 0;
 }
 
 private void initialize_style (Gtk.Window window, HashTable<string, string ? > arg_map) {

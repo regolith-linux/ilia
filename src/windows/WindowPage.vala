@@ -161,7 +161,7 @@ namespace Ilia {
                 }                
             } catch (GLib.Error err) {
                 // TODO consistent error handling
-                stderr.printf ("Failed to read or parse window tree from i3: %s\n", err.message);
+                stderr.printf ("Failed to read or parse window tree from %s: %s\n", WM_NAME, err.message);
             }
         }
 
@@ -246,8 +246,14 @@ namespace Ilia {
         // i3-msg [window_role="gnome-terminal-window-6bee2ec0-eb8b-4b10-aafc-7c2708201d43" title="Terminal"] focus
         private void focus_window (string id) {
             string exec = "[con_id=\"" + id + "\"] focus";
-            string commandline = "/usr/bin/i3-msg " + exec;
+            string cli_bin = get_wm_cli();
 
+            if(cli_bin == null) {
+                stderr.printf("ilia doesn't support this action with you WM.\n");
+                return;
+            }
+
+            string commandline = cli_bin + exec;
             // stdout.printf("running %s\n", commandline);
 
             try {

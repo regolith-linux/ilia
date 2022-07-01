@@ -1,7 +1,9 @@
 using Gtk;
 using GtkLayerShell;
 
+// Globals
 bool IS_SESSION_WAYLAND;
+string WM_NAME;
 
 /**
  * Application entry point
@@ -13,6 +15,18 @@ public static int main (string[] args) {
     string session_type = Environment.get_variable ("XDG_SESSION_TYPE");
     string gdk_backend = Environment.get_variable ("GDK_BACKEND");
     IS_SESSION_WAYLAND = session_type == "wayland" && gdk_backend != "x11";
+
+    // Set window manager
+    string sway_sock = Environment.get_variable ("SWAYSOCK");
+    string i3_sock = Environment.get_variable ("I3SOCK");
+
+    if(sway_sock != null) {
+        WM_NAME = "sway";
+    } else if(i3_sock != null) {
+        WM_NAME = "i3";
+    } else {
+        WM_NAME = "Unknown";
+    }
 
     var arg_map = parse_args (args);
     if (arg_map.contains ("-h") || arg_map.contains ("--help")) print_help_and_exit ();
@@ -216,4 +230,16 @@ errordomain ArgParser {
 
 bool is_key (string inval) {
     return inval.has_prefix ("-");
+}
+
+/*
+Get the location for swaymsg or i3-msg as per the current session type
+*/ 
+string? get_wm_cli() {
+    if(WM_NAME == "i3") {
+        return "/usr/bin/i3-msg ";
+    } else if (WM_NAME == "sway") {
+        return "/usr/bin/swaymsg ";
+    }
+    return null;
 }

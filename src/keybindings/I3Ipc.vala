@@ -140,7 +140,7 @@ namespace Ilia {
                     socket.close ();
                 } catch (GLib.Error err) {
                     // TODO consistent error handling
-                    stderr.printf ("Failed to close i3 socket: %s\n", err.message);
+                    stderr.printf ("Failed to close %s socket: %s\n", WM_NAME, err.message);
                 }
             }
         }
@@ -173,12 +173,12 @@ namespace Ilia {
         private Json.Node ? i3_ipc (I3_COMMAND command) throws GLib.Error {
             ssize_t sent = socket.send (generate_request (command));
 
-            debug ("Sent " + sent.to_string () + " bytes to i3.\n");
+            debug ("Sent " + sent.to_string () + " bytes to " + WM_NAME +".\n");
             uint8[] buffer = new uint8[buffer_size];
 
             ssize_t len = socket.receive (buffer);
 
-            debug ("Received  " + len.to_string () + " bytes from i3.\n");
+            debug ("Received  " + len.to_string () + " bytes from " + WM_NAME +".\n");
 
             Bytes responseBytes = new Bytes.take (buffer[0 : len]);
 

@@ -32,10 +32,27 @@ public static int main (string[] args) {
     if (arg_map.contains ("-h") || arg_map.contains ("--help")) print_help_and_exit ();
 
     var window = new Ilia.DialogWindow (arg_map);
-    window.destroy.connect (Gtk.main_quit); initialize_style (window, arg_map);
+    window.destroy.connect (Gtk.main_quit); 
+    
+    // Grab inputs from wayland backend
+    if(IS_SESSION_WAYLAND) {
+        GtkLayerShell.init_for_window(window);
+        GtkLayerShell.set_keyboard_mode(window, GtkLayerShell.KeyboardMode.EXCLUSIVE);
+    } else {
+    }
+
     initialize_style (window, arg_map);
-    handle_backend(ref window);
     window.show_all ();
+
+    if (!IS_SESSION_WAYLAND) {
+        Gdk.Window gdkwin = window.get_window ();
+        var seat = grab_inputs (gdkwin);
+        if(seat == null) {
+            stderr.printf ("Failed to aquire access to input devices, aborting.");
+            return 1;
+        }
+        window.set_seat (seat);
+    }
 
     // Handle mouse clicks by determining if a click is in or out of bounds
     // If we get a mouse click out of bounds of the window, exit.
@@ -57,29 +74,6 @@ public static int main (string[] args) {
 
     Gtk.main ();
     return 0;
-}
-
-/**
- * Initialize window and its parameters according to the display backend in use
- */
-private void handle_backend(ref Ilia.DialogWindow window ) {
-    // If session type is wayland, initialise layer shell and grab inputs
-    if(IS_SESSION_WAYLAND) {
-        GtkLayerShell.init_for_window(window);
-        GtkLayerShell.set_keyboard_mode(window, GtkLayerShell.KeyboardMode.EXCLUSIVE);
-        return;
-    } 
-
-    // If session type is x11, initialise window parameters
-    // Use the Gdk window to grab global inputs.
-    Gdk.Window gdkwin = window.get_window ();
-    var seat = grab_inputs (gdkwin);
-
-    if (seat == null) {
-        stderr.printf ("Failed to aquire access to input devices, aborting.");
-        return;
-    }
-    window.set_seat (seat);
 }
 
 private void initialize_style (Gtk.Window window, HashTable<string, string ? > arg_map) {

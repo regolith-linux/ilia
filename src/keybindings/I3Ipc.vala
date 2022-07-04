@@ -79,6 +79,7 @@ namespace Ilia {
         public string name { get; private set; }
         public WindowProperties windowProperties { get; private set; }
         public TreeReply[] nodes { get; private set; }
+        public TreeReply[] floating_nodes { get; private set; }
 
         internal TreeReply (Json.Node responseJson) {
             var obj = responseJson.get_object ();
@@ -106,6 +107,17 @@ namespace Ilia {
                 nodes = new TreeReply[jnodes.get_length ()];
                 jnodes.foreach_element ((arr, index, node) => {
                     nodes[index] = new TreeReply(node);
+                });
+            }
+
+            var fnodes = responseJson.get_object ().get_array_member("floating_nodes");
+
+            if (fnodes == null || fnodes.get_length () == 0) {
+                floating_nodes = new TreeReply[0];
+            } else {
+                floating_nodes = new TreeReply[fnodes.get_length ()];
+                fnodes.foreach_element ((arr, index, node) => {
+                    floating_nodes[index] = new TreeReply(node);
                 });
             }
         }

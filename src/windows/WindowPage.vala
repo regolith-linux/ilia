@@ -184,6 +184,12 @@ namespace Ilia {
                     traverse_nodes (node.nodes[i]);
                 }
             }
+
+            if (node.floating_nodes != null) {
+                for (int i = 0; i < node.floating_nodes.length; ++i) {
+                    traverse_nodes (node.floating_nodes[i]);
+                }
+            }
         }
 
         private Gdk.Pixbuf ? load_icon (string ? icon_name, int size) {

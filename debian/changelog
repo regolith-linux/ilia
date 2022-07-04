@@ -1,3 +1,10 @@
+ilia (0.12.7-jammy) jammy; urgency=medium
+
+  [ Ken Gilmer ]
+  * Read floating node members of i3 tree response
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Mon, 04 Jul 2022 10:45:09 -0700
+
 ilia (0.12.6-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]

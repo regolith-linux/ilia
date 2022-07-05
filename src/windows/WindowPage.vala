@@ -166,7 +166,8 @@ namespace Ilia {
         }
 
         private void traverse_nodes (TreeReply node) {
-            if (node.ntype == "con" && (IS_SESSION_WAYLAND || node.window_type == "normal")) {
+            if (node.ntype == "con" && 
+                            (IS_SESSION_WAYLAND && node.layout == "none" || node.window_type == "normal")) {
                 Gdk.Pixbuf  pixbuf;
                 if(node.windowProperties.instance != null) {
                     pixbuf= load_icon (node.windowProperties.instance, icon_size);

@@ -184,7 +184,19 @@ namespace Ilia {
 
                         var icon = ContentType.get_icon (mimeType);
                         var iconNames = ((ThemedIcon) icon).get_names ();
-                        var iconPixbuf = load_icon (iconNames, icon_size);                       
+                        Gdk.Pixbuf? iconPixbuf = null;
+
+                        if (iconNames != null) {
+                            for (int i = 0; i < iconNames.length; ++i) {
+                                iconPixbuf = Ilia.load_icon_from_name(icon_theme, iconNames[i], icon_size);
+
+                                if (iconPixbuf != null) break;
+                            }
+                        }
+                        if (iconPixbuf == null) {
+                            iconPixbuf = Ilia.load_icon_from_name(icon_theme, "text-x-generic", icon_size);
+                        }
+                        
 
                         model.append (out iter);
                         model.set (
@@ -208,46 +220,6 @@ namespace Ilia {
             selection.set_mode (SelectionMode.SINGLE);
             selection.select_path (path);
         }
-
-        private Gdk.Pixbuf ? load_icon (string[] ? icon_names, int size) {
-            Gtk.IconInfo icon_info;
-
-            try {
-                if (icon_names == null) {
-                    icon_info = icon_theme.lookup_icon ("text-x-generic", size, Gtk.IconLookupFlags.FORCE_SIZE);
-                    return icon_info.load_icon ();
-                }
-
-                for (int i = 0; i < icon_names.length; ++i) {
-                    icon_info = icon_theme.lookup_icon (icon_names[i], size, Gtk.IconLookupFlags.FORCE_SIZE); // from icon theme
-
-                    if (icon_info != null) {
-                        return icon_info.load_icon ();
-                    }
-
-
-                    if (GLib.File.new_for_path (icon_names[i]).query_exists ()) {
-                        try {
-                            return new Gdk.Pixbuf.from_file_at_size (icon_names[i], size, size);
-                        } catch (Error e) {
-                            stderr.printf ("%s\n", e.message);
-                        }
-                    }
-                }
-
-                try {
-                    icon_info = icon_theme.lookup_icon ("text-x-generic", size, Gtk.IconLookupFlags.FORCE_SIZE);
-                    return icon_info.load_icon ();
-                } catch (Error e) {
-                    stderr.printf ("%s\n", e.message);
-                }
-            } catch (Error e) {
-                stderr.printf ("%s\n", e.message);
-            }
-
-            return null;
-        }
-
 
         // switch to window
         public void execute_app_from_selection (Gtk.TreeIter selection) {

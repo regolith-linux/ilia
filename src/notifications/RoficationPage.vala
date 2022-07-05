@@ -32,6 +32,8 @@ namespace Ilia {
 
         private int post_launch_sleep;
 
+        private int icon_size;
+
         public string get_name () {
             return "<u>N</u>otifications";
         }
@@ -60,6 +62,7 @@ namespace Ilia {
         public async void initialize (GLib.Settings settings, HashTable<string, string ? > arg_map, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error {
             this.entry = entry;
             this.session_controller = sessionController;
+            this.icon_size = settings.get_int ("icon-size");
 
             model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (string), typeof (DesktopAppInfo));
 
@@ -183,8 +186,12 @@ namespace Ilia {
 
             foreach (var notification in notifications) {
                 var desktopAppInfo = getDesktopAppInfo(notification.application);
-                
-                var iconPixBuff = load_icon (icon_theme, notification, desktopAppInfo);
+                Gdk.Pixbuf? iconPixBuff = null;
+                if (desktopAppInfo != null) {
+                    iconPixBuff = Ilia.load_icon_from_info (icon_theme, desktopAppInfo, icon_size);
+                } else {
+                    iconPixBuff = Ilia.load_icon_from_name(icon_theme, notification.icon, icon_size);
+                }
 
                 string detail;
                 if (notification.summary.length > 0 && notification.body.length > 0) {
@@ -207,43 +214,6 @@ namespace Ilia {
                     ITEM_VIEW_COLUMN_APP_INFO, desktopAppInfo
                 );
             }
-        }
-
-        private Gdk.Pixbuf ? load_icon (Gtk.IconTheme icon_theme, NotificationDesc notification, DesktopAppInfo? desktopAppInfo) {
-            try {
-                if (desktopAppInfo != null) {
-                    var icon = desktopAppInfo.get_icon ();
-                    string icon_name = null;
-                    if (icon != null) icon_name = icon.to_string ();
-
-                    var icon_info = icon_theme.lookup_icon (icon_name, 32, Gtk.IconLookupFlags.FORCE_SIZE); // from icon theme
-                    if (icon_info != null) {
-                        return icon_info.load_icon ();
-                    }
-
-                    if (GLib.File.new_for_path (icon_name).query_exists ()) {
-                        try {
-                            return new Gdk.Pixbuf.from_file_at_size (icon_name, 32, 32);
-                        } catch (Error e) {
-                            stderr.printf ("Error loading icon: %s\n", e.message);
-                        }
-                    }
-                }
-                
-                var icon_info = icon_theme.lookup_icon (notification.icon, 32, Gtk.IconLookupFlags.FORCE_SIZE); // from icon theme
-                if (icon_info != null) {
-                    return icon_info.load_icon ();
-                }
-
-                icon_info = icon_theme.lookup_icon ("emblem-generic", 32, Gtk.IconLookupFlags.FORCE_SIZE);
-                if (icon_info != null) {
-                    return icon_info.load_icon ();
-                }
-            } catch (GLib.Error err) {
-                stderr.printf ("Error: load_icon failed: %s\n", err.message);
-            }
-
-            return null;
         }
 
         private DesktopAppInfo? getDesktopAppInfo(string appName) {            

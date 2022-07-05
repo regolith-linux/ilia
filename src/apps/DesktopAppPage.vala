@@ -312,7 +312,7 @@ namespace Ilia {
                 Gdk.Pixbuf icon_img = null;
 
                 if (icon_size > 0) {
-                    icon_img = yield load_icon (icon_name, icon_size);
+                    icon_img = yield Ilia.load_icon_from_info_async (icon_theme, app_info, icon_size);
 
                     model.set (
                         iter,
@@ -330,41 +330,6 @@ namespace Ilia {
                     );
                 }
             }
-        }
-
-        private async Gdk.Pixbuf ? load_icon (string ? icon_name, int size) {
-            Gtk.IconInfo icon_info;
-
-            try {
-                if (icon_name == null) {
-                    icon_info = icon_theme.lookup_icon ("application-x-executable", size, Gtk.IconLookupFlags.FORCE_SIZE);
-                    return icon_info.load_icon ();
-                }
-
-                icon_info = icon_theme.lookup_icon (icon_name, size, Gtk.IconLookupFlags.FORCE_SIZE); // from icon theme
-                if (icon_info != null) {
-                    return icon_info.load_icon ();
-                }
-
-                if (GLib.File.new_for_path (icon_name).query_exists ()) {
-                    try {
-                        return new Gdk.Pixbuf.from_file_at_size (icon_name, size, size);
-                    } catch (Error e) {
-                        stderr.printf ("%s\n", e.message);
-                    }
-                }
-
-                try {
-                    icon_info = icon_theme.lookup_icon ("application-x-executable", size, Gtk.IconLookupFlags.FORCE_SIZE);
-                    return icon_info.load_icon ();
-                } catch (Error e) {
-                    stderr.printf ("%s\n", e.message);
-                }
-            } catch (Error e) {
-                stderr.printf ("%s\n", e.message);
-            }
-
-            return null;
         }
 
         // Automatically set the first item in the list as selected.

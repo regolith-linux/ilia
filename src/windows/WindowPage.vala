@@ -168,7 +168,8 @@ namespace Ilia {
         private void traverse_nodes (TreeReply node) {
             if (node.ntype == "con" && node.window_type == "normal") {
 
-                var pixbuf = load_icon (node.windowProperties.instance, icon_size);
+                stdout.printf("Loading icon for app %s\n", node.windowProperties.clazz);
+                var pixbuf = load_icon_from_app_name (icon_theme, node.windowProperties.clazz, icon_size);
 
                 model.append (out iter);
                 model.set (
@@ -191,42 +192,7 @@ namespace Ilia {
                 }
             }
         }
-
-        private Gdk.Pixbuf ? load_icon (string ? icon_name, int size) {
-            Gtk.IconInfo icon_info;
-
-            try {
-                if (icon_name == null) {
-                    icon_info = icon_theme.lookup_icon ("applications-other", size, Gtk.IconLookupFlags.FORCE_SIZE);
-                    return icon_info.load_icon ();
-                }
-
-                icon_info = icon_theme.lookup_icon (icon_name, size, Gtk.IconLookupFlags.FORCE_SIZE); // from icon theme
-                if (icon_info != null) {
-                    return icon_info.load_icon ();
-                }
-
-                if (GLib.File.new_for_path (icon_name).query_exists ()) {
-                    try {
-                        return new Gdk.Pixbuf.from_file_at_size (icon_name, size, size);
-                    } catch (Error e) {
-                        stderr.printf ("%s\n", e.message);
-                    }
-                }
-
-                try {
-                    icon_info = icon_theme.lookup_icon ("applications-other", size, Gtk.IconLookupFlags.FORCE_SIZE);
-                    return icon_info.load_icon ();
-                } catch (Error e) {
-                    stderr.printf ("%s\n", e.message);
-                }
-            } catch (Error e) {
-                stderr.printf ("%s\n", e.message);
-            }
-
-            return null;
-        }
-
+        
         // Automatically set the first item in the list as selected.
         private void set_selection () {
             Gtk.TreePath path = new Gtk.TreePath.first ();

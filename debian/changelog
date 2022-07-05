@@ -1,3 +1,10 @@
+ilia (0.12.8) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Cleanup icon handing across pages. Fix icon handing for window view
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Tue, 05 Jul 2022 11:10:59 -0700
+
 ilia (0.12.7) focal; urgency=medium
 
   [ Ken Gilmer ]

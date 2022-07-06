@@ -1,3 +1,10 @@
+ilia (0.12.9) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Fix double filtering in tracker page
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 06 Jul 2022 07:44:27 -0700
+
 ilia (0.12.8) focal; urgency=medium
 
   [ Ken Gilmer ]

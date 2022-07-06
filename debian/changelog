@@ -1,3 +1,10 @@
+ilia (0.12.9-jammy) jammy; urgency=medium
+
+  [ Ken Gilmer ]
+  * Fix double filtering in tracker page. Address https://github.com/regolith-linux/ilia/issues/23
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 06 Jul 2022 07:46:36 -0700
+
 ilia (0.12.8-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]

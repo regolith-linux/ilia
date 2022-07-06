@@ -143,10 +143,10 @@ namespace Ilia {
             string queryString = entry.get_text ().down ().strip ();
 
             if (queryString.length > 0) {
-                GLib.Value app_info;
+                GLib.Value item_value;
                 string strval;
-                model.get_value (iter, ITEM_VIEW_COLUMN_NAME, out app_info);
-                strval = app_info.get_string ();
+                model.get_value (iter, ITEM_VIEW_COLUMN_NAME, out item_value);
+                strval = item_value.get_string ();
 
                 return (strval != null && strval.down ().contains (queryString));
             } else {

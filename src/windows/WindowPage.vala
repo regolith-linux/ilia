@@ -167,8 +167,6 @@ namespace Ilia {
 
         private void traverse_nodes (TreeReply node) {
             if (node.ntype == "con" && node.window_type == "normal") {
-
-                stdout.printf("Loading icon for app %s\n", node.windowProperties.clazz);
                 var pixbuf = load_icon_from_app_name (icon_theme, node.windowProperties.clazz, icon_size);
 
                 model.append (out iter);

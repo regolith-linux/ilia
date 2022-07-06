@@ -1,3 +1,10 @@
+ilia (0.12.10) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Remove debug output
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 06 Jul 2022 08:01:03 -0700
+
 ilia (0.12.9) focal; urgency=medium
 
   [ Ken Gilmer ]

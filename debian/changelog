@@ -1,3 +1,10 @@
+ilia (0.12.11-jammy) jammy; urgency=medium
+
+  [ Ken Gilmer ]
+  * Clean up page key event handling. Exit on system key events to address https://github.com/regolith-linux/ilia/issues/24
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 07 Jul 2022 17:02:13 -0700
+
 ilia (0.12.10-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]

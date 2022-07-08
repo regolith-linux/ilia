@@ -200,17 +200,17 @@ namespace Ilia {
         }
 
         private void execute_command(string cmd_path) {
-            // TODO ~ Enalbe two launch modes with some modifier.  By default terminal exits when program exits.
-            //  todo is to add another mode in which the terminal does not exit after program completes.
+            // TODO ~ Enable two launch modes with some modifier.  By default terminal exits when program exits.
+            //        todo is to add another mode in which the terminal does not exit after program completes.
 
             //string commandline = "/usr/bin/x-terminal-emulator -e \"bash -c '" + cmd_path + "; exec bash'\"";
             //string commandline = "x-terminal-emulator -e \"bash -c '" + cmd_path + "'\"";
-            //string commandline = "x-terminal-emulator -e '" + cmd_path + "'";
+            string commandline = "x-terminal-emulator -e '" + cmd_path + "'";
 
             // stdout.printf("%s\n", commandline);
 
             try {
-                var app_info = AppInfo.create_from_commandline (cmd_path, null, GLib.AppInfoCreateFlags.NEEDS_TERMINAL);
+                var app_info = AppInfo.create_from_commandline (commandline, null, GLib.AppInfoCreateFlags.NONE);
 
                 if (!app_info.launch (null, null)) {
                     stderr.printf ("Error: execute_command failed\n");

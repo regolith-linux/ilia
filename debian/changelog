@@ -1,3 +1,10 @@
+ilia (0.12.13) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Filter on both summary and keybinding text in keybinding page to address https://github.com/regolith-linux/ilia/issues/34
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 07 Jul 2022 18:01:23 -0700
+
 ilia (0.12.12) focal; urgency=medium
 
   [ Ken Gilmer ]

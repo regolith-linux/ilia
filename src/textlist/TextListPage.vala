@@ -107,15 +107,14 @@ namespace Ilia {
         }
 
         public bool key_event (Gdk.EventKey event_key) {
-            return false;
-        }
+            var keycode = event_key.keyval;
 
-        public void grab_focus (uint keycode) {
-            if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
+            if (keycode == Ilia.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
                 print (entry.text);
+                return true;
             }
 
-            item_view.grab_focus ();
+            return false;
         }
 
         // called on enter from TreeView

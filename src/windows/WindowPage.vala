@@ -45,7 +45,7 @@ namespace Ilia {
         public HashTable<string, string>? get_keybindings() {
             var keybindings = new HashTable<string, string ? >(str_hash, str_equal);
 
-            keybindings.set("enter", "Navigate to Window");            
+            keybindings.set("enter", "Navigate to Window");
 
             return keybindings;
         }
@@ -104,15 +104,14 @@ namespace Ilia {
         }
 
         public bool key_event (Gdk.EventKey event_key) {
-            return false;
-        }
+            var keycode = event_key.keyval;
 
-        public void grab_focus (uint keycode) {
-            if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
+            if (keycode == Ilia.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
                 _from_selection (iter);
+                return true;
             }
 
-            item_view.grab_focus ();
+            return false;
         }
 
         // called on enter from TreeView
@@ -158,7 +157,7 @@ namespace Ilia {
                 if (node != null) {
                     icon_theme = Gtk.IconTheme.get_default ();
                     traverse_nodes (node);
-                }                
+                }
             } catch (GLib.Error err) {
                 // TODO consistent error handling
                 stderr.printf ("Failed to read or parse window tree from i3: %s\n", err.message);
@@ -174,7 +173,7 @@ namespace Ilia {
                     iter,
                     ITEM_VIEW_COLUMN_APP_ICON, pixbuf,
                     ITEM_VIEW_COLUMN_TITLE, node.name,
-                    ITEM_VIEW_COLUMN_ID, node.id               
+                    ITEM_VIEW_COLUMN_ID, node.id
                 );
             }
 
@@ -190,7 +189,7 @@ namespace Ilia {
                 }
             }
         }
-        
+
         // Automatically set the first item in the list as selected.
         private void set_selection () {
             Gtk.TreePath path = new Gtk.TreePath.first ();

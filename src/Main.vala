@@ -45,6 +45,7 @@ public static int main (string[] args) {
     });
 
     Gtk.main ();
+    
     return 0;
 }
 

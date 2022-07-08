@@ -61,7 +61,7 @@ namespace Ilia {
         public HashTable<string, string>? get_keybindings() {
             var keybindings = new HashTable<string, string ? >(str_hash, str_equal);
 
-            keybindings.set("enter", "Launch Application");            
+            keybindings.set("enter", "Launch Application");
 
             return keybindings;
         }
@@ -92,7 +92,7 @@ namespace Ilia {
                 set_selection ();
             });
 
-            var scrolled = new Gtk.ScrolledWindow (null, null);            
+            var scrolled = new Gtk.ScrolledWindow (null, null);
             scrolled.get_style_context ().add_class ("scrolled_window");
             scrolled.add (item_view);
             scrolled.expand = true;
@@ -110,7 +110,7 @@ namespace Ilia {
 
         // Initialize the view displaying selections
         private void create_item_view () {
-            item_view = new Gtk.TreeView.with_model (filter);            
+            item_view = new Gtk.TreeView.with_model (filter);
             item_view.get_style_context ().add_class ("item_view");
             // Do not show column headers
             item_view.headers_visible = false;
@@ -134,9 +134,11 @@ namespace Ilia {
             item_view.row_activated.connect (on_row_activated);
         }
 
+        /*
         public void grab_focus (uint keycode) {
             item_view.grab_focus ();
         }
+        */
 
         // called on enter from TreeView
         private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
@@ -242,7 +244,7 @@ namespace Ilia {
 
             var app_dirs = find_app_dirs();
 
-            foreach (string app_dir in app_dirs) { 
+            foreach (string app_dir in app_dirs) {
                 // populate model with desktop apps from known locations
                 var system_app_dir = File.new_for_path (app_dir);
                 if (system_app_dir.query_exists ()) yield load_apps_from_dir (system_app_dir);
@@ -257,7 +259,7 @@ namespace Ilia {
             if (app_dir_roots == null || app_dir_roots.length == 0) {
                 string[] rv = new string[1];
                 rv[0] = "/usr/share/applications";
-    
+
                 return rv;
             }
 
@@ -271,7 +273,7 @@ namespace Ilia {
                 index++;
             }
 
-            return app_paths;            
+            return app_paths;
         }
 
         private async void load_apps_from_dir (File app_dir) {
@@ -341,7 +343,7 @@ namespace Ilia {
         }
 
         // launch a desktop app
-        public void execute_app (Gtk.TreeIter selection) {            
+        public void execute_app (Gtk.TreeIter selection) {
             DesktopAppInfo app_info;
             filter.@get (selection, ITEM_VIEW_COLUMN_APPINFO, out app_info);
 

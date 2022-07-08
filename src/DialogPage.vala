@@ -16,13 +16,6 @@ namespace Ilia {
         public abstract Gtk.Widget get_root ();
 
         /**
-         * Set focus on page's primary widget based on keyboard event
-         * 
-         * @param keycode key event that caused event
-         */
-        public abstract void grab_focus (uint keycode);
-
-        /**
          * Cause the top item to be selected in the list view
          */
         public abstract void set_selection ();

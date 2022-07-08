@@ -124,9 +124,6 @@ namespace Ilia {
             item_view.get_selection ().changed.connect (on_selection);
         }
 
-        public void grab_focus (uint keycode) {            
-            item_view.grab_focus ();
-        }
 
         private void on_selection (Gtk.TreeSelection selection) {
             Gtk.TreeModel model;
@@ -250,7 +247,7 @@ namespace Ilia {
                 }
                 return true;
             }
-
+            
             return false;
         }
 

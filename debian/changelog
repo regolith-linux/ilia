@@ -1,6 +1,13 @@
 ilia (0.12.12-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
+  * Filter on both summary and keybinding text in keybinding page to address https://github.com/regolith-linux/ilia/issues/34
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 07 Jul 2022 18:01:59 -0700
+
+ilia (0.12.12-jammy) jammy; urgency=medium
+
+  [ Ken Gilmer ]
   * Revert to using x-terminal-emulator over gdk in support of https://github.com/regolith-linux/ilia/issues/31
 
  -- Regolith Linux <regolith.linux@gmail.com>  Thu, 07 Jul 2022 17:23:00 -0700

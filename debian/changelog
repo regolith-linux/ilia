@@ -1,3 +1,10 @@
+ilia (0.12.14-jammy) jammy; urgency=medium
+
+  [ Ken Gilmer ]
+  * Sync project versions
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 10 Jul 2022 09:53:00 -0700
+
 ilia (0.12.12-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]

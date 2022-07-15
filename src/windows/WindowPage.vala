@@ -45,7 +45,7 @@ namespace Ilia {
         public HashTable<string, string>? get_keybindings() {
             var keybindings = new HashTable<string, string ? >(str_hash, str_equal);
 
-            keybindings.set("enter", "Navigate to Window");            
+            keybindings.set("enter", "Navigate to Window");
 
             return keybindings;
         }
@@ -104,15 +104,14 @@ namespace Ilia {
         }
 
         public bool key_event (Gdk.EventKey event_key) {
-            return false;
-        }
+            var keycode = event_key.keyval;
 
-        public void grab_focus (uint keycode) {
-            if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
+            if (keycode == Ilia.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
                 _from_selection (iter);
+                return true;
             }
 
-            item_view.grab_focus ();
+            return false;
         }
 
         // called on enter from TreeView
@@ -158,7 +157,7 @@ namespace Ilia {
                 if (node != null) {
                     icon_theme = Gtk.IconTheme.get_default ();
                     traverse_nodes (node);
-                }                
+                }
             } catch (GLib.Error err) {
                 // TODO consistent error handling
                 stderr.printf ("Failed to read or parse window tree from %s: %s\n", WM_NAME, err.message);
@@ -170,10 +169,10 @@ namespace Ilia {
                             (IS_SESSION_WAYLAND && node.layout == "none" || node.window_type == "normal")) {
                 Gdk.Pixbuf  pixbuf;
                 if(node.windowProperties.instance != null) {
-                    pixbuf= load_icon (node.windowProperties.instance, icon_size);
+                    pixbuf= load_icon_from_app_name (icon_theme, node.windowProperties.instance, icon_size);
                 }
                 else {
-                    pixbuf = load_icon (node.app_id, icon_size);
+                    pixbuf = load_icon_from_app_name (icon_theme, node.app_id, icon_size);
                 }
 
                 model.append (out iter);
@@ -181,7 +180,7 @@ namespace Ilia {
                     iter,
                     ITEM_VIEW_COLUMN_APP_ICON, pixbuf,
                     ITEM_VIEW_COLUMN_TITLE, node.name,
-                    ITEM_VIEW_COLUMN_ID, node.id               
+                    ITEM_VIEW_COLUMN_ID, node.id
                 );
             }
 
@@ -190,41 +189,12 @@ namespace Ilia {
                     traverse_nodes (node.nodes[i]);
                 }
             }
-        }
 
-        private Gdk.Pixbuf ? load_icon (string ? icon_name, int size) {
-            Gtk.IconInfo icon_info;
-
-            try {
-                if (icon_name == null) {
-                    icon_info = icon_theme.lookup_icon ("applications-other", size, Gtk.IconLookupFlags.FORCE_SIZE);
-                    return icon_info.load_icon ();
+            if (node.floating_nodes != null) {
+                for (int i = 0; i < node.floating_nodes.length; ++i) {
+                    traverse_nodes (node.floating_nodes[i]);
                 }
-
-                icon_info = icon_theme.lookup_icon (icon_name, size, Gtk.IconLookupFlags.FORCE_SIZE); // from icon theme
-                if (icon_info != null) {
-                    return icon_info.load_icon ();
-                }
-
-                if (GLib.File.new_for_path (icon_name).query_exists ()) {
-                    try {
-                        return new Gdk.Pixbuf.from_file_at_size (icon_name, size, size);
-                    } catch (Error e) {
-                        stderr.printf ("%s\n", e.message);
-                    }
-                }
-
-                try {
-                    icon_info = icon_theme.lookup_icon ("applications-other", size, Gtk.IconLookupFlags.FORCE_SIZE);
-                    return icon_info.load_icon ();
-                } catch (Error e) {
-                    stderr.printf ("%s\n", e.message);
-                }
-            } catch (Error e) {
-                stderr.printf ("%s\n", e.message);
             }
-
-            return null;
         }
 
         // Automatically set the first item in the list as selected.

@@ -13,8 +13,6 @@ namespace Ilia {
         private Gtk.ListStore model;
         // Access state from model
         private Gtk.TreeIter iter;
-        // View on model of filtered elements
-        private Gtk.TreeModelFilter filter;
 
         private Gtk.Entry entry;
 
@@ -60,14 +58,10 @@ namespace Ilia {
 
             model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string));
 
-            filter = new Gtk.TreeModelFilter (model, null);
-            filter.set_visible_func (filter_func);
-
             create_item_view ();
 
-            // load_apps ();
             model.set_sort_column_id (1, SortType.ASCENDING);
-            // model.set_sort_func (0, app_sort_func);
+
             set_selection ();
 
             var scrolled = new Gtk.ScrolledWindow (null, null);
@@ -83,7 +77,7 @@ namespace Ilia {
 
         // Initialize the view displaying selections
         private void create_item_view () {
-            item_view = new Gtk.TreeView.with_model (filter);
+            item_view = new Gtk.TreeView.with_model (model);
 
             // Do not show column headers
             item_view.headers_visible = false;
@@ -107,20 +101,19 @@ namespace Ilia {
         }
 
         public bool key_event (Gdk.EventKey event_key) {
-            return false;
-        }
+            var keycode = event_key.keyval;
 
-        public void grab_focus (uint keycode) {
-            if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
+            if (keycode == Ilia.KEY_CODE_ENTER && !model.get_iter_first (out iter) && entry.text.length > 0) {
                 execute_app_from_selection (iter);
+                return true;
             }
 
-            item_view.grab_focus ();
+            return false;
         }
 
         // called on enter from TreeView
         private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
-            filter.get_iter (out iter, path);
+            model.get_iter (out iter, path);
             execute_app_from_selection (iter);
         }
 
@@ -128,38 +121,20 @@ namespace Ilia {
         void on_entry_changed () {
             if (entry.get_text ().length > 2) {
                 model.clear ();
-                load_apps ();
-                filter.refilter ();
+                full_text_search ();
                 set_selection ();
             }
         }
 
         // called on enter when in text box
         void on_entry_activated () {
-            if (filter.get_iter_first (out iter)) {
+            if (model.get_iter_first (out iter)) {
                 execute_app_from_selection (iter);
             }
         }
 
-        // traverse the model and show items with metadata that matches entry filter string
-        private bool filter_func (Gtk.TreeModel m, Gtk.TreeIter iter) {
-            string queryString = entry.get_text ().down ().strip ();
-
-            if (queryString.length > 0) {
-                GLib.Value app_info;
-                string strval;
-                // TODO: Add 'path' to filter selection
-                model.get_value (iter, ITEM_VIEW_COLUMN_FILE, out app_info);
-                strval = app_info.get_string ();
-
-                return (strval != null && strval.down ().contains (queryString));
-            } else {
-                return true;
-            }
-        }
-
         // tracker sparql -q "SELECT DISTINCT nie:url(?f) nie:title(?f) WHERE { ?f fts:match 'regolith' }"
-        private void load_apps () {
+        private void full_text_search () {
             try {
                 var queryterm = entry.get_text ();
                 var connection = Tracker.Sparql.Connection.get ();
@@ -170,13 +145,13 @@ namespace Ilia {
 
                 do {
                     var uri = cursor.get_string (0, out length);
-
+                    
                     if (uri != null) {
                         var title = cursor.get_string (1, out length);
                         if (title == null) {
                             title = Path.get_basename (uri);
                         }
-
+                        
                         var mimeType = cursor.get_string (2, out length);
                         if (mimeType == null) {
                             mimeType = "application/octet-stream";
@@ -184,7 +159,18 @@ namespace Ilia {
 
                         var icon = ContentType.get_icon (mimeType);
                         var iconNames = ((ThemedIcon) icon).get_names ();
-                        var iconPixbuf = load_icon (iconNames, icon_size);                       
+                        Gdk.Pixbuf? iconPixbuf = null;
+
+                        if (iconNames != null) {
+                            for (int i = 0; i < iconNames.length; ++i) {
+                                iconPixbuf = Ilia.load_icon_from_name(icon_theme, iconNames[i], icon_size);
+
+                                if (iconPixbuf != null) break;
+                            }
+                        }
+                        if (iconPixbuf == null) {
+                            iconPixbuf = Ilia.load_icon_from_name(icon_theme, "text-x-generic", icon_size);
+                        }                        
 
                         model.append (out iter);
                         model.set (
@@ -209,50 +195,10 @@ namespace Ilia {
             selection.select_path (path);
         }
 
-        private Gdk.Pixbuf ? load_icon (string[] ? icon_names, int size) {
-            Gtk.IconInfo icon_info;
-
-            try {
-                if (icon_names == null) {
-                    icon_info = icon_theme.lookup_icon ("text-x-generic", size, Gtk.IconLookupFlags.FORCE_SIZE);
-                    return icon_info.load_icon ();
-                }
-
-                for (int i = 0; i < icon_names.length; ++i) {
-                    icon_info = icon_theme.lookup_icon (icon_names[i], size, Gtk.IconLookupFlags.FORCE_SIZE); // from icon theme
-
-                    if (icon_info != null) {
-                        return icon_info.load_icon ();
-                    }
-
-
-                    if (GLib.File.new_for_path (icon_names[i]).query_exists ()) {
-                        try {
-                            return new Gdk.Pixbuf.from_file_at_size (icon_names[i], size, size);
-                        } catch (Error e) {
-                            stderr.printf ("%s\n", e.message);
-                        }
-                    }
-                }
-
-                try {
-                    icon_info = icon_theme.lookup_icon ("text-x-generic", size, Gtk.IconLookupFlags.FORCE_SIZE);
-                    return icon_info.load_icon ();
-                } catch (Error e) {
-                    stderr.printf ("%s\n", e.message);
-                }
-            } catch (Error e) {
-                stderr.printf ("%s\n", e.message);
-            }
-
-            return null;
-        }
-
-
         // switch to window
         public void execute_app_from_selection (Gtk.TreeIter selection) {
             string file;
-            filter.@get (selection, ITEM_VIEW_COLUMN_FILE, out file);
+            model.@get (selection, ITEM_VIEW_COLUMN_FILE, out file);
 
             execute_app (file);
         }

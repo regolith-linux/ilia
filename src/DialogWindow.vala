@@ -1,23 +1,31 @@
 using Gtk;
 
 namespace Ilia {
+    public const int KEY_CODE_ESCAPE = 65307;
+    public const int KEY_CODE_LEFT_ALT = 65513;
+    public const int KEY_CODE_RIGHT_ALT = 65514;
+    public const int KEY_CODE_SUPER = 65515;
+    public const int KEY_CODE_UP = 65364;
+    public const int KEY_CODE_DOWN = 65362;
+    public const int KEY_CODE_ENTER = 65293;
+    public const int KEY_CODE_PGDOWN = 65366;
+    public const int KEY_CODE_PGUP = 65365;
+    public const int KEY_CODE_RIGHT = 65363;
+    public const int KEY_CODE_LEFT = 65361;
+    public const int KEY_CODE_PLUS = 43;
+    public const int KEY_CODE_MINUS = 45;
+    public const int KEY_CODE_QUESTION = 63;
+
+    public const int KEY_CODE_PRINTSRC = 65377;
+    public const int KEY_CODE_BRIGHT_UP = 269025026;
+    public const int KEY_CODE_BRIGHT_DOWN = 269025027;
+    public const int KEY_CODE_MIC_MUTE = 269025202;
+    public const int KEY_CODE_VOLUME_UP = 269025043;
+    public const int KEY_CODE_VOLUME_DOWN = 269025041;
+    public const int KEY_CODE_VOLUME_MUTE = 269025042;
+    
     // Primary UI
     public class DialogWindow : Window, SessionContoller {
-        public const int KEY_CODE_ESCAPE = 65307;
-        public const int KEY_CODE_LEFT_ALT = 65513;
-        public const int KEY_CODE_RIGHT_ALT = 65514;
-        public const int KEY_CODE_SUPER = 65515;
-        public const int KEY_CODE_UP = 65364;
-        public const int KEY_CODE_DOWN = 65362;
-        public const int KEY_CODE_ENTER = 65293;
-        public const int KEY_CODE_PGDOWN = 65366;
-        public const int KEY_CODE_PGUP = 65365;
-        public const int KEY_CODE_RIGHT = 65363;
-        public const int KEY_CODE_LEFT = 65361;
-        public const int KEY_CODE_PLUS = 43;
-        public const int KEY_CODE_MINUS = 45;
-        public const int KEY_CODE_QUESTION = 63;
-
         const int MIN_WINDOW_WIDTH = 160;
         const int MIN_WINDOW_HEIGHT = 100;
 
@@ -80,9 +88,9 @@ namespace Ilia {
             });
 
             // Route keys based on function
-            key_press_event.connect ((key) => {
-                // Enable page nav keybindings in all page mode.
+            key_press_event.connect ((key) => {                
                 if ((key.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK) { //ALT
+                    // Enable page nav keybindings in all page mode.
                     for (int i = 0; i < total_pages; ++i) {
                         if (dialog_pages[i].get_keybinding() == key.keyval || (dialog_pages[i].get_keybinding() - 32) == key.keyval) {
                             // Allow both upper/lower case match
@@ -90,11 +98,11 @@ namespace Ilia {
                             return true;
                         }
                     }
-                    if (key.keyval == KEY_CODE_PLUS) {
+                    if (key.keyval == KEY_CODE_PLUS) { // Expand dialog
                         change_size(128);
                         return true;
                     }
-                    if (key.keyval == KEY_CODE_MINUS) {
+                    if (key.keyval == KEY_CODE_MINUS) { // Contract dialog
                         change_size(-128);
                         return true;
                     }
@@ -103,28 +111,37 @@ namespace Ilia {
                 bool key_handled = false;
                 switch (key.keyval) {
                     case KEY_CODE_ESCAPE:
-                    case KEY_CODE_SUPER:
+                    case KEY_CODE_SUPER:    // Explicit exit
                         quit ();
+                        break;
+                    case KEY_CODE_BRIGHT_UP:
+                    case KEY_CODE_BRIGHT_DOWN:
+                    case KEY_CODE_MIC_MUTE:
+                    case KEY_CODE_VOLUME_UP:
+                    case KEY_CODE_VOLUME_DOWN:
+                    case KEY_CODE_VOLUME_MUTE:
+                    case KEY_CODE_PRINTSRC: // Implicit exit
+                        quit ();                  
                         break;
                     case KEY_CODE_UP:
                     case KEY_CODE_DOWN:
                     case KEY_CODE_ENTER:
                     case KEY_CODE_PGDOWN:
-                    case KEY_CODE_PGUP:
-                        dialog_pages[active_page].grab_focus (key.keyval);
+                    case KEY_CODE_PGUP:     // Let UI handle these nav keys                        
                         break;
                     case KEY_CODE_RIGHT:
-                    case KEY_CODE_LEFT:
+                    case KEY_CODE_LEFT:     // Switch pages
                         notebook.grab_focus ();
                         break;
-                    default:
-                        // stdout.printf ("Keycode: %u\n", key.keyval);
-                        if (!dialog_pages[active_page].key_event (key)) {
-                            entry.grab_focus_without_selecting ();
+                    default:                // Pass key event to active page for handling                  
+                        // stdout.printf ("Keycode: %u\n", key.keyval);  
+                        key_handled = dialog_pages[active_page].key_event (key);
+                        if (!key_handled) {                            
+                            entry.grab_focus_without_selecting (); // causes entry to consume all unhandled key events
                         }
                         break;
                 }
-
+                
                 return key_handled;
             });
 

@@ -104,15 +104,14 @@ namespace Ilia {
         }
 
         public bool key_event(Gdk.EventKey event_key) {
-            return false;
-        }
+            var keycode = event_key.keyval;
 
-        public void grab_focus (uint keycode) {
-            if (keycode == DialogWindow.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
-                execute_keybinding (entry.text);
+            if (keycode == Ilia.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
+                execute_keybinding (entry.text);      
+                return true;          
             }
 
-            item_view.grab_focus ();
+            return false;
         }
 
         // called on enter from TreeView
@@ -140,11 +139,13 @@ namespace Ilia {
 
             if (queryString.length > 0) {
                 GLib.Value gval;
-                string strval;
                 model.get_value (iter, ITEM_VIEW_COLUMN_SUMMARY, out gval);
-                strval = gval.get_string ();
+                string summary = gval.get_string ().down ();
+                model.get_value (iter, ITEM_VIEW_COLUMN_KEYBINDING, out gval);
+                string keybinding = gval.get_string (). down ();
 
-                return (strval != null && strval.down ().contains (queryString));
+                return (summary != null && (summary.contains (queryString))) ||
+                        (keybinding != null && (keybinding.contains (queryString)));
             } else {
                 return true;
             }

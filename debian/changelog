@@ -1,3 +1,59 @@
+ilia (0.12.14) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Sync project versions
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 10 Jul 2022 09:52:09 -0700
+
+ilia (0.12.13) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Filter on both summary and keybinding text in keybinding page to address https://github.com/regolith-linux/ilia/issues/34
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 07 Jul 2022 18:01:23 -0700
+
+ilia (0.12.12) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Revert to using x-terminal-emulator over gdk in support of https://github.com/regolith-linux/ilia/issues/31
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 07 Jul 2022 17:22:32 -0700
+
+ilia (0.12.11) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Clean up page key event handling. Exit on system key events to address https://github.com/regolith-linux/ilia/issues/24
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 07 Jul 2022 17:01:21 -0700
+
+ilia (0.12.10) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Remove debug output
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 06 Jul 2022 08:01:03 -0700
+
+ilia (0.12.9) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Fix double filtering in tracker page
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 06 Jul 2022 07:44:27 -0700
+
+ilia (0.12.8) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Cleanup icon handing across pages. Fix icon handing for window view
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Tue, 05 Jul 2022 11:10:59 -0700
+
+ilia (0.12.7) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Read floating node members of i3 tree response, fixes finding floating windows
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Mon, 04 Jul 2022 10:43:55 -0700
+
 ilia (0.12.6) focal; urgency=medium
 
   [ Ken Gilmer ]

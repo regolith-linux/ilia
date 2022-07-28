@@ -7,6 +7,14 @@ namespace Ilia {
         private const int ITEM_VIEW_COLUMN_TITLE = 1;
         private const int ITEM_VIEW_COLUMN_FILE = 2;
 
+        // TODO: look into these flags, copied from
+        // https://github.com/paysonwallach/tracker-web-bridge/blob/f9b6d99ebf7506e698713684f9d999a6a6d4e5dd/src/Application.vala
+        private const Tracker.Sparql.ConnectionFlags connection_flags =
+            Tracker.Sparql.ConnectionFlags.FTS_ENABLE_STEMMER |
+            Tracker.Sparql.ConnectionFlags.FTS_ENABLE_UNACCENT |
+            Tracker.Sparql.ConnectionFlags.FTS_ENABLE_STOP_WORDS |
+            Tracker.Sparql.ConnectionFlags.FTS_IGNORE_NUMBERS;
+
         // The widget to display list of available options
         private Gtk.TreeView item_view;
         // Model for selections
@@ -137,13 +145,13 @@ namespace Ilia {
         private void full_text_search () {
             try {
                 var queryterm = entry.get_text ();
-                var connection = Tracker.Sparql.Connection.get ();
+                var connection = Tracker.Sparql.Connection.bus_new ("org.freedesktop.Tracker3.Miner.Files", null, null);
                 var query = "SELECT DISTINCT nie:url(?f) nie:title(?f) nie:mimeType(?f) WHERE { ?f fts:match '" + queryterm + "' }";
-                // stdout.printf ("query: %s\n", query);
+
                 var cursor = connection.query (query);
                 long length = 0;
 
-                do {
+                while (cursor.next ()) {
                     var uri = cursor.get_string (0, out length);
                     
                     if (uri != null) {
@@ -168,6 +176,7 @@ namespace Ilia {
                                 if (iconPixbuf != null) break;
                             }
                         }
+                        
                         if (iconPixbuf == null) {
                             iconPixbuf = Ilia.load_icon_from_name(icon_theme, "text-x-generic", icon_size);
                         }                        
@@ -180,7 +189,7 @@ namespace Ilia {
                             ITEM_VIEW_COLUMN_FILE, uri.substring (7)
                         );
                     }
-                } while (cursor.next ());
+                };
             } catch (Error e) {
                 stderr.printf ("%s\n", e.message);
             }

@@ -1,106 +1,105 @@
-ilia (0.12.14) focal; urgency=medium
+ilia (0.12.14-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Sync project versions
 
- -- Regolith Linux <regolith.linux@gmail.com>  Sun, 10 Jul 2022 09:52:09 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 10 Jul 2022 09:53:00 -0700
 
-ilia (0.12.13) focal; urgency=medium
+ilia (0.12.12-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Filter on both summary and keybinding text in keybinding page to address https://github.com/regolith-linux/ilia/issues/34
 
- -- Regolith Linux <regolith.linux@gmail.com>  Thu, 07 Jul 2022 18:01:23 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 07 Jul 2022 18:01:59 -0700
 
-ilia (0.12.12) focal; urgency=medium
+ilia (0.12.12-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Revert to using x-terminal-emulator over gdk in support of https://github.com/regolith-linux/ilia/issues/31
 
- -- Regolith Linux <regolith.linux@gmail.com>  Thu, 07 Jul 2022 17:22:32 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 07 Jul 2022 17:23:00 -0700
 
-ilia (0.12.11) focal; urgency=medium
+ilia (0.12.11-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Clean up page key event handling. Exit on system key events to address https://github.com/regolith-linux/ilia/issues/24
 
- -- Regolith Linux <regolith.linux@gmail.com>  Thu, 07 Jul 2022 17:01:21 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 07 Jul 2022 17:02:13 -0700
 
-ilia (0.12.10) focal; urgency=medium
+ilia (0.12.10-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Remove debug output
 
- -- Regolith Linux <regolith.linux@gmail.com>  Wed, 06 Jul 2022 08:01:03 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 06 Jul 2022 08:01:56 -0700
 
-ilia (0.12.9) focal; urgency=medium
+ilia (0.12.9-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
-  * Fix double filtering in tracker page
+  * Fix double filtering in tracker page. Address https://github.com/regolith-linux/ilia/issues/23
 
- -- Regolith Linux <regolith.linux@gmail.com>  Wed, 06 Jul 2022 07:44:27 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 06 Jul 2022 07:46:36 -0700
 
-ilia (0.12.8) focal; urgency=medium
+ilia (0.12.8-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Cleanup icon handing across pages. Fix icon handing for window view
 
- -- Regolith Linux <regolith.linux@gmail.com>  Tue, 05 Jul 2022 11:10:59 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Tue, 05 Jul 2022 11:12:57 -0700
 
-ilia (0.12.7) focal; urgency=medium
+ilia (0.12.7-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
-  * Read floating node members of i3 tree response, fixes finding floating windows
+  * Read floating node members of i3 tree response
 
- -- Regolith Linux <regolith.linux@gmail.com>  Mon, 04 Jul 2022 10:43:55 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Mon, 04 Jul 2022 10:45:09 -0700
 
-ilia (0.12.6) focal; urgency=medium
+ilia (0.12.6-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Remove unused dependency, causing errors on ISO release
 
- -- Regolith Linux <regolith.linux@gmail.com>  Sun, 19 Jun 2022 09:10:10 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 19 Jun 2022 09:09:16 -0700
 
-ilia (0.12.5) focal; urgency=medium
+ilia (0.12.5-jammy) jammy; urgency=medium
 
-  [ Fabio Natanael Kepler ]
-  * Remove default sorting of items from textlist page
+  [ Ken Gilmer ]
+  * Fix tracker connection problem on Jammy. Fix cursor access.  Addresses https://github.com/regolith-linux/ilia/issues/23
 
- -- Regolith Linux <regolith.linux@gmail.com>  Fri, 17 Jun 2022 19:01:21 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 18 Jun 2022 13:05:45 -0700
 
-ilia (0.12.4) focal; urgency=medium
+ilia (0.12.4-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Remove debug console output
 
- -- Regolith Linux <regolith.linux@gmail.com>  Sat, 04 Jun 2022 14:57:05 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 04 Jun 2022 14:57:48 -0700
 
-ilia (0.12.3) focal; urgency=medium
+ilia (0.12.3-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Exract hard coded style to CSS
-  * Remove hard code style. Squelch right-click context menu to avoid hang. Addresses https://github.com/regolith-linux/ilia/issues/25.
+  * Remove hard code style. Squelch right-click context menu to avoid hang.
 
- -- Regolith Linux <regolith.linux@gmail.com>  Sat, 04 Jun 2022 14:18:22 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 04 Jun 2022 14:20:04 -0700
 
-ilia (0.12.2) focal; urgency=medium
+ilia (0.12.2-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Add seperator between category and action in keybindings view
 
- -- Regolith Linux <regolith.linux@gmail.com>  Fri, 27 May 2022 22:03:27 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Fri, 27 May 2022 22:03:45 -0700
 
-ilia (0.12.1) focal; urgency=medium
+ilia (0.12.1-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
-  * Update readme, add a lot of missing details.
-  * Fix headings in readme
+  * Update readme, add a lot of missing details.  Update files info in support of https://github.com/regolith-linux/ilia/issues/22
   * Fix warning in socket close
   * Exit if super pressed to prevent blocking i3
 
- -- Regolith Linux <regolith.linux@gmail.com>  Fri, 27 May 2022 08:19:13 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Fri, 27 May 2022 08:17:16 -0700
 
-ilia (0.12.0) focal; urgency=medium
+ilia (0.12.0-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Plumb cmdline args to each page via DialogPage. Add title and icon parameters for TextList customization
@@ -108,94 +107,107 @@ ilia (0.12.0) focal; urgency=medium
   * Add missing dependency
   * Better icon for window page
 
- -- Regolith Linux <regolith.linux@gmail.com>  Thu, 26 May 2022 21:27:30 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 26 May 2022 21:26:26 -0700
 
-ilia (0.11.7) focal; urgency=medium
+ilia (0.11.7-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
-  * Update docs
   * Update dialog resize keys to use alt to allow keyboard entry. Specify max bounds of window size when possible.  Addresses https://github.com/regolith-linux/ilia/issues/20
 
- -- Regolith Linux <regolith.linux@gmail.com>  Wed, 25 May 2022 22:01:19 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 25 May 2022 22:02:12 -0700
 
-ilia (0.11.6) focal; urgency=medium
+ilia (0.11.6-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * document page interface
   * Add page keybindings in all-page mode
 
- -- Regolith Linux <regolith.linux@gmail.com>  Sun, 15 May 2022 18:02:08 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 15 May 2022 18:04:50 -0700
 
-ilia (0.11.5) focal; urgency=medium
+ilia (0.11.5-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Change label to 'Commands' from 'Terminal'
   * Fix icon in files page
   * Add option -a for all page mode to address https://github.com/regolith-linux/ilia/issues/17.  Misc cleanup
 
- -- Regolith Linux <regolith.linux@gmail.com>  Sun, 15 May 2022 08:52:57 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 15 May 2022 08:54:07 -0700
 
-ilia (0.11.4) focal; urgency=medium
+ilia (0.11.4-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Minor simplification to command launching
   * Add ability to launch host app to address https://github.com/regolith-linux/ilia/issues/18. Fix icon loading of notification view.
 
- -- Regolith Linux <regolith.linux@gmail.com>  Mon, 09 May 2022 21:39:38 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Mon, 09 May 2022 21:40:55 -0700
 
-ilia (0.11.3) focal; urgency=medium
+ilia (0.11.4-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
+  * Fix build automation
+  * Tolerate empty css override. Add class name to keybindings view (for realz)
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 07 May 2022 11:29:06 -0700
+
+ilia (0.11.3-jammy) jammy; urgency=medium
+
   * Tolerate empty css override. Add class name to keybindings view
 
- -- Regolith Linux <regolith.linux@gmail.com>  Sun, 01 May 2022 12:18:46 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 05 May 2022 21:31:34 -0700
 
-ilia (0.11.2) focal; urgency=medium
+ilia (0.11.2-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Numerous tweaks to help facility. Misc cleanup
 
- -- Regolith Linux <regolith.linux@gmail.com>  Sun, 17 Apr 2022 18:30:27 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 17 Apr 2022 18:31:12 -0700
 
-ilia (0.11.1) focal; urgency=medium
+ilia (0.11.1-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Cleaner simpler approach to help content
   * Do not hardcode font in stylesheet
 
- -- Regolith Linux <regolith.linux@gmail.com>  Sun, 17 Apr 2022 10:31:45 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 17 Apr 2022 10:32:47 -0700
 
-ilia (0.11.0) focal; urgency=medium
+ilia (0.11.0-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Add ability to specify custom stylesheet
   * Customize style via hardcoded CSS. Enable command line options for specifying css file or no styling.  Misc fixes.
 
- -- Regolith Linux <regolith.linux@gmail.com>  Sat, 16 Apr 2022 22:59:16 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 16 Apr 2022 23:01:16 -0700
 
-ilia (0.10.0) focal; urgency=medium
+ilia (0.10.0-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Fix array size for pages
   * Better error message for invalid page
   * Add help feature, enabled by default
 
- -- Regolith Linux <regolith.linux@gmail.com>  Sat, 16 Apr 2022 16:35:32 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 16 Apr 2022 20:10:56 -0700
 
-ilia (0.9.13) focal; urgency=medium
+ilia (0.9.13-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Use XDG_DATA_DIRS to source desktop files to address https://github.com/regolith-linux/ilia/issues/11
   * Update heuristic to grab resources at start time (experimental)
 
- -- Regolith Linux <regolith.linux@gmail.com>  Sun, 10 Apr 2022 09:33:19 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 10 Apr 2022 09:35:46 -0700
 
-ilia (0.9.12) focal; urgency=medium
+ilia (0.9.12-jammy) jammy; urgency=medium
 
   [ Ken Gilmer ]
   * Load config partials for keybindings
 
- -- Regolith Linux <regolith.linux@gmail.com>  Fri, 18 Mar 2022 21:29:11 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Fri, 18 Mar 2022 21:30:27 -0700
+
+ilia (0.9.11-impish) impish; urgency=medium
+
+  [ Ken Gilmer ]
+  * Depend on new major version of libtracker-sparql for impish support
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 12 Mar 2022 15:21:19 -0800
 
 ilia (0.9.10) focal; urgency=medium
 

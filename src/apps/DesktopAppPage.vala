@@ -253,7 +253,6 @@ namespace Ilia {
 
         // Read locations of desktop app file paths from OS via env variable, fallback to const
         private string[] find_app_dirs() {
-            // FIXME: replace with get_system_data_dirs
             var app_dir_roots = Environment.get_variable(XDG_DATA_DIRS);
 
             // Handle edge case of no env data for dirs

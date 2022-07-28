@@ -10,10 +10,10 @@ Build-Depends: debhelper (>= 10),
                libglib2.0-dev,
                libgtk-3-dev (>= 3.22),
                libjsonrpc-glib-1.0-dev,
-               libtracker-sparql-2.0-dev,
+               libtracker-sparql-3.0-dev,
                meson,
                po-debconf, 
-               valac-0.48-vapi,
+               valac-0.56-vapi,
                valac-bin
 Standards-Version: 4.1.2
 Homepage: https://github.com/regolith-linux/ilia

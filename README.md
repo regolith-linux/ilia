@@ -24,7 +24,7 @@ Ilia provides pages to view and select from the following types of things:
 Ilia can be launched from a terminal. The `-p` option allows to specify which page to present to the user.
 
 Ex:
-```shell
+```
 ilia -p keybindings
 ```
 
@@ -70,16 +70,14 @@ This page uses the comment format specified by [Remontoire](https://github.com/r
 
 Ilia uses `meson` and `ninja` to build.  Example:
 
-```shell
-git clone https://github.com/regolith-linux/ilia.git
-mkdir ilia/build
-cd ilia/build
-meson ..
-ninja
-src/ilia
 ```
-
-Note: the `main` branch builds on Ubuntu Focal and Debian Bullseye, and the `ubuntu/jammy` branch builds on Ubuntu Jammy.
+$ git clone https://github.com/regolith-linux/ilia.git
+$ mkdir ilia/build
+$ cd ilia/build
+$ meson ..
+$ ninja
+$ src/ilia
+```
 
 ## Package
 

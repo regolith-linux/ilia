@@ -34,16 +34,16 @@ public static int main (string[] args) {
     var window = new Ilia.DialogWindow (arg_map);
     window.destroy.connect (Gtk.main_quit); 
     
-    // Grab inputs from wayland backend
+    // Grab inputs from wayland backend before showing window
     if(IS_SESSION_WAYLAND) {
         GtkLayerShell.init_for_window(window);
         GtkLayerShell.set_keyboard_mode(window, GtkLayerShell.KeyboardMode.EXCLUSIVE);
-    } else {
     }
 
     initialize_style (window, arg_map);
     window.show_all ();
 
+    // Grab inputs from X11 backend after showing window
     if (!IS_SESSION_WAYLAND) {
         Gdk.Window gdkwin = window.get_window ();
         var seat = grab_inputs (gdkwin);

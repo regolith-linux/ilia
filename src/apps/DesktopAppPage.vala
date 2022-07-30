@@ -366,12 +366,12 @@ namespace Ilia {
                     }
                 } else {
                     stderr.printf ("Failed to launch %s\n", app_info.get_name ());
-                }
-                GLib.Thread.usleep(post_launch_sleep);
-                session_controller.quit ();
+                }                
             } catch (GLib.Error e) {
                 stderr.printf ("%s\n", e.message);
             }
+            GLib.Thread.usleep(post_launch_sleep);
+            session_controller.quit ();
         }
     }
 }

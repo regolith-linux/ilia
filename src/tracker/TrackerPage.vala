@@ -22,6 +22,9 @@ namespace Ilia {
         // Active icon theme
         private Gtk.IconTheme icon_theme;
 
+        // Number of microseconds to wait before exiting
+        private int post_launch_sleep;
+
         private int icon_size;
 
         public string get_name () {
@@ -51,7 +54,9 @@ namespace Ilia {
         public async void initialize (GLib.Settings settings, HashTable<string, string ? > arg_map, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error {
             this.entry = entry;
             this.session_controller = sessionController;
+
             icon_size = settings.get_int ("icon-size");
+            post_launch_sleep = settings.get_int("post-launch-sleep");
 
             // determine theme for icons
             icon_theme = Gtk.IconTheme.get_default ();
@@ -216,6 +221,8 @@ namespace Ilia {
             } catch (GLib.Error err) {
                 stderr.printf ("Error: execute_app failed: %s\n", err.message);
             }
+            GLib.Thread.usleep(post_launch_sleep);
+            session_controller.quit ();
         }
     }
 }

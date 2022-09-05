@@ -1,3 +1,10 @@
+ilia (0.12.16-jammy) jammy; urgency=medium
+
+  * Include windows in window list containing empty value for 'window_type'. Addresses https://github.com/regolith-linux/ilia/issues/43
+  * Ignore i3bar explicitly with looser filter
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 04 Sep 2022 17:34:57 -0700
+
 ilia (0.12.15-jammy) jammy; urgency=medium
 
   * Exit window upon selection in tracker page

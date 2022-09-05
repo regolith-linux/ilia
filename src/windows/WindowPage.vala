@@ -165,7 +165,7 @@ namespace Ilia {
         }
 
         private void traverse_nodes (TreeReply node) {
-            if (node.ntype == "con" && node.window_type == "normal") {
+            if (navigable_window(node)) {
                 var pixbuf = load_icon_from_app_name (icon_theme, node.windowProperties.clazz, icon_size);
 
                 model.append (out iter);
@@ -188,6 +188,10 @@ namespace Ilia {
                     traverse_nodes (node.floating_nodes[i]);
                 }
             }
+        }
+
+        private bool navigable_window(TreeReply node) {
+            return node.ntype == "con" && (node.window_type == "normal" || node.window_type == "");
         }
 
         // Automatically set the first item in the list as selected.

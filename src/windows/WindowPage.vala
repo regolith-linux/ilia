@@ -190,8 +190,13 @@ namespace Ilia {
             }
         }
 
+        // Filter controls which TreeReply instances should be shown in window view
         private bool navigable_window(TreeReply node) {
-            return node.ntype == "con" && (node.window_type == "normal" || node.window_type == "");
+            bool rv = node.ntype == "con"                                           // specifies actual windows
+                && (node.window_type == "normal" || node.window_type == "unknown")  // window type
+                && node.windowProperties.clazz != "i3bar";                          // ignore i3bar
+
+            return rv;
         }
 
         // Automatically set the first item in the list as selected.

@@ -1,3 +1,9 @@
+ilia (0.12.17) focal; urgency=medium
+
+  * Move from XDG_DATA_DIRS to dconf source for desktop app paths
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Mon, 05 Sep 2022 21:55:41 -0700
+
 ilia (0.12.16) focal; urgency=medium
 
   * Include windows in window list containing empty value for 'window_type'. Addresses https://github.com/regolith-linux/ilia/issues/43

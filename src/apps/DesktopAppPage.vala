@@ -118,7 +118,7 @@ namespace Ilia {
             // Optimization
             item_view.fixed_height_mode = true;
 
-            // Do not enable Gtk seearch
+            // Disable Gtk search
             item_view.enable_search = false;
 
             // Create columns
@@ -133,12 +133,6 @@ namespace Ilia {
             // Launch app on row selection
             item_view.row_activated.connect (on_row_activated);
         }
-
-        /*
-        public void grab_focus (uint keycode) {
-            item_view.grab_focus ();
-        }
-        */
 
         // called on enter from TreeView
         private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
@@ -242,38 +236,32 @@ namespace Ilia {
             // determine theme for icons
             icon_theme = Gtk.IconTheme.get_default ();
 
-            var app_dirs = find_app_dirs();
+            var app_dirs = settings.get_strv ("app-search-paths");            
+            
+            var resolved_path = new StringBuilder();
+            foreach (string app_dir in app_dirs) {                
+                // Iterate over each path, look for env variables and replace as necessary
+                string[] path_segments = app_dir.split ("/");
 
-            foreach (string app_dir in app_dirs) {
-                // populate model with desktop apps from known locations
-                var system_app_dir = File.new_for_path (app_dir);
-                if (system_app_dir.query_exists ()) yield load_apps_from_dir (system_app_dir);
+                foreach (string segment in path_segments) {
+                    if (segment.has_prefix("$")) {
+                        var env_var_value = Environment.get_variable(segment.substring(1));
+                        resolved_path.append(env_var_value);
+                    } else {
+                        resolved_path.append(segment);
+                    }
+                    resolved_path.append("/");
+                }
+
+                // Determine if path is valid, if so search for desktop apps
+                var system_app_dir = File.new_for_path (resolved_path.str);
+                if (system_app_dir.query_exists ()) {
+                    yield load_apps_from_dir (system_app_dir);
+                } /* else {
+                    stdout.printf("WARNING: ignoring invalid path %s\n", resolved_path.str);
+                } */
+                resolved_path.erase(0);
             }
-        }
-
-        // Read locations of desktop app file paths from OS via env variable, fallback to const
-        private string[] find_app_dirs() {
-            var app_dir_roots = Environment.get_variable(XDG_DATA_DIRS);
-
-            // Handle edge case of no env data for dirs
-            if (app_dir_roots == null || app_dir_roots.length == 0) {
-                string[] rv = new string[1];
-                rv[0] = "/usr/share/applications";
-
-                return rv;
-            }
-
-            string[] root_paths = app_dir_roots.split (":");
-            string[] app_paths = new string[root_paths.length];
-            int index = 0;
-
-            foreach (unowned string root_path in root_paths) {
-                app_paths[index] = root_path + "/applications";
-
-                index++;
-            }
-
-            return app_paths;
         }
 
         private async void load_apps_from_dir (File app_dir) {
@@ -365,7 +353,7 @@ namespace Ilia {
                     }
                 } else {
                     stderr.printf ("Failed to launch %s\n", app_info.get_name ());
-                }                
+                }
             } catch (GLib.Error e) {
                 stderr.printf ("%s\n", e.message);
             }

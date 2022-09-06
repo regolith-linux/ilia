@@ -29,12 +29,20 @@
         Size of icons.
       </description>
     </key>
-        <key name="post-launch-sleep" type="i">
+    <key name="post-launch-sleep" type="i">
       <default>100000</default>
       <summary>Wait time for app launch to occur</summary>
       <description>
         Microseconds to wait for launching app before exit.        
       </description>
     </key>
+    <key name="app-search-paths" type="as">
+      <default>['/usr/share/gnome/applications', '/usr/local/share/applications', '/usr/share/applications', '$HOME/.local/share/applications']</default>
+      <summary>Directory paths to search for desktop files</summary>
+      <description>
+        Directory paths to search for desktop files.
+      </description>
+    </key>
+    
 	</schema>
 </schemalist>

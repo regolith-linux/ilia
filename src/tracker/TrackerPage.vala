@@ -182,7 +182,7 @@ namespace Ilia {
                             iter,
                             ITEM_VIEW_COLUMN_ICON, iconPixbuf,
                             ITEM_VIEW_COLUMN_TITLE, title,
-                            ITEM_VIEW_COLUMN_FILE, uri.substring (7)
+                            ITEM_VIEW_COLUMN_FILE, uri
                         );
                     }
                 } while (cursor.next ());
@@ -210,12 +210,8 @@ namespace Ilia {
 
         // tracker sparql -q "SELECT DISTINCT nie:url(?f) nie:title(?f) WHERE { ?f fts:match 'regolith' }"
         private void execute_app (string id) {
-            string exec = "xdg-open " + id;
-
             try {
-                var app_info = AppInfo.create_from_commandline (exec, null, AppInfoCreateFlags.NONE);
-
-                if (!app_info.launch (null, null)) {
+                if (!AppInfo.launch_default_for_uri(id, null)) {
                     stderr.printf ("Error: execute_app failed\n");
                 }
             } catch (GLib.Error err) {

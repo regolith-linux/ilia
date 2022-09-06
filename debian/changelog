@@ -1,3 +1,9 @@
+ilia (0.12.18) focal; urgency=medium
+
+  * Simply use URI to launch selected app from tracker page. Address https://github.com/regolith-linux/regolith-desktop/issues/716
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Mon, 05 Sep 2022 22:27:29 -0700
+
 ilia (0.12.17) focal; urgency=medium
 
   * Move from XDG_DATA_DIRS to dconf source for desktop app paths

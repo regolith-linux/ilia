@@ -236,10 +236,10 @@ namespace Ilia {
             // determine theme for icons
             icon_theme = Gtk.IconTheme.get_default ();
 
-            var app_dirs = settings.get_strv ("app-search-paths");            
-            
+            var app_dirs = settings.get_strv ("app-search-paths");
+
             var resolved_path = new StringBuilder();
-            foreach (string app_dir in app_dirs) {                
+            foreach (string app_dir in app_dirs) {
                 // Iterate over each path, look for env variables and replace as necessary
                 string[] path_segments = app_dir.split ("/");
 
@@ -323,11 +323,21 @@ namespace Ilia {
 
         // Automatically set the first item in the list as selected.
         private void set_selection () {
-            Gtk.TreePath path = new Gtk.TreePath.first ();
             Gtk.TreeSelection selection = item_view.get_selection ();
 
-            selection.set_mode (SelectionMode.SINGLE);
-            selection.select_path (path);
+            if (selection.count_selected_rows () == 0) { // initial state, nothing explicitly selected by user
+                selection.set_mode (SelectionMode.SINGLE);
+                Gtk.TreePath path = new Gtk.TreePath.first ();
+                selection.select_path (path);
+            } else { // an existing item has selection, ensure it's visible
+                var path_list = selection.get_selected_rows(null);
+                if (!path_list.is_empty()) {
+                    unowned var element = path_list.first ();
+                    item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
+                }
+            }
+
+            item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
         // launch a desktop app

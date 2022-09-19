@@ -213,7 +213,7 @@ namespace Ilia {
             }
         }
 
-        private DesktopAppInfo? getDesktopAppInfo(string appName) {            
+        private DesktopAppInfo? getDesktopAppInfo(string appName) {
             string**[] desktopApps = GLib.DesktopAppInfo.search(appName);
 
             if (desktopApps.length < 1) return null;
@@ -233,9 +233,11 @@ namespace Ilia {
             if (filter.get_iter_first (out iter)) {
                 string notification_id;
                 filter.@get (iter, ITEM_VIEW_COLUMN_ID, out notification_id);
-                
+
                 selected_notification_id = int.parse (notification_id);
             }
+
+            item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
         public bool key_event (Gdk.EventKey event) {
@@ -247,7 +249,7 @@ namespace Ilia {
                 }
                 return true;
             }
-            
+
             return false;
         }
 
@@ -261,8 +263,8 @@ namespace Ilia {
                     set_selection ();
                 } catch (GLib.Error err) {
                     stderr.printf ("Error: delete_selected_notification failed: %s\n", err.message);
-                }                
-            } 
+                }
+            }
         }
 
         private void delete_all_notifications () {
@@ -276,7 +278,7 @@ namespace Ilia {
 
             try {
                 if (ids.length > 0) rofi_client.delete_notifications_by_ids (ids);
-                
+
                 load_notifications.begin ();
                 set_selection ();
             } catch (GLib.Error err) {
@@ -285,13 +287,13 @@ namespace Ilia {
         }
 
         // launch a desktop app
-        public void execute_app_from_selection (Gtk.TreeIter selection) {            
+        public void execute_app_from_selection (Gtk.TreeIter selection) {
             DesktopAppInfo app_info;
             filter.@get (selection, ITEM_VIEW_COLUMN_APP_INFO, out app_info);
 
             try {
                 app_info.launch_uris (null, null);
-                
+
                 GLib.Thread.usleep(post_launch_sleep);
                 session_controller.quit ();
             } catch (GLib.Error e) {

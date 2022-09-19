@@ -1,3 +1,9 @@
+ilia (0.12.19-jammy) jammy; urgency=medium
+
+  * Update selection logic to address https://github.com/regolith-linux/ilia/issues/44. Misc cleanup
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 18 Sep 2022 17:01:51 -0700
+
 ilia (0.12.18-jammy) jammy; urgency=medium
 
   * Simply use URI to launch selected app from tracker page. Address https://github.com/regolith-linux/regolith-desktop/issues/716

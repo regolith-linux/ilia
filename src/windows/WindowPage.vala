@@ -201,11 +201,22 @@ namespace Ilia {
 
         // Automatically set the first item in the list as selected.
         private void set_selection () {
-            Gtk.TreePath path = new Gtk.TreePath.first ();
             Gtk.TreeSelection selection = item_view.get_selection ();
 
-            selection.set_mode (SelectionMode.SINGLE);
-            selection.select_path (path);
+            if (selection.count_selected_rows () == 0) { // initial state, nothing explicitly selected by user
+                selection.set_mode (SelectionMode.SINGLE);
+                Gtk.TreePath path = new Gtk.TreePath.first ();
+                selection.select_path (path);
+                stdout.printf("select_path\n");
+            } else { // an existing item has selection, ensure it's visible
+                List<Gtk.TreePath> path_list = selection.get_selected_rows(null);
+                if (!path_list.is_empty()) {
+                    unowned List<Gtk.TreePath>? element = path_list.first ();
+                    item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
+                }
+            }
+
+            item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
         // switch to window

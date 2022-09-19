@@ -16,11 +16,6 @@ namespace Ilia {
         public abstract Gtk.Widget get_root ();
 
         /**
-         * Cause the top item to be selected in the list view
-         */
-        public abstract void set_selection ();
-
-        /**
          * Event is called on page when contents of Entry has changed
          */
         public abstract void on_entry_changed ();

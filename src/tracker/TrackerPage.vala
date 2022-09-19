@@ -46,7 +46,7 @@ namespace Ilia {
         public HashTable<string, string>? get_keybindings() {
             var keybindings = new HashTable<string, string ? >(str_hash, str_equal);
 
-            keybindings.set("enter", "Open File");            
+            keybindings.set("enter", "Open File");
 
             return keybindings;
         }
@@ -150,13 +150,13 @@ namespace Ilia {
 
                 do {
                     var uri = cursor.get_string (0, out length);
-                    
+
                     if (uri != null) {
                         var title = cursor.get_string (1, out length);
                         if (title == null) {
                             title = Path.get_basename (uri);
                         }
-                        
+
                         var mimeType = cursor.get_string (2, out length);
                         if (mimeType == null) {
                             mimeType = "application/octet-stream";
@@ -173,9 +173,10 @@ namespace Ilia {
                                 if (iconPixbuf != null) break;
                             }
                         }
+
                         if (iconPixbuf == null) {
                             iconPixbuf = Ilia.load_icon_from_name(icon_theme, "text-x-generic", icon_size);
-                        }                        
+                        }
 
                         model.append (out iter);
                         model.set (
@@ -193,11 +194,21 @@ namespace Ilia {
 
         // Automatically set the first item in the list as selected.
         private void set_selection () {
-            Gtk.TreePath path = new Gtk.TreePath.first ();
             Gtk.TreeSelection selection = item_view.get_selection ();
 
-            selection.set_mode (SelectionMode.SINGLE);
-            selection.select_path (path);
+            if (selection.count_selected_rows () == 0) { // initial state, nothing explicitly selected by user
+                selection.set_mode (SelectionMode.SINGLE);
+                Gtk.TreePath path = new Gtk.TreePath.first ();
+                selection.select_path (path);
+            } else { // an existing item has selection, ensure it's visible
+                var path_list = selection.get_selected_rows(null);
+                if (!path_list.is_empty()) {
+                    unowned var element = path_list.first ();
+                    item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
+                }
+            }
+
+            item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
         // switch to window

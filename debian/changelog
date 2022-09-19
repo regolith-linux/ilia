@@ -1,3 +1,9 @@
+ilia (0.12.19) focal; urgency=medium
+
+  * Update selection logic to address https://github.com/regolith-linux/ilia/issues/44. Misc cleanup
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 18 Sep 2022 17:05:08 -0700
+
 ilia (0.12.18) focal; urgency=medium
 
   * Simply use URI to launch selected app from tracker page. Address https://github.com/regolith-linux/regolith-desktop/issues/716

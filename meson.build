@@ -1,6 +1,6 @@
 project('ilia',
   ['c','vala'],
-  version: '0.12')
+  version: '0.12.20')
 
 add_global_arguments('-DGETTEXT_PACKAGE="ilia"',language: 'c')
 

@@ -1,3 +1,12 @@
+ilia (0.12.20-jammy) jammy; urgency=medium
+
+  * Remove usage of deprecated glib List function to fix bullseye
+  * Update version in build
+  * Do not sort textlist entries
+  * Add flag for no icon in textlist
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 23 Oct 2022 10:32:22 -0700
+
 ilia (0.12.19-jammy) jammy; urgency=medium
 
   * Update selection logic to address https://github.com/regolith-linux/ilia/issues/44. Misc cleanup

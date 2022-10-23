@@ -200,7 +200,7 @@ namespace Ilia {
                 selection.select_path (path);
             } else { // an existing item has selection, ensure it's visible
                 var path_list = selection.get_selected_rows(null);
-                if (!path_list.is_empty()) {
+                if (path_list != null) {
                     unowned var element = path_list.first ();
                     item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
                 }

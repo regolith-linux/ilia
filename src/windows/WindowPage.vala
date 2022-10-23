@@ -210,7 +210,7 @@ namespace Ilia {
                 stdout.printf("select_path\n");
             } else { // an existing item has selection, ensure it's visible
                 List<Gtk.TreePath> path_list = selection.get_selected_rows(null);
-                if (!path_list.is_empty()) {
+                if (path_list != null) {
                     unowned List<Gtk.TreePath>? element = path_list.first ();
                     item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
                 }

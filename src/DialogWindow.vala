@@ -23,7 +23,7 @@ namespace Ilia {
     public const int KEY_CODE_VOLUME_UP = 269025043;
     public const int KEY_CODE_VOLUME_DOWN = 269025041;
     public const int KEY_CODE_VOLUME_MUTE = 269025042;
-    
+
     // Primary UI
     public class DialogWindow : Window, SessionContoller {
         const int MIN_WINDOW_WIDTH = 160;
@@ -50,7 +50,7 @@ namespace Ilia {
 
         public DialogWindow (HashTable<string, string? > arg_map) {
             Object(type: Gtk.WindowType.POPUP); // Window is unmanaged
-            window_position = WindowPosition.CENTER_ALWAYS;      
+            window_position = WindowPosition.CENTER_ALWAYS;
 
             settings = new GLib.Settings ("org.regolith-linux.ilia");
 
@@ -93,7 +93,7 @@ namespace Ilia {
             });
 
             // Route keys based on function
-            key_press_event.connect ((key) => {                
+            key_press_event.connect ((key) => {
                 if ((key.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK) { //ALT
                     // Enable page nav keybindings in all page mode.
                     for (int i = 0; i < total_pages; ++i) {
@@ -126,27 +126,27 @@ namespace Ilia {
                     case KEY_CODE_VOLUME_DOWN:
                     case KEY_CODE_VOLUME_MUTE:
                     case KEY_CODE_PRINTSRC: // Implicit exit
-                        quit ();                  
+                        quit ();
                         break;
                     case KEY_CODE_UP:
                     case KEY_CODE_DOWN:
                     case KEY_CODE_ENTER:
                     case KEY_CODE_PGDOWN:
-                    case KEY_CODE_PGUP:     // Let UI handle these nav keys                        
+                    case KEY_CODE_PGUP:     // Let UI handle these nav keys
                         break;
                     case KEY_CODE_RIGHT:
                     case KEY_CODE_LEFT:     // Switch pages
                         notebook.grab_focus ();
                         break;
-                    default:                // Pass key event to active page for handling                  
-                        // stdout.printf ("Keycode: %u\n", key.keyval);  
+                    default:                // Pass key event to active page for handling
+                        // stdout.printf ("Keycode: %u\n", key.keyval);
                         key_handled = dialog_pages[active_page].key_event (key);
-                        if (!key_handled) {                            
+                        if (!key_handled) {
                             entry.grab_focus_without_selecting (); // causes entry to consume all unhandled key events
                         }
                         break;
                 }
-                
+
                 return key_handled;
             });
 
@@ -281,7 +281,7 @@ namespace Ilia {
             dialog_pages[4].initialize.begin (settings, arg_map, entry, this);
             dialog_pages[5] = new TrackerPage ();
             dialog_pages[5].initialize.begin (settings, arg_map, entry, this);
-            // last page, help, will be initalized later in init
+            // last page, help, will be initialized later in init
 
             switch (focus_page.down ()) {
                 case "apps":

@@ -165,8 +165,7 @@ namespace Ilia {
         }
 
         private void traverse_nodes (TreeReply node) {
-            if (node.ntype == "con" && 
-                            (IS_SESSION_WAYLAND && node.layout == "none" || node.window_type == "normal")) {
+            if (navigable_window(node)) {
                 Gdk.Pixbuf  pixbuf;
                 if(node.windowProperties.instance != null) {
                     pixbuf= load_icon_from_app_name (icon_theme, node.windowProperties.instance, icon_size);
@@ -197,13 +196,35 @@ namespace Ilia {
             }
         }
 
+        // Filter controls which TreeReply instances should be shown in window view
+        private bool navigable_window(TreeReply node) {
+            bool rv = node.ntype == "con"                                           // specifies actual windows
+                && (node.window_type == "normal" 
+                    || node.window_type == "unknown" 
+                    || IS_SESSION_WAYLAND && node.layout == "none" )  // window type
+                && node.windowProperties.clazz != "i3bar";                          // ignore i3bar
+
+            return rv;
+        }
+
         // Automatically set the first item in the list as selected.
         private void set_selection () {
-            Gtk.TreePath path = new Gtk.TreePath.first ();
             Gtk.TreeSelection selection = item_view.get_selection ();
 
-            selection.set_mode (SelectionMode.SINGLE);
-            selection.select_path (path);
+            if (selection.count_selected_rows () == 0) { // initial state, nothing explicitly selected by user
+                selection.set_mode (SelectionMode.SINGLE);
+                Gtk.TreePath path = new Gtk.TreePath.first ();
+                selection.select_path (path);
+                stdout.printf("select_path\n");
+            } else { // an existing item has selection, ensure it's visible
+                List<Gtk.TreePath> path_list = selection.get_selected_rows(null);
+                if (path_list != null) {
+                    unowned List<Gtk.TreePath>? element = path_list.first ();
+                    item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
+                }
+            }
+
+            item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
         // switch to window
@@ -214,7 +235,7 @@ namespace Ilia {
             focus_window (id);
         }
 
-        // i3-msg [window_role="gnome-terminal-window-6bee2ec0-eb8b-4b10-aafc-7c2708201d43" title="Terminal"] focus
+        // [window_role="gnome-terminal-window-6bee2ec0-eb8b-4b10-aafc-7c2708201d43" title="Terminal"] focus
         private void focus_window (string id) {
             string exec = "[con_id=\"" + id + "\"] focus";
             string cli_bin = get_wm_cli();

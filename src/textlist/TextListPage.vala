@@ -25,6 +25,10 @@ namespace Ilia {
 
         private string icon = "utilities-terminal";
 
+        // The following items track UI state between icon or no icon
+        private bool render_icon_flag = true;
+        private int name_column_index = ITEM_VIEW_COLUMN_NAME;
+
         public string get_name () {
             return name;
         }
@@ -45,7 +49,7 @@ namespace Ilia {
         public HashTable<string, string>? get_keybindings() {
             var keybindings = new HashTable<string, string ? >(str_hash, str_equal);
 
-            keybindings.set("enter", "Select Item");            
+            keybindings.set("enter", "Select Item");
 
             return keybindings;
         }
@@ -60,8 +64,16 @@ namespace Ilia {
             if (arg_map.contains("-i")) {
                 this.icon = arg_map.get("-i");
             }
+            if (arg_map.contains("-n")) {
+                this.render_icon_flag = false;
+                name_column_index = 0;
+            }
 
-            model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string));
+            if (render_icon_flag) {
+                model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string));
+            } else {
+                model = new Gtk.ListStore (ITEM_VIEW_COLUMNS - 1, typeof (string), typeof (string));
+            }            
 
             filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);
@@ -69,7 +81,6 @@ namespace Ilia {
             create_item_view ();
 
             load_items (settings.get_int ("icon-size"));
-            model.set_sort_column_id (ITEM_VIEW_COLUMN_NAME, SortType.ASCENDING);
             set_selection ();
 
             var scrolled = new Gtk.ScrolledWindow (null, null);
@@ -97,8 +108,10 @@ namespace Ilia {
             item_view.enable_search = false;
 
             // Create columns
-            item_view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", ITEM_VIEW_COLUMN_ICON);
-            item_view.insert_column_with_attributes (-1, "Name", new CellRendererText (), "text", ITEM_VIEW_COLUMN_NAME);
+            if (this.render_icon_flag) {
+                item_view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", ITEM_VIEW_COLUMN_ICON);
+            }            
+            item_view.insert_column_with_attributes (-1, "Name", new CellRendererText (), "text", name_column_index);
 
             // Launch app on one click
             item_view.set_activate_on_single_click (true);
@@ -144,7 +157,7 @@ namespace Ilia {
             if (queryString.length > 0) {
                 GLib.Value item_value;
                 string strval;
-                model.get_value (iter, ITEM_VIEW_COLUMN_NAME, out item_value);
+                model.get_value (iter, name_column_index, out item_value);
                 strval = item_value.get_string ();
 
                 return (strval != null && strval.down ().contains (queryString));
@@ -155,48 +168,69 @@ namespace Ilia {
 
         private void load_items (int icon_size) {
             string? name = null;
-            var icon_theme = Gtk.IconTheme.get_default ();
-
             Gdk.Pixbuf? pixbuf = null;
-            if (icon != null && icon.length > 0) {
-                pixbuf = Ilia.load_icon_from_name (icon_theme, icon, icon_size);
-            } 
 
-            if (pixbuf == null) {
-                pixbuf = Ilia.load_icon_from_name (icon_theme, "applications-other", icon_size);
+            if (this.render_icon_flag) {
+                var icon_theme = Gtk.IconTheme.get_default ();
+                
+                if (icon != null && icon.length > 0) {
+                    pixbuf = Ilia.load_icon_from_name (icon_theme, icon, icon_size);
+                }
+    
+                if (pixbuf == null) {
+                    pixbuf = Ilia.load_icon_from_name (icon_theme, "applications-other", icon_size);
+                }    
             }
 
             do {
                 name = stdin.read_line ();
                 if (name != null) {
                     model.append (out iter);
-                    model.set (
-                        iter,
-                        ITEM_VIEW_COLUMN_ICON, pixbuf,
-                        ITEM_VIEW_COLUMN_NAME, name
-                    );
+
+                    if (this.render_icon_flag) {
+                        model.set (
+                            iter,
+                            ITEM_VIEW_COLUMN_ICON, pixbuf,
+                            name_column_index, name
+                        );
+                    } else {
+                        model.set (
+                            iter,
+                            name_column_index, name
+                        );
+                    }
                 }
             } while (name != null);
         }
 
         // Automatically set the first item in the list as selected.
         private void set_selection () {
-            Gtk.TreePath path = new Gtk.TreePath.first ();
             Gtk.TreeSelection selection = item_view.get_selection ();
 
-            selection.set_mode (SelectionMode.SINGLE);
-            selection.select_path (path);
+            if (selection.count_selected_rows () == 0) { // initial state, nothing explicitly selected by user
+                selection.set_mode (SelectionMode.SINGLE);
+                Gtk.TreePath path = new Gtk.TreePath.first ();
+                selection.select_path (path);
+            } else { // an existing item has selection, ensure it's visible
+                var path_list = selection.get_selected_rows(null);
+                if (path_list != null) {
+                    unowned var element = path_list.first ();
+                    item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
+                }
+            }
+
+            item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
         // launch a desktop app
         public void print_selection (Gtk.TreeIter selection) {
             string cmd_path;
-            filter.@get (selection, ITEM_VIEW_COLUMN_NAME, out cmd_path);
-            
+            filter.@get (selection, name_column_index, out cmd_path);
+
             if (cmd_path != null) print(cmd_path);
         }
 
-        private void print (string selection) {        
+        private void print (string selection) {
             stdout.printf("%s\n", selection);
 
             session_controller.quit();

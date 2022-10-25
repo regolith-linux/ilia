@@ -30,6 +30,9 @@ namespace Ilia {
         // Active icon theme
         private Gtk.IconTheme icon_theme;
 
+        // Number of microseconds to wait before exiting
+        private int post_launch_sleep;
+
         private int icon_size;
 
         public string get_name () {
@@ -51,7 +54,7 @@ namespace Ilia {
         public HashTable<string, string>? get_keybindings() {
             var keybindings = new HashTable<string, string ? >(str_hash, str_equal);
 
-            keybindings.set("enter", "Open File");            
+            keybindings.set("enter", "Open File");
 
             return keybindings;
         }
@@ -59,7 +62,9 @@ namespace Ilia {
         public async void initialize (GLib.Settings settings, HashTable<string, string ? > arg_map, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error {
             this.entry = entry;
             this.session_controller = sessionController;
+
             icon_size = settings.get_int ("icon-size");
+            post_launch_sleep = settings.get_int("post-launch-sleep");
 
             // determine theme for icons
             icon_theme = Gtk.IconTheme.get_default ();
@@ -153,13 +158,13 @@ namespace Ilia {
 
                 while (cursor.next ()) {
                     var uri = cursor.get_string (0, out length);
-                    
+
                     if (uri != null) {
                         var title = cursor.get_string (1, out length);
                         if (title == null) {
                             title = Path.get_basename (uri);
                         }
-                        
+
                         var mimeType = cursor.get_string (2, out length);
                         if (mimeType == null) {
                             mimeType = "application/octet-stream";
@@ -176,17 +181,17 @@ namespace Ilia {
                                 if (iconPixbuf != null) break;
                             }
                         }
-                        
+
                         if (iconPixbuf == null) {
                             iconPixbuf = Ilia.load_icon_from_name(icon_theme, "text-x-generic", icon_size);
-                        }                        
+                        }
 
                         model.append (out iter);
                         model.set (
                             iter,
                             ITEM_VIEW_COLUMN_ICON, iconPixbuf,
                             ITEM_VIEW_COLUMN_TITLE, title,
-                            ITEM_VIEW_COLUMN_FILE, uri.substring (7)
+                            ITEM_VIEW_COLUMN_FILE, uri
                         );
                     }
                 };
@@ -197,11 +202,21 @@ namespace Ilia {
 
         // Automatically set the first item in the list as selected.
         private void set_selection () {
-            Gtk.TreePath path = new Gtk.TreePath.first ();
             Gtk.TreeSelection selection = item_view.get_selection ();
 
-            selection.set_mode (SelectionMode.SINGLE);
-            selection.select_path (path);
+            if (selection.count_selected_rows () == 0) { // initial state, nothing explicitly selected by user
+                selection.set_mode (SelectionMode.SINGLE);
+                Gtk.TreePath path = new Gtk.TreePath.first ();
+                selection.select_path (path);
+            } else { // an existing item has selection, ensure it's visible
+                var path_list = selection.get_selected_rows(null);
+                if (path_list != null) {
+                    unowned var element = path_list.first ();
+                    item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
+                }
+            }
+
+            item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
         // switch to window
@@ -214,17 +229,15 @@ namespace Ilia {
 
         // tracker sparql -q "SELECT DISTINCT nie:url(?f) nie:title(?f) WHERE { ?f fts:match 'regolith' }"
         private void execute_app (string id) {
-            string exec = "xdg-open " + id;
-
             try {
-                var app_info = AppInfo.create_from_commandline (exec, null, AppInfoCreateFlags.NONE);
-
-                if (!app_info.launch (null, null)) {
+                if (!AppInfo.launch_default_for_uri(id, null)) {
                     stderr.printf ("Error: execute_app failed\n");
                 }
             } catch (GLib.Error err) {
                 stderr.printf ("Error: execute_app failed: %s\n", err.message);
             }
+            GLib.Thread.usleep(post_launch_sleep);
+            session_controller.quit ();
         }
     }
 }

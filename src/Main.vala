@@ -172,7 +172,8 @@ void print_help_and_exit () {
     stdout.printf ("\t'keybindings' - launch keybindings viewer\n");
     stdout.printf ("\t'textlist' - select an item from a specified list\n");
     stdout.printf ("\t\t-l: page label\n");
-    stdout.printf ("\t\t-i: page icon\n");
+    stdout.printf ("\t\t-i: page/item icon\n");
+    stdout.printf ("\t\t-n: no icon\n");
     stdout.printf ("\t'windows' - navigate to a window\n");
     stdout.printf ("\t'tracker' - search for files by content\n");
     Process.exit (0);

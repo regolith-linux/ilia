@@ -20,9 +20,9 @@ public static int main (string[] args) {
     string sway_sock = Environment.get_variable ("SWAYSOCK");
     string i3_sock = Environment.get_variable ("I3SOCK");
 
-    if(sway_sock != null) {
+    if (sway_sock != null) {
         WM_NAME = "sway";
-    } else if(i3_sock != null) {
+    } else if (i3_sock != null) {
         WM_NAME = "i3";
     } else {
         WM_NAME = "Unknown";
@@ -32,12 +32,12 @@ public static int main (string[] args) {
     if (arg_map.contains ("-h") || arg_map.contains ("--help")) print_help_and_exit ();
 
     var window = new Ilia.DialogWindow (arg_map);
-    window.destroy.connect (Gtk.main_quit); 
-    
+    window.destroy.connect (Gtk.main_quit);
+
     // Grab inputs from wayland backend before showing window
-    if(IS_SESSION_WAYLAND) {
-        GtkLayerShell.init_for_window(window);
-        GtkLayerShell.set_keyboard_mode(window, GtkLayerShell.KeyboardMode.EXCLUSIVE);
+    if (IS_SESSION_WAYLAND) {
+        GtkLayerShell.init_for_window (window);
+        GtkLayerShell.set_keyboard_mode (window, GtkLayerShell.KeyboardMode.EXCLUSIVE);
     }
 
     initialize_style (window, arg_map);
@@ -47,7 +47,7 @@ public static int main (string[] args) {
     if (!IS_SESSION_WAYLAND) {
         Gdk.Window gdkwin = window.get_window ();
         var seat = grab_inputs (gdkwin);
-        if(seat == null) {
+        if (seat == null) {
             stderr.printf ("Failed to aquire access to input devices, aborting.");
             return 1;
         }
@@ -73,7 +73,7 @@ public static int main (string[] args) {
     });
 
     Gtk.main ();
-    
+
     return 0;
 }
 
@@ -229,8 +229,8 @@ bool is_key (string inval) {
 }
 
 /*
-Get the location for swaymsg or i3-msg as per the current session type
-*/ 
+   Get the location for swaymsg or i3-msg as per the current session type
+ */
 string? get_wm_cli() {
     if(WM_NAME == "i3") {
         return "/usr/bin/i3-msg ";

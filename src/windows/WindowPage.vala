@@ -166,11 +166,10 @@ namespace Ilia {
 
         private void traverse_nodes (TreeReply node) {
             if (navigable_window(node)) {
-                Gdk.Pixbuf  pixbuf;
-                if(node.windowProperties.instance != null) {
-                    pixbuf= load_icon_from_app_name (icon_theme, node.windowProperties.instance, icon_size);
-                }
-                else {
+                Gdk.Pixbuf pixbuf;
+                if (node.windowProperties.instance != null) {
+                    pixbuf = load_icon_from_app_name (icon_theme, node.windowProperties.instance, icon_size);
+                } else {
                     pixbuf = load_icon_from_app_name (icon_theme, node.app_id, icon_size);
                 }
 
@@ -198,11 +197,11 @@ namespace Ilia {
 
         // Filter controls which TreeReply instances should be shown in window view
         private bool navigable_window(TreeReply node) {
-            bool rv = node.ntype == "con"                                           // specifies actual windows
-                && (node.window_type == "normal" 
-                    || node.window_type == "unknown" 
-                    || IS_SESSION_WAYLAND && node.layout == "none" )  // window type
-                && node.windowProperties.clazz != "i3bar";                          // ignore i3bar
+            bool rv = node.ntype == "con"                                 // specifies actual windows
+                      && (node.window_type == "normal"
+                          || node.window_type == "unknown"
+                          || IS_SESSION_WAYLAND && node.layout == "none") // window type
+                      && node.windowProperties.clazz != "i3bar";          // ignore i3bar
 
             return rv;
         }
@@ -240,7 +239,7 @@ namespace Ilia {
             string exec = "[con_id=\"" + id + "\"] focus";
             string cli_bin = get_wm_cli();
 
-            if(cli_bin == null) {
+            if (cli_bin == null) {
                 stderr.printf("ilia doesn't support this action with you WM.\n");
                 return;
             }

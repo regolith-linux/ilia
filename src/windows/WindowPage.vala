@@ -240,7 +240,7 @@ namespace Ilia {
             string cli_bin = get_wm_cli();
 
             if (cli_bin == null) {
-                stderr.printf("ilia doesn't support this action with you WM.\n");
+                stderr.printf("Error: Cannot focus window - action not supported for your WM.\n");
                 return;
             }
 

@@ -221,6 +221,7 @@ namespace Ilia {
             string cli_bin = get_wm_cli();
 
             if(cli_bin == null) {
+                stderr.printf ("Error: execute_keybinding failed - Action not supported for your WM");
                 return;
             }
             string commandline = cli_bin + "\"" + exec + "\"";

@@ -1,3 +1,9 @@
+ilia (0.12.21) focal; urgency=medium
+
+  * Add snap app dir to default paths to enable firefox to be found on kinetic
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 30 Oct 2022 09:59:56 -0700
+
 ilia (0.12.20) focal; urgency=medium
 
   * Remove usage of deprecated glib List function to fix bullseye

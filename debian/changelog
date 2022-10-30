@@ -1,3 +1,9 @@
+ilia (0.12.22-jammy) jammy; urgency=medium
+
+  * Fix path in previous fix
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 30 Oct 2022 10:08:28 -0700
+
 ilia (0.12.21-jammy) jammy; urgency=medium
 
   * Add snap app dir to default paths to enable firefox to be found on kinetic

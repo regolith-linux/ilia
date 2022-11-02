@@ -237,54 +237,15 @@ namespace Ilia {
             // determine theme for icons
             icon_theme = Gtk.IconTheme.get_default ();
 
-            var app_dirs = settings.get_strv ("app-search-paths");
-
-            var resolved_path = new StringBuilder();
-            foreach (string app_dir in app_dirs) {
-                // Iterate over each path, look for env variables and replace as necessary
-                string[] path_segments = app_dir.split ("/");
-
-                foreach (string segment in path_segments) {
-                    if (segment.has_prefix("$")) {
-                        var env_var_value = Environment.get_variable(segment.substring(1));
-                        resolved_path.append(env_var_value);
-                    } else {
-                        resolved_path.append(segment);
-                    }
-                    resolved_path.append("/");
-                }
-
-                // Determine if path is valid, if so search for desktop apps
-                var system_app_dir = File.new_for_path (resolved_path.str);
-                yield load_apps_from_dir (system_app_dir);
-                resolved_path.erase(0);
-            }
+            var app_list = AppInfo.get_all ();
+            foreach(AppInfo appinfo in app_list) {
+                yield read_desktop_file(appinfo);
+            }           
             // stdout.printf("time cost: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
         }
 
-        private async void load_apps_from_dir (File app_dir) {
-            try {
-                var enumerator = yield app_dir.enumerate_children_async (FileAttribute.STANDARD_NAME, FileQueryInfoFlags.NONE, Priority.DEFAULT);
-
-                while (true) {
-                    var app_files = yield enumerator.next_files_async (FS_FILE_READ_COUNT, Priority.DEFAULT);
-
-                    if (app_files == null) {
-                        break;
-                    }
-
-                    foreach (var info in app_files) {
-                        string file_path = app_dir.get_child (info.get_name ()).get_path ();
-                        yield read_desktop_file (file_path);
-                    }
-                }
-            } catch (Error err) {
-                stderr.printf("ilia: %s\n", err.message);
-            }
-        }
-
-        private async void read_desktop_file (string desktopPath) {
-            DesktopAppInfo app_info = new DesktopAppInfo.from_filename (desktopPath);
+        private async void read_desktop_file (AppInfo appInfo) {
+            DesktopAppInfo app_info = new DesktopAppInfo (appInfo.get_id ());
 
             if (app_info != null && app_info.should_show ()) {
                 model.append (out iter);
@@ -293,8 +254,7 @@ namespace Ilia {
                 string icon_name = null;
                 if (icon != null) icon_name = icon.to_string ();
 
-                var comment = app_info.get_string ("Comment");
-                var keywords = app_info.get_string ("Keywords");
+                var keywords = app_info.get_string ("Comment") + app_info.get_string ("Keywords");
 
                 Gdk.Pixbuf icon_img = null;
 
@@ -305,14 +265,14 @@ namespace Ilia {
                         iter,
                         ITEM_VIEW_COLUMN_ICON, icon_img,
                         ITEM_VIEW_COLUMN_NAME, app_info.get_name (),
-                        ITEM_VIEW_COLUMN_KEYWORDS, comment + keywords,
+                        ITEM_VIEW_COLUMN_KEYWORDS, keywords,
                         ITEM_VIEW_COLUMN_APPINFO, app_info
                     );
                 } else {
                     model.set (
                         iter,
                         ITEM_VIEW_COLUMN_NAME, app_info.get_name (),
-                        ITEM_VIEW_COLUMN_KEYWORDS, comment + keywords,
+                        ITEM_VIEW_COLUMN_KEYWORDS, keywords,
                         ITEM_VIEW_COLUMN_APPINFO, app_info
                     );
                 }

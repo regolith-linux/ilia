@@ -233,6 +233,7 @@ namespace Ilia {
         }
 
         private async void load_apps () {
+            // var start_time = get_monotonic_time();
             // determine theme for icons
             icon_theme = Gtk.IconTheme.get_default ();
 
@@ -255,18 +256,15 @@ namespace Ilia {
 
                 // Determine if path is valid, if so search for desktop apps
                 var system_app_dir = File.new_for_path (resolved_path.str);
-                if (system_app_dir.query_exists ()) {
-                    yield load_apps_from_dir (system_app_dir);
-                } /* else {
-                    stdout.printf("WARNING: ignoring invalid path %s\n", resolved_path.str);
-                } */
+                yield load_apps_from_dir (system_app_dir);
                 resolved_path.erase(0);
             }
+            // stdout.printf("time cost: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
         }
 
         private async void load_apps_from_dir (File app_dir) {
             try {
-                var enumerator = yield app_dir.enumerate_children_async (FileAttribute.STANDARD_NAME, FileQueryInfoFlags.NOFOLLOW_SYMLINKS, Priority.DEFAULT);
+                var enumerator = yield app_dir.enumerate_children_async (FileAttribute.STANDARD_NAME, FileQueryInfoFlags.NONE, Priority.DEFAULT);
 
                 while (true) {
                     var app_files = yield enumerator.next_files_async (FS_FILE_READ_COUNT, Priority.DEFAULT);
@@ -281,7 +279,7 @@ namespace Ilia {
                     }
                 }
             } catch (Error err) {
-                stderr.printf ("Error: list_files failed: %s\n", err.message);
+                stderr.printf("ilia: %s\n", err.message);
             }
         }
 

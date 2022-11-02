@@ -1,3 +1,9 @@
+ilia (0.12.23-jammy) jammy; urgency=medium
+
+  * Experimental change to app dialog to delegate to glib for desktop app source. Better local performance
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Tue, 01 Nov 2022 19:41:43 -0700
+
 ilia (0.12.22-jammy) jammy; urgency=medium
 
   * Fix path in previous fix

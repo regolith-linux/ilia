@@ -68,6 +68,11 @@ private void initialize_style (Gtk.Window window, HashTable<string, string ? > a
                     margin: 8px;
                 }
 
+                window {
+                    border-style: dotted;
+                    border-width: 1px;
+                }
+
                 .filter_entry {
                     border: none;
                     background: none;

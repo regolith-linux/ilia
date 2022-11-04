@@ -1,3 +1,9 @@
+ilia (0.12.24) focal; urgency=medium
+
+  * Add slight border to window in cases where background does not provide contrast
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 03 Nov 2022 19:32:08 -0700
+
 ilia (0.12.23) focal; urgency=medium
 
   * Experimental change to app dialog to delegate to glib for desktop app source. Better local performance

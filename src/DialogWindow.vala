@@ -125,9 +125,10 @@ namespace Ilia {
                         break;
                     case KEY_CODE_UP:
                     case KEY_CODE_DOWN:
-                    case KEY_CODE_ENTER:
+                    // case KEY_CODE_ENTER:
                     case KEY_CODE_PGDOWN:
                     case KEY_CODE_PGUP:     // Let UI handle these nav keys
+                        stdout.printf("key_press_event\n");
                         break;
                     case KEY_CODE_RIGHT:
                     case KEY_CODE_LEFT:     // Switch pages

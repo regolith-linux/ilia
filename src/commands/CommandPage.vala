@@ -100,6 +100,7 @@ namespace Ilia {
         }
 
         public bool key_event(Gdk.EventKey event_key) {
+            stdout.printf("key_event\n");
             var keycode = event_key.keyval;
 
             if (keycode == Ilia.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
@@ -139,7 +140,7 @@ namespace Ilia {
                 model.get_value (iter, ITEM_VIEW_COLUMN_NAME, out app_info);
                 strval = app_info.get_string ();
 
-                return (strval != null && strval.down ().contains (queryString));
+                return (strval != null && strval.down ().has_suffix (queryString));
             } else {
                 return true;
             }

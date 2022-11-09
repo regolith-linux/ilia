@@ -4,7 +4,7 @@ cfg_ilia.set('PKGDATADIR', join_paths(get_option('prefix'),get_option('datadir')
 cfg_ilia.set('GETTEXT_PACKAGE', 'ilia')
 cfg_ilia.set('RELEASE_NAME', 'ilia')
 cfg_ilia.set('PREFIX', get_option('prefix'))
-cfg_ilia.set('VERSION', '0.1.0')
+cfg_ilia.set('VERSION', '0.12')
 cfg_ilia.set('TESTSRCDIR', meson.source_root())
 
 cfgfile_1 = configure_file(

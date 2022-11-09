@@ -1,5 +1,31 @@
 using Gtk;
 
+// Default style
+char* default_css = """
+                .root_box {
+                    margin: 8px;
+                }
+
+                window {
+                    border-style: dotted;
+                    border-width: 1px;
+                }
+
+                .filter_entry {
+                    border: none;
+                    background: none;
+                    min-height: 36px;
+                    min-width: 320px;
+                }
+
+                .notebook {
+                    border: none;
+                }
+
+                .keybindings {
+                    font-family: monospace;
+                }
+            """;
 /**
  * Application entry point
  */
@@ -7,7 +33,9 @@ public static int main (string[] args) {
     Gtk.init (ref args);
 
     var arg_map = parse_args (args);
+    
     if (arg_map.contains ("-h") || arg_map.contains ("--help")) print_help_and_exit ();
+    if (arg_map.contains ("-v") || arg_map.contains ("--version")) print_version_and_exit ();
 
     var window = new Ilia.DialogWindow (arg_map);
 
@@ -62,34 +90,9 @@ private void initialize_style (Gtk.Window window, HashTable<string, string ? > a
             css_provider.load_from_file (file);
 
             Gtk.StyleContext.add_provider_for_screen (Gdk.Screen.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
-        } else if (!arg_map.contains ("-n")) {
-            string default_css = """
-                .root_box {
-                    margin: 8px;
-                }
-
-                window {
-                    border-style: dotted;
-                    border-width: 1px;
-                }
-
-                .filter_entry {
-                    border: none;
-                    background: none;
-                    min-height: 36px;
-                    min-width: 320px;
-                }
-
-                .notebook {
-                    border: none;
-                }
-
-                .keybindings {
-                    font-family: monospace;
-                }
-            """;
+        } else if (!arg_map.contains ("-n")) {            
             Gtk.CssProvider css_provider = new Gtk.CssProvider ();
-            css_provider.load_from_data (default_css);
+            css_provider.load_from_data ((string) default_css);
 
             Gtk.StyleContext.add_provider_for_screen (Gdk.Screen.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
         }
@@ -153,6 +156,11 @@ void print_help_and_exit () {
     stdout.printf ("\t\t-n: no icon\n");
     stdout.printf ("\t'windows' - navigate to a window\n");
     stdout.printf ("\t'tracker' - search for files by content\n");
+    Process.exit (0);
+}
+
+void print_version_and_exit () {
+    stdout.printf ("ilia version 0.12\n");    
     Process.exit (0);
 }
 

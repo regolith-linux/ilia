@@ -1,3 +1,11 @@
+ilia (0.12.25) focal; urgency=medium
+
+  * Refactor app launching to use a context to track launch status
+  * Cleanup version strings
+  * Add version param
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 09 Nov 2022 00:53:56 -0800
+
 ilia (0.12.24) focal; urgency=medium
 
   * Add slight border to window in cases where background does not provide contrast

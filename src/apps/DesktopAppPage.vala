@@ -240,7 +240,7 @@ namespace Ilia {
             var app_list = AppInfo.get_all ();
             foreach(AppInfo appinfo in app_list) {
                 yield read_desktop_file(appinfo);
-            }           
+            }
             // stdout.printf("time cost: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
         }
 
@@ -298,13 +298,39 @@ namespace Ilia {
             item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
+        // In the case that neither success or failure signals are received, exit after a timeout
+        private async void launch_failure_exit() {
+            GLib.Timeout.add (post_launch_sleep, () => {
+                session_controller.quit ();
+                return false;
+              }, GLib.Priority.DEFAULT);
+            yield;
+        }
+
         // launch a desktop app
         public void execute_app (Gtk.TreeIter selection) {
             DesktopAppInfo app_info;
             filter.@get (selection, ITEM_VIEW_COLUMN_APPINFO, out app_info);
 
             try {
-                var result = app_info.launch_uris (null, null);
+                AppLaunchContext ctx = new AppLaunchContext();
+
+                ctx.launched.connect ((info, platform_data) => {
+                    session_controller.quit ();
+                });
+
+                ctx.launch_failed.connect ((startup_notify_id) => {
+                    stderr.printf ("Failed to launch app: %s\n", startup_notify_id);
+                    session_controller.quit ();
+                });
+
+
+                ctx.launch_started.connect ((info, platform_data) => {
+                    launch_failure_exit.begin();
+                    // TODO ~ perhaps add some visual hint that launch process has begun
+                });
+
+                var result = app_info.launch (null, ctx);
 
                 if (result) {
                     string key = app_info.get_id ();
@@ -321,12 +347,12 @@ namespace Ilia {
                     }
                 } else {
                     stderr.printf ("Failed to launch %s\n", app_info.get_name ());
+                    session_controller.quit ();
                 }
             } catch (GLib.Error e) {
                 stderr.printf ("%s\n", e.message);
+                session_controller.quit ();
             }
-            GLib.Thread.usleep(post_launch_sleep);
-            session_controller.quit ();
         }
     }
 }

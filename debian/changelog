@@ -1,3 +1,11 @@
+ilia (0.12.25-jammy) jammy; urgency=medium
+
+  * Refactor app launching to use a context to track launch status
+  * Cleanup version strings
+  * Add version param
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 09 Nov 2022 00:50:07 -0800
+
 ilia (0.12.24-jammy) jammy; urgency=medium
 
   * Add slight border to window in cases where background does not provide contrast

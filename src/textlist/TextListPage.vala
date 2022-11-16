@@ -21,6 +21,8 @@ namespace Ilia {
 
         private Gtk.Widget root_widget;
 
+        private Gtk.TreePath path;
+
         private string name = "TextList";
 
         private string icon = "utilities-terminal";
@@ -73,7 +75,7 @@ namespace Ilia {
                 model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string));
             } else {
                 model = new Gtk.ListStore (ITEM_VIEW_COLUMNS - 1, typeof (string), typeof (string));
-            }            
+            }
 
             filter = new Gtk.TreeModelFilter (model, null);
             filter.set_visible_func (filter_func);
@@ -110,7 +112,7 @@ namespace Ilia {
             // Create columns
             if (this.render_icon_flag) {
                 item_view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", ITEM_VIEW_COLUMN_ICON);
-            }            
+            }
             item_view.insert_column_with_attributes (-1, "Name", new CellRendererText (), "text", name_column_index);
 
             // Launch app on one click
@@ -121,6 +123,10 @@ namespace Ilia {
         }
 
         public bool key_event (Gdk.EventKey event_key) {
+            if (handle_emacs_vim_nav(item_view, path, event_key)) {
+                return true;
+            }
+
             var keycode = event_key.keyval;
 
             if (keycode == Ilia.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
@@ -132,8 +138,8 @@ namespace Ilia {
         }
 
         // called on enter from TreeView
-        private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
-            filter.get_iter (out iter, path);
+        private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath row_path, Gtk.TreeViewColumn column) {
+            filter.get_iter (out iter, row_path);
             print_selection (iter);
         }
 
@@ -145,7 +151,7 @@ namespace Ilia {
 
         // called on enter when in text box
         void on_entry_activated () {
-            if (filter.get_iter_first (out iter)) {
+            if (filter.get_iter (out iter, path)) {
                 print_selection (iter);
             }
         }
@@ -172,14 +178,14 @@ namespace Ilia {
 
             if (this.render_icon_flag) {
                 var icon_theme = Gtk.IconTheme.get_default ();
-                
+
                 if (icon != null && icon.length > 0) {
                     pixbuf = Ilia.load_icon_from_name (icon_theme, icon, icon_size);
                 }
-    
+
                 if (pixbuf == null) {
                     pixbuf = Ilia.load_icon_from_name (icon_theme, "applications-other", icon_size);
-                }    
+                }
             }
 
             do {
@@ -209,7 +215,9 @@ namespace Ilia {
 
             if (selection.count_selected_rows () == 0) { // initial state, nothing explicitly selected by user
                 selection.set_mode (SelectionMode.SINGLE);
-                Gtk.TreePath path = new Gtk.TreePath.first ();
+                if (path == null) {
+                    path = new Gtk.TreePath.first ();
+                }
                 selection.select_path (path);
             } else { // an existing item has selection, ensure it's visible
                 var path_list = selection.get_selected_rows(null);

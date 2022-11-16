@@ -42,6 +42,8 @@ namespace Ilia {
 
         private Gtk.Widget root_widget;
 
+        private Gtk.TreePath path;
+
         public string get_name () {
             return "<u>A</u>pplications";
         }
@@ -104,8 +106,29 @@ namespace Ilia {
             return root_widget;
         }
 
-        public bool key_event(Gdk.EventKey event_key) {
-            return false;
+        public bool key_event(Gdk.EventKey key) {
+            return handle_emacs_vim_nav(item_view, path, key);
+        }
+
+        // Automatically set the first item in the list as selected.
+        private void set_selection () {
+            Gtk.TreeSelection selection = item_view.get_selection ();
+
+            if (selection.count_selected_rows () == 0) { // initial state, nothing explicitly selected by user
+                selection.set_mode (SelectionMode.SINGLE);
+                if (path == null) {
+                    path = new Gtk.TreePath.first ();
+                }
+                selection.select_path (path);
+            } else { // an existing item has selection, ensure it's visible
+                var path_list = selection.get_selected_rows(null);
+                if (path_list != null) {
+                    unowned var element = path_list.first ();
+                    item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
+                }
+            }
+
+            item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
         // Initialize the view displaying selections
@@ -135,21 +158,20 @@ namespace Ilia {
         }
 
         // called on enter from TreeView
-        private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
-            filter.get_iter (out iter, path);
+        private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath row_path, Gtk.TreeViewColumn column) {
+            filter.get_iter (out iter, row_path);
             execute_app (iter);
         }
 
         // filter selection based on contents of Entry
         void on_entry_changed () {
             filter.refilter ();
-            model.set_sort_func (1, app_sort_func);
             set_selection ();
         }
 
         // called on enter when in text box
         void on_entry_activated () {
-            if (filter.get_iter_first (out iter)) {
+            if (filter.get_iter (out iter, path)) {
                 execute_app (iter);
             }
         }
@@ -250,10 +272,6 @@ namespace Ilia {
             if (app_info != null && app_info.should_show ()) {
                 model.append (out iter);
 
-                var icon = app_info.get_icon ();
-                string icon_name = null;
-                if (icon != null) icon_name = icon.to_string ();
-
                 var keywords = app_info.get_string ("Comment") + app_info.get_string ("Keywords");
 
                 Gdk.Pixbuf icon_img = null;
@@ -277,25 +295,6 @@ namespace Ilia {
                     );
                 }
             }
-        }
-
-        // Automatically set the first item in the list as selected.
-        private void set_selection () {
-            Gtk.TreeSelection selection = item_view.get_selection ();
-
-            if (selection.count_selected_rows () == 0) { // initial state, nothing explicitly selected by user
-                selection.set_mode (SelectionMode.SINGLE);
-                Gtk.TreePath path = new Gtk.TreePath.first ();
-                selection.select_path (path);
-            } else { // an existing item has selection, ensure it's visible
-                var path_list = selection.get_selected_rows(null);
-                if (path_list != null) {
-                    unowned var element = path_list.first ();
-                    item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
-                }
-            }
-
-            item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
         // In the case that neither success or failure signals are received, exit after a timeout

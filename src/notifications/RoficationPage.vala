@@ -34,6 +34,8 @@ namespace Ilia {
 
         private int icon_size;
 
+        private Gtk.TreePath path;
+
         public string get_name () {
             return "<u>N</u>otifications";
         }
@@ -137,8 +139,8 @@ namespace Ilia {
         }
 
         // called on enter from TreeView
-        private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
-            filter.get_iter (out iter, path);
+        private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath row_path, Gtk.TreeViewColumn column) {
+            filter.get_iter (out iter, row_path);
             execute_app_from_selection (iter);
         }
 
@@ -150,7 +152,7 @@ namespace Ilia {
 
         // called on enter when in text box
         void on_entry_activated () {
-            if (filter.get_iter_first (out iter)) {
+            if (filter.get_iter (out iter, path)) {
                 execute_app_from_selection (iter);
             }
         }
@@ -224,7 +226,9 @@ namespace Ilia {
 
         // Automatically set the first item in the list as selected.
         private void set_selection () {
-            Gtk.TreePath path = new Gtk.TreePath.first ();
+            if (path == null) {
+                path = new Gtk.TreePath.first ();    
+            } 
             Gtk.TreeSelection selection = item_view.get_selection ();
 
             selection.set_mode (SelectionMode.SINGLE);
@@ -241,6 +245,10 @@ namespace Ilia {
         }
 
         public bool key_event (Gdk.EventKey event) {
+            if (handle_emacs_vim_nav(item_view, path, event)) {
+                return true;
+            }
+
             if (event.keyval == 65535) {
                 if ((event.state & Gdk.ModifierType.SHIFT_MASK) == Gdk.ModifierType.SHIFT_MASK) {
                     delete_all_notifications ();

@@ -26,6 +26,8 @@ namespace Ilia {
 
         private int icon_size;
 
+        private Gtk.TreePath path;
+
         public string get_name () {
             return "<u>W</u>indows";
         }
@@ -104,6 +106,10 @@ namespace Ilia {
         }
 
         public bool key_event (Gdk.EventKey event_key) {
+            if (handle_emacs_vim_nav(item_view, path, event_key)) {
+                return true;
+            }
+
             var keycode = event_key.keyval;
 
             if (keycode == Ilia.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
@@ -115,8 +121,8 @@ namespace Ilia {
         }
 
         // called on enter from TreeView
-        private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath path, Gtk.TreeViewColumn column) {
-            filter.get_iter (out iter, path);
+        private void on_row_activated (Gtk.TreeView treeview, Gtk.TreePath row_path, Gtk.TreeViewColumn column) {
+            filter.get_iter (out iter, row_path);
             _from_selection (iter);
         }
 
@@ -128,7 +134,7 @@ namespace Ilia {
 
         // called on enter when in text box
         void on_entry_activated () {
-            if (filter.get_iter_first (out iter)) {
+            if (filter.get_iter (out iter, path)) {
                 _from_selection (iter);
             }
         }
@@ -205,9 +211,10 @@ namespace Ilia {
 
             if (selection.count_selected_rows () == 0) { // initial state, nothing explicitly selected by user
                 selection.set_mode (SelectionMode.SINGLE);
-                Gtk.TreePath path = new Gtk.TreePath.first ();
+                if (path == null) {
+                    path = new Gtk.TreePath.first ();
+                }
                 selection.select_path (path);
-                stdout.printf("select_path\n");
             } else { // an existing item has selection, ensure it's visible
                 List<Gtk.TreePath> path_list = selection.get_selected_rows(null);
                 if (path_list != null) {

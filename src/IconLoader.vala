@@ -16,7 +16,7 @@ namespace Ilia {
         return load_icon_from_name(icon_theme, app_name, size);
     }
 
-    public Gdk.Pixbuf? load_icon_from_info(IconTheme icon_theme, DesktopAppInfo app_info, int size) {
+    public Gdk.Pixbuf? load_icon_from_info(IconTheme icon_theme, DesktopAppInfo? app_info, int size) {
         if (app_info == null) return null;
 
         try {

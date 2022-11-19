@@ -1,3 +1,9 @@
+ilia (0.12.26-jammy) jammy; urgency=medium
+
+  * Implement emacs and vim key nav.  Misc cleanup
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 19 Nov 2022 09:37:24 -0800
+
 ilia (0.12.25-jammy) jammy; urgency=medium
 
   * Refactor app launching to use a context to track launch status

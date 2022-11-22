@@ -297,15 +297,6 @@ namespace Ilia {
             }
         }
 
-        // In the case that neither success or failure signals are received, exit after a timeout
-        private async void launch_failure_exit() {
-            GLib.Timeout.add (post_launch_sleep, () => {
-                session_controller.quit ();
-                return false;
-              }, GLib.Priority.DEFAULT);
-            yield;
-        }
-
         // launch a desktop app
         public void execute_app (Gtk.TreeIter selection) {
             DesktopAppInfo app_info;
@@ -321,12 +312,6 @@ namespace Ilia {
                 ctx.launch_failed.connect ((startup_notify_id) => {
                     stderr.printf ("Failed to launch app: %s\n", startup_notify_id);
                     session_controller.quit ();
-                });
-
-
-                ctx.launch_started.connect ((info, platform_data) => {
-                    launch_failure_exit.begin();
-                    // TODO ~ perhaps add some visual hint that launch process has begun
                 });
 
                 var result = app_info.launch (null, ctx);
@@ -352,6 +337,8 @@ namespace Ilia {
                 stderr.printf ("%s\n", e.message);
                 session_controller.quit ();
             }
+            GLib.Thread.usleep(post_launch_sleep);
+            session_controller.quit ();
         }
     }
 }

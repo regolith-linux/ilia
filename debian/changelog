@@ -1,3 +1,9 @@
+ilia (0.12.26-2) focal; urgency=medium
+
+  * Revise app launch logic based on available APIs on focal
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Mon, 21 Nov 2022 19:31:33 -0800
+
 ilia (0.12.26) focal; urgency=medium
 
   * Implement emacs and vim key nav.  Misc cleanup

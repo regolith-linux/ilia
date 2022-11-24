@@ -260,13 +260,13 @@ namespace Ilia {
             icon_theme = Gtk.IconTheme.get_default ();
 
             var app_list = AppInfo.get_all ();
-            foreach(AppInfo appinfo in app_list) {
-                yield read_desktop_file(appinfo);
+            foreach (AppInfo appinfo in app_list) {
+                read_desktop_file(appinfo);
             }
             // stdout.printf("time cost: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
         }
 
-        private async void read_desktop_file (AppInfo appInfo) {
+        private void read_desktop_file (AppInfo appInfo) {
             DesktopAppInfo app_info = new DesktopAppInfo (appInfo.get_id ());
 
             if (app_info != null && app_info.should_show ()) {
@@ -277,7 +277,7 @@ namespace Ilia {
                 Gdk.Pixbuf icon_img = null;
 
                 if (icon_size > 0) {
-                    icon_img = yield Ilia.load_icon_from_info_async (icon_theme, app_info, icon_size);
+                    icon_img = Ilia.load_icon_from_info (icon_theme, app_info, icon_size);
 
                     model.set (
                         iter,

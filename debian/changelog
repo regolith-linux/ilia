@@ -1,3 +1,9 @@
+ilia (0.12.27) focal; urgency=medium
+
+  * Remove async icon loading to fix intermittent missing icons
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 23 Nov 2022 21:34:32 -0800
+
 ilia (0.12.26-2) focal; urgency=medium
 
   * Revise app launch logic based on available APIs on focal

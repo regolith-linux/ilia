@@ -1,3 +1,9 @@
+ilia (0.12.27-jammy) jammy; urgency=medium
+
+  * Remove async icon loading to fix intermittent missing icons
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 23 Nov 2022 21:35:09 -0800
+
 ilia (0.12.26-jammy) jammy; urgency=medium
 
   * Implement emacs and vim key nav.  Misc cleanup

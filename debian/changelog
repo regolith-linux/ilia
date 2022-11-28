@@ -1,3 +1,9 @@
+ilia (0.12.28) focal; urgency=medium
+
+  * Remove async app loading for https://github.com/regolith-linux/ilia/issues/51
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 27 Nov 2022 19:20:48 -0800
+
 ilia (0.12.27) focal; urgency=medium
 
   * Remove async icon loading to fix intermittent missing icons

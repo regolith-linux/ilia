@@ -1,3 +1,9 @@
+ilia (0.12.28-jammy) jammy; urgency=medium
+
+  * Remove async app loading for https://github.com/regolith-linux/ilia/issues/51
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 27 Nov 2022 19:19:52 -0800
+
 ilia (0.12.27-jammy) jammy; urgency=medium
 
   * Remove async icon loading to fix intermittent missing icons

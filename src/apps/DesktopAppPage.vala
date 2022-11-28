@@ -85,14 +85,12 @@ namespace Ilia {
 
             create_item_view ();
 
-            load_apps.begin ((obj, res) => {
-                load_apps.end (res);
+            load_apps ();
+            
+            model.set_sort_func (1, app_sort_func);
+            model.set_sort_column_id (1, SortType.ASCENDING);
 
-                model.set_sort_func (1, app_sort_func);
-                model.set_sort_column_id (1, SortType.ASCENDING);
-
-                set_selection ();
-            });
+            set_selection ();            
 
             var scrolled = new Gtk.ScrolledWindow (null, null);
             scrolled.get_style_context ().add_class ("scrolled_window");
@@ -254,7 +252,7 @@ namespace Ilia {
             }
         }
 
-        private async void load_apps () {
+        private void load_apps () {
             // var start_time = get_monotonic_time();
             // determine theme for icons
             icon_theme = Gtk.IconTheme.get_default ();

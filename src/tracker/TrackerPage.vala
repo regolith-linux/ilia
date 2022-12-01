@@ -239,14 +239,15 @@ namespace Ilia {
 
         // tracker sparql -q "SELECT DISTINCT nie:url(?f) nie:title(?f) WHERE { ?f fts:match 'regolith' }"
         private void execute_app (string id) {
-            var uri = GLib.Filename.to_uri(id);
             try {
+            	var uri = GLib.Filename.to_uri(id);
                 if (!AppInfo.launch_default_for_uri(uri, null)) {
                     stderr.printf ("Error: execute_app failed\n");
                 }
-            } catch (GLib.Error err) {
+            } 
+	    catch (GLib.Error err) {
                 stderr.printf ("Error: execute_app failed: %s\n", err.message);
-            }
+	    }
             GLib.Thread.usleep(post_launch_sleep);
             session_controller.quit ();
         }

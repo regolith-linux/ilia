@@ -1,3 +1,12 @@
+ilia (0.12.29) focal; urgency=medium
+
+  [ Ken Gilmer ]
+  * Fix inconsistent widget focus init with new page function.
+  * Fix all page mode curor navigation.
+  * Merge pull request #54 from tatjam/ubuntu/jammy
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 03 Dec 2022 15:41:13 -0800
+
 ilia (0.12.28) focal; urgency=medium
 
   * Remove async app loading for https://github.com/regolith-linux/ilia/issues/51

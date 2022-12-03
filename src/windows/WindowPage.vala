@@ -105,7 +105,7 @@ namespace Ilia {
             item_view.row_activated.connect (on_row_activated);
         }
 
-        public void finalize_ui () {
+        public void show () {
             item_view.grab_focus ();
         }
 
@@ -226,8 +226,6 @@ namespace Ilia {
                     item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
                 }
             }
-
-            item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
         // switch to window

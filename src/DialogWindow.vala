@@ -128,6 +128,7 @@ namespace Ilia {
                     case KEY_CODE_ENTER:
                     case KEY_CODE_PGDOWN:
                     case KEY_CODE_PGUP:     // Let UI handle these nav keys
+                        dialog_pages[active_page].show ();
                         break;
                     case KEY_CODE_RIGHT:
                     case KEY_CODE_LEFT:     // Switch pages
@@ -147,7 +148,7 @@ namespace Ilia {
 
             entry.activate.connect (on_entry_activated);
 
-            dialog_pages[active_page].finalize_ui (); // Get page ready to use
+            dialog_pages[active_page].show (); // Get page ready to use
         }
 
         public override void show_all() {
@@ -375,6 +376,7 @@ namespace Ilia {
                 entry.secondary_icon_name = dialog_pages[active_page].get_icon_name ();
                 entry.set_sensitive (true);
             }
+            dialog_pages[active_page].show ();
         }
 
         // filter selection based on contents of Entry

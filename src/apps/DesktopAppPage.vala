@@ -86,11 +86,11 @@ namespace Ilia {
             create_item_view ();
 
             load_apps ();
-            
+
             model.set_sort_func (1, app_sort_func);
             model.set_sort_column_id (1, SortType.ASCENDING);
 
-            set_selection ();            
+            set_selection ();
 
             var scrolled = new Gtk.ScrolledWindow (null, null);
             scrolled.get_style_context ().add_class ("scrolled_window");
@@ -125,11 +125,9 @@ namespace Ilia {
                     item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
                 }
             }
-
-            item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
-        public void finalize_ui () {
+        public void show () {
             item_view.grab_focus ();
         }
 

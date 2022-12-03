@@ -76,6 +76,10 @@ namespace Ilia {
             root_widget = scrolled;
         }
 
+        public void finalize_ui () {
+            item_view.grab_focus ();
+        }
+
         public Gtk.Widget get_root () {
             return root_widget;
         }

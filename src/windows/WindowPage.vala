@@ -105,6 +105,10 @@ namespace Ilia {
             item_view.row_activated.connect (on_row_activated);
         }
 
+        public void finalize_ui () {
+            item_view.grab_focus ();
+        }
+
         public bool key_event (Gdk.EventKey event_key) {
             if (handle_emacs_vim_nav(item_view, path, event_key)) {
                 return true;

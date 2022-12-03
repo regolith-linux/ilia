@@ -53,6 +53,10 @@ namespace Ilia {
             return keybindings;
         }
 
+        public void finalize_ui () {
+            item_view.grab_focus ();
+        }
+
         public async void initialize (GLib.Settings settings, HashTable<string, string ? > arg_map, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error {
             this.entry = entry;
             this.session_controller = sessionController;

@@ -209,6 +209,10 @@ namespace Ilia {
             item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
+        public void finalize_ui () {
+            item_view.grab_focus ();
+        }
+
         // launch a desktop app
         public void execute_command_from_selection (Gtk.TreeIter selection) {
             string cmd_path;

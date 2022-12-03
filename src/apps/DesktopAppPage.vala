@@ -129,6 +129,10 @@ namespace Ilia {
             item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
+        public void finalize_ui () {
+            item_view.grab_focus ();
+        }
+
         // Initialize the view displaying selections
         private void create_item_view () {
             item_view = new Gtk.TreeView.with_model (filter);

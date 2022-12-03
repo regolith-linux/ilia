@@ -54,6 +54,11 @@ namespace Ilia {
          * Page returns character that should cause the page to be selected if pressed
          */
         public abstract char get_keybinding();
+
+        /**
+         * Called after initialize completes. Used for final UI state setup post model load.
+        */
+        public abstract void finalize_ui ();
     }
 
     /**

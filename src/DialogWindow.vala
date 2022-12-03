@@ -146,7 +146,8 @@ namespace Ilia {
             });
 
             entry.activate.connect (on_entry_activated);
-            entry.grab_focus ();
+
+            dialog_pages[active_page].finalize_ui (); // Get page ready to use
         }
 
         public override void show_all() {

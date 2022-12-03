@@ -244,6 +244,10 @@ namespace Ilia {
             item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
+        public void finalize_ui () {
+            item_view.grab_focus ();
+        }
+
         public bool key_event (Gdk.EventKey event) {
             if (handle_emacs_vim_nav(item_view, path, event)) {
                 return true;

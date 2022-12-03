@@ -58,7 +58,7 @@ namespace Ilia {
         /**
          * Called after initialize completes. Used for final UI state setup post model load.
         */
-        public abstract void finalize_ui ();
+        public abstract void show ();
     }
 
     /**
@@ -77,9 +77,9 @@ namespace Ilia {
             } else if ((key.keyval == 'n' || key.keyval == 'j') && !is_last) {
                 path.next ();
                 item_view.get_selection ().select_path (path);
-                item_view.set_cursor (path, null, false);                    
+                item_view.set_cursor (path, null, false);
             }
-                            
+
             return true;
         }
 

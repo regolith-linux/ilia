@@ -105,7 +105,7 @@ namespace Ilia {
             if (handle_emacs_vim_nav(item_view, path, event_key)) {
                 return true;
             }
-            
+
             var keycode = event_key.keyval;
 
             if (keycode == Ilia.KEY_CODE_ENTER && !filter.get_iter_first (out iter) && entry.text.length > 0) {
@@ -195,7 +195,7 @@ namespace Ilia {
             if (selection.count_selected_rows () == 0) { // initial state, nothing explicitly selected by user
                 selection.set_mode (SelectionMode.SINGLE);
                 if (path == null) {
-                    path = new Gtk.TreePath.first ();    
+                    path = new Gtk.TreePath.first ();
                 }
                 selection.select_path (path);
             } else { // an existing item has selection, ensure it's visible
@@ -205,11 +205,9 @@ namespace Ilia {
                     item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
                 }
             }
-
-            item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
-        public void finalize_ui () {
+        public void show () {
             item_view.grab_focus ();
         }
 

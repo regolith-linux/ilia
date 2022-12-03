@@ -76,7 +76,7 @@ namespace Ilia {
             root_widget = scrolled;
         }
 
-        public void finalize_ui () {
+        public void show () {
             item_view.grab_focus ();
         }
 
@@ -207,8 +207,8 @@ namespace Ilia {
             if (selection.count_selected_rows () == 0) { // initial state, nothing explicitly selected by user
                 selection.set_mode (SelectionMode.SINGLE);
                 if (path == null) {
-                    path = new Gtk.TreePath.first ();    
-                }      
+                    path = new Gtk.TreePath.first ();
+                }
                 selection.select_path (path);
             } else { // an existing item has selection, ensure it's visible
                 var path_list = selection.get_selected_rows(null);
@@ -217,8 +217,6 @@ namespace Ilia {
                     item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
                 }
             }
-
-            item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
         // launch a desktop app

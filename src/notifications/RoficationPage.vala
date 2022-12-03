@@ -227,8 +227,8 @@ namespace Ilia {
         // Automatically set the first item in the list as selected.
         private void set_selection () {
             if (path == null) {
-                path = new Gtk.TreePath.first ();    
-            } 
+                path = new Gtk.TreePath.first ();
+            }
             Gtk.TreeSelection selection = item_view.get_selection ();
 
             selection.set_mode (SelectionMode.SINGLE);
@@ -240,11 +240,9 @@ namespace Ilia {
 
                 selected_notification_id = int.parse (notification_id);
             }
-
-            item_view.grab_focus (); // ensure list view is in focus to avoid excessive nav for selection
         }
 
-        public void finalize_ui () {
+        public void show () {
             item_view.grab_focus ();
         }
 

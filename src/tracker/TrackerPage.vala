@@ -1,4 +1,5 @@
 using Gtk;
+using GLib;
 
 namespace Ilia {
     class TrackerPage : DialogPage, GLib.Object {
@@ -167,9 +168,10 @@ namespace Ilia {
                 long length = 0;
 
                 while (cursor.next ()) {
-                    var uri = cursor.get_string (0, out length);
+                    var uri_encoded = cursor.get_string (0, out length);
+                    if (uri_encoded != null) {
+                        var uri = GLib.Filename.from_uri(uri_encoded);
 
-                    if (uri != null) {
                         var title = cursor.get_string (1, out length);
                         if (title == null) {
                             title = Path.get_basename (uri);
@@ -240,12 +242,14 @@ namespace Ilia {
         // tracker sparql -q "SELECT DISTINCT nie:url(?f) nie:title(?f) WHERE { ?f fts:match 'regolith' }"
         private void execute_app (string id) {
             try {
-                if (!AppInfo.launch_default_for_uri(id, null)) {
+            	var uri = GLib.Filename.to_uri(id);
+                if (!AppInfo.launch_default_for_uri(uri, null)) {
                     stderr.printf ("Error: execute_app failed\n");
                 }
-            } catch (GLib.Error err) {
+            } 
+	    catch (GLib.Error err) {
                 stderr.printf ("Error: execute_app failed: %s\n", err.message);
-            }
+	    }
             GLib.Thread.usleep(post_launch_sleep);
             session_controller.quit ();
         }

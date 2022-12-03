@@ -1,3 +1,15 @@
+ilia (0.12.29-jammy) jammy; urgency=medium
+
+  [ tatjam ]
+  * Initial fix, doesn't handle throw from parsing file to uri
+  * Move the uri conversion inside the try-catch block
+
+  [ Ken Gilmer ]
+  * Fix inconsistent widget focus init with new page function.
+  * Fix all page mode curor navigation.
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 03 Dec 2022 15:42:52 -0800
+
 ilia (0.12.28-jammy) jammy; urgency=medium
 
   * Remove async app loading for https://github.com/regolith-linux/ilia/issues/51

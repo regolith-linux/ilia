@@ -170,13 +170,18 @@ namespace Ilia {
                 }
             } catch (GLib.Error err) {
                 // TODO consistent error handling
-                stderr.printf ("Failed to read or parse window tree from i3: %s\n", err.message);
+                stderr.printf ("Failed to read or parse window tree from %s: %s\n", WM_NAME, err.message);
             }
         }
 
         private void traverse_nodes (TreeReply node) {
             if (navigable_window(node)) {
-                var pixbuf = load_icon_from_app_name (icon_theme, node.windowProperties.clazz, icon_size);
+                Gdk.Pixbuf pixbuf;
+                if (node.windowProperties.instance != null) {
+                    pixbuf = load_icon_from_app_name (icon_theme, node.windowProperties.instance, icon_size);
+                } else {
+                    pixbuf = load_icon_from_app_name (icon_theme, node.app_id, icon_size);
+                }
 
                 model.append (out iter);
                 model.set (
@@ -202,9 +207,11 @@ namespace Ilia {
 
         // Filter controls which TreeReply instances should be shown in window view
         private bool navigable_window(TreeReply node) {
-            bool rv = node.ntype == "con"                                           // specifies actual windows
-                && (node.window_type == "normal" || node.window_type == "unknown")  // window type
-                && node.windowProperties.clazz != "i3bar";                          // ignore i3bar
+            bool rv = node.ntype == "con"                                 // specifies actual windows
+                      && (node.window_type == "normal"
+                          || node.window_type == "unknown"
+                          || IS_SESSION_WAYLAND && node.layout == "none") // window type
+                      && node.windowProperties.clazz != "i3bar";          // ignore i3bar
 
             return rv;
         }
@@ -236,11 +243,17 @@ namespace Ilia {
             focus_window (id);
         }
 
-        // i3-msg [window_role="gnome-terminal-window-6bee2ec0-eb8b-4b10-aafc-7c2708201d43" title="Terminal"] focus
+        // [window_role="gnome-terminal-window-6bee2ec0-eb8b-4b10-aafc-7c2708201d43" title="Terminal"] focus
         private void focus_window (string id) {
             string exec = "[con_id=\"" + id + "\"] focus";
-            string commandline = "/usr/bin/i3-msg " + exec;
+            string cli_bin = get_wm_cli();
 
+            if (cli_bin == null) {
+                stderr.printf("Error: Cannot focus window - action not supported for your WM.\n");
+                return;
+            }
+
+            string commandline = cli_bin + exec;
             // stdout.printf("running %s\n", commandline);
 
             try {

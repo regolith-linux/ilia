@@ -79,7 +79,12 @@ namespace Ilia {
             grid.attach (notebook, 0, 1, 1, 1);
             add (grid);
 
-            set_default_size (settings.get_int ("window-width"), settings.get_int ("window-height"));
+            if (IS_SESSION_WAYLAND) {
+                set_size_request (settings.get_int ("window-width"), settings.get_int ("window-height"));
+            } else {
+                set_default_size (settings.get_int ("window-width"), settings.get_int ("window-height"));
+            }
+
 
             // Exit if focus leaves us
             focus_out_event.connect (() => {

@@ -77,6 +77,8 @@ namespace Ilia {
         public bool urgent { get; private set; }
         public string output { get; private set; }
         public string name { get; private set; }
+        public string app_id { get; private set; }
+        public string layout { get; private set; }
         public WindowProperties windowProperties { get; private set; }
         public TreeReply[] nodes { get; private set; }
         public TreeReply[] floating_nodes { get; private set; }
@@ -97,6 +99,12 @@ namespace Ilia {
             }            
             if (obj.has_member ("window_properties")) {
                 windowProperties = new WindowProperties(obj.get_object_member ("window_properties"));
+            }
+            if (obj.has_member ("app_id")) {
+                app_id = obj.get_string_member ("app_id");
+            }
+            if (obj.has_member ("layout")) {
+                layout = obj.get_string_member ("layout");
             }
             
             var jnodes = responseJson.get_object ().get_array_member("nodes");
@@ -148,7 +156,7 @@ namespace Ilia {
                     socket.close ();
                 } catch (GLib.Error err) {
                     // TODO consistent error handling
-                    stderr.printf ("Failed to close i3 socket: %s\n", err.message);
+                    stderr.printf ("Failed to close %s socket: %s\n", WM_NAME, err.message);
                 }
             }
         }
@@ -181,12 +189,12 @@ namespace Ilia {
         private Json.Node ? i3_ipc (I3_COMMAND command) throws GLib.Error {
             ssize_t sent = socket.send (generate_request (command));
 
-            debug ("Sent " + sent.to_string () + " bytes to i3.\n");
+            debug ("Sent " + sent.to_string () + " bytes to " + WM_NAME +".\n");
             uint8[] buffer = new uint8[buffer_size];
 
             ssize_t len = socket.receive (buffer);
 
-            debug ("Received  " + len.to_string () + " bytes from i3.\n");
+            debug ("Received  " + len.to_string () + " bytes from " + WM_NAME +".\n");
 
             Bytes responseBytes = new Bytes.take (buffer[0 : len]);
 

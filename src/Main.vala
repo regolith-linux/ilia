@@ -63,6 +63,7 @@ public static int main (string[] args) {
     // Grab inputs from wayland backend before showing window
     if (IS_SESSION_WAYLAND) {
         GtkLayerShell.init_for_window (window);
+        GtkLayerShell.set_layer(window, GtkLayerShell.Layer.OVERLAY);
         GtkLayerShell.set_keyboard_mode (window, GtkLayerShell.KeyboardMode.EXCLUSIVE);
     }
 

@@ -1,9 +1,9 @@
-ilia (0.12.29-jammyubuntu1) UNRELEASED; urgency=medium
+ilia (0.12.30-jammy) jammy; urgency=medium
 
-  [ Soumya Ranjan Patnaik ]
   * Added wayland support
+  * Set ilia as overlay (displays over fullscreen applications)
 
- -- Soumya Ranjan Patnaik <soumyaranjan1812@gmail.com>  Thu, 15 Dec 2022 01:11:53 +0530
+ -- Soumya Ranjan Patnaik <soumyaranjan1812@gmail.com>  Thu, 22 Dec 2022 22:31:29 +0530
 
 ilia (0.12.29-jammy) jammy; urgency=medium
 

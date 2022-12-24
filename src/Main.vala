@@ -4,6 +4,7 @@ using GtkLayerShell;
 // Globals
 bool IS_SESSION_WAYLAND;
 string WM_NAME;
+int64 start_time = 0;
 // Default style
 char* default_css = """
                 .root_box {
@@ -34,6 +35,7 @@ char* default_css = """
  * Application entry point
  */
 public static int main (string[] args) {
+    start_time = get_monotonic_time();
     Gtk.init (ref args);
 
     // Get session type (wayland or x11) and set the flag
@@ -57,7 +59,9 @@ public static int main (string[] args) {
     if (arg_map.contains ("-h") || arg_map.contains ("--help")) print_help_and_exit ();
     if (arg_map.contains ("-v") || arg_map.contains ("--version")) print_version_and_exit ();
 
+    stdout.printf("Ilia.DialogWindow: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
     var window = new Ilia.DialogWindow (arg_map);
+    stdout.printf("window.destroy.connect: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
     window.destroy.connect (Gtk.main_quit);
 
     // Grab inputs from wayland backend before showing window
@@ -68,6 +72,7 @@ public static int main (string[] args) {
     }
 
     initialize_style (window, arg_map);
+    stdout.printf("window.show_all: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
     window.show_all ();
 
     // Grab inputs from X11 backend after showing window

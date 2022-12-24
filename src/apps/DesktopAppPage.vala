@@ -44,6 +44,8 @@ namespace Ilia {
 
         private Gtk.TreePath path;
 
+        private Thread<void> iconLoadThread;
+
         public string get_name () {
             return "<u>A</u>pplications";
         }
@@ -98,6 +100,9 @@ namespace Ilia {
             scrolled.expand = true;
 
             root_widget = scrolled;
+
+            // Generic parameter is the type of return value
+            iconLoadThread = new Thread<void> ("iconLoadThread", loadAppIcons);
         }
 
         public Gtk.Widget get_root () {
@@ -147,6 +152,13 @@ namespace Ilia {
             // Create columns
             if (icon_size > 0) {
                 item_view.insert_column_with_attributes (-1, "Icon", new CellRendererPixbuf (), "pixbuf", ITEM_VIEW_COLUMN_ICON);
+                /*
+                TreeViewColumn? column = item_view.get_column(0);
+
+                if (column != null) {
+                    column.set_fixed_width (icon_size);
+                }
+                 */
             }
             item_view.insert_column_with_attributes (-1, "Name", new CellRendererText (), "text", ITEM_VIEW_COLUMN_NAME);
 
@@ -257,27 +269,34 @@ namespace Ilia {
         private void load_apps () {
             // var start_time = get_monotonic_time();
             // determine theme for icons
+            stdout.printf("load_apps start: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
             icon_theme = Gtk.IconTheme.get_default ();
 
             var app_list = AppInfo.get_all ();
+            Gdk.Pixbuf icon_img = new Gdk.Pixbuf (Gdk.Colorspace.RGB, false, 8, icon_size, icon_size); // Ilia.load_icon_from_name (icon_theme, "applications-other", icon_size);
+
+            stdout.printf("load_apps itrate: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
             foreach (AppInfo appinfo in app_list) {
-                read_desktop_file(appinfo);
+                read_desktop_file(appinfo, icon_img);
             }
-            // stdout.printf("time cost: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
+            stdout.printf("load_apps done: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
         }
 
-        private void read_desktop_file (AppInfo appInfo) {
+        private void read_desktop_file (AppInfo appInfo, Gdk.Pixbuf? default_icon) {
+            // stdout.printf("read_desktop_file start: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
             DesktopAppInfo app_info = new DesktopAppInfo (appInfo.get_id ());
 
             if (app_info != null && app_info.should_show ()) {
                 model.append (out iter);
 
-                var keywords = app_info.get_string ("Comment") + app_info.get_string ("Keywords");
+                var keywords = app_info.get_string ("Comment") + app_info.get_string ("Keywords");                
 
-                Gdk.Pixbuf icon_img = null;
-
+                /*
                 if (icon_size > 0) {
+                    Gdk.Pixbuf icon_img = null;
+                    stdout.printf("read_desktop_file before icon %s: %" + int64.FORMAT + "\n", appInfo.get_name (), (get_monotonic_time() - start_time));
                     icon_img = Ilia.load_icon_from_info (icon_theme, app_info, icon_size);
+                    stdout.printf("read_desktop_file after  icon %s: %" + int64.FORMAT + "\n",appInfo.get_name (),  (get_monotonic_time() - start_time));
 
                     model.set (
                         iter,
@@ -286,15 +305,40 @@ namespace Ilia {
                         ITEM_VIEW_COLUMN_KEYWORDS, keywords,
                         ITEM_VIEW_COLUMN_APPINFO, app_info
                     );
-                } else {
+                } else { */
+                    // Gdk.Pixbuf icon_img = Ilia.load_icon_from_name (icon_theme, "applications-other", icon_size);
                     model.set (
                         iter,
+                        ITEM_VIEW_COLUMN_ICON, default_icon,
                         ITEM_VIEW_COLUMN_NAME, app_info.get_name (),
                         ITEM_VIEW_COLUMN_KEYWORDS, keywords,
                         ITEM_VIEW_COLUMN_APPINFO, app_info
                     );
-                }
+                //}
             }
+        }
+
+        void loadAppIcons() {
+            stdout.printf("loadAppIcons start: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
+            TreeIter app_iter;
+
+            for (bool next = model.get_iter_first (out app_iter); next; next = model.iter_next (ref app_iter)) {
+                Value app_info_val;
+
+                model.get_value(app_iter, ITEM_VIEW_COLUMN_APPINFO, out app_info_val);
+
+                DesktopAppInfo desktop_ap_info = new DesktopAppInfo (((AppInfo) app_info_val).get_id ());
+
+                Gdk.Pixbuf icon_img = Ilia.load_icon_from_info (icon_theme, desktop_ap_info, icon_size);
+
+                model.set (
+                    app_iter,
+                    ITEM_VIEW_COLUMN_ICON, icon_img
+                );                
+            }
+            filter.refilter();
+            item_view.columns_autosize ();
+            stdout.printf("loadAppIcons end  : %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
         }
 
         // In the case that neither success or failure signals are received, exit after a timeout

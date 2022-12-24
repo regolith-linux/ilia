@@ -25,13 +25,14 @@ namespace Ilia {
             if (icon != null) {
                 icon_name = icon.to_string ();
 
-                var icon_info = icon_theme.lookup_icon (icon_name, size, Gtk.IconLookupFlags.FORCE_SIZE); // from icon theme
+                var icon_info = icon_theme.lookup_icon (icon_name, size, Gtk.IconLookupFlags.FORCE_REGULAR); // from icon theme
                 if (icon_info != null) {
                     return icon_info.load_icon ();
                 }
 
                 if (GLib.File.new_for_path (icon_name).query_exists ()) {
                     try {
+                        stdout.printf("new_for_path\n");
                         return new Gdk.Pixbuf.from_file_at_size (icon_name, size, size);
                     } catch (Error e) {
                         stderr.printf ("1Error loading icon: %s\n", e.message);

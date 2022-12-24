@@ -32,10 +32,9 @@ namespace Ilia {
 
                 if (GLib.File.new_for_path (icon_name).query_exists ()) {
                     try {
-                        stdout.printf("new_for_path\n");
                         return new Gdk.Pixbuf.from_file_at_size (icon_name, size, size);
                     } catch (Error e) {
-                        stderr.printf ("1Error loading icon: %s\n", e.message);
+                        stderr.printf ("Error loading icon: %s\n", e.message);
                     }
                 }
             }

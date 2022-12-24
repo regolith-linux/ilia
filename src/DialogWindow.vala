@@ -71,11 +71,11 @@ namespace Ilia {
             var focus_page = arg_map.get ("-p") ?? "Apps";
             bool all_page_mode = arg_map.contains("-a");
 
-            stdout.printf("init_pages: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
+            // stdout.printf("init_pages: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
 
             init_pages (arg_map, focus_page, all_page_mode);
 
-            stdout.printf("grid: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
+            // stdout.printf("grid: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
 
             grid = new Gtk.Grid ();
             grid.get_style_context ().add_class ("root_box");
@@ -156,7 +156,7 @@ namespace Ilia {
             });
 
             entry.activate.connect (on_entry_activated);
-            stdout.printf("ialog_pages[active_page].show (): %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
+            // stdout.printf("ialog_pages[active_page].show (): %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
             dialog_pages[active_page].show (); // Get page ready to use
         }
 
@@ -204,7 +204,7 @@ namespace Ilia {
                 box.pack_start (label, false, false, 5);
                 box.show_all ();
                 notebook.append_page (dialog_pages[i].get_root (), box);
-                stdout.printf("append_page %d: %" + int64.FORMAT + "\n", i, (get_monotonic_time() - start_time));
+                // stdout.printf("append_page %d: %" + int64.FORMAT + "\n", i, (get_monotonic_time() - start_time));
             }
 
             // FIXME - rework help UI to be consistent for both single and all page modes

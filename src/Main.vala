@@ -35,7 +35,7 @@ char* default_css = """
  * Application entry point
  */
 public static int main (string[] args) {
-    start_time = get_monotonic_time();
+    // start_time = get_monotonic_time();
     Gtk.init (ref args);
 
     // Get session type (wayland or x11) and set the flag

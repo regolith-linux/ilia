@@ -101,7 +101,7 @@ namespace Ilia {
 
             root_widget = scrolled;
 
-            // Generic parameter is the type of return value
+            // Load app icons in background thread
             iconLoadThread = new Thread<void> ("iconLoadThread", loadAppIcons);
         }
 
@@ -266,6 +266,8 @@ namespace Ilia {
             icon_theme = Gtk.IconTheme.get_default ();
 
             var app_list = AppInfo.get_all ();
+
+            // Set a blank icon to avoid visual jank as real icons are loaded
             Gdk.Pixbuf blank_icon = new Gdk.Pixbuf (Gdk.Colorspace.RGB, false, 8, icon_size, icon_size); // Ilia.load_icon_from_name (icon_theme, "applications-other", icon_size);
 
             // stdout.printf("load_apps itrate: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
@@ -303,6 +305,7 @@ namespace Ilia {
             }
         }
 
+        // Iterate over model and load icons
         void loadAppIcons() {
             // stdout.printf("loadAppIcons start: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
             TreeIter app_iter;
@@ -311,11 +314,11 @@ namespace Ilia {
             for (bool next = model.get_iter_first (out app_iter); next; next = model.iter_next (ref app_iter)) {                
                 model.get_value(app_iter, ITEM_VIEW_COLUMN_APPINFO, out app_info_val);
 
-                Gdk.Pixbuf blank_icon = Ilia.load_icon_from_info (icon_theme, (DesktopAppInfo) app_info_val, icon_size);
+                Gdk.Pixbuf icon = Ilia.load_icon_from_info (icon_theme, (DesktopAppInfo) app_info_val, icon_size);
 
                 model.set (
                     app_iter,
-                    ITEM_VIEW_COLUMN_ICON, blank_icon
+                    ITEM_VIEW_COLUMN_ICON, icon
                 );                
             }
             // stdout.printf("loadAppIcons end  : %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));

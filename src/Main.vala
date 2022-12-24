@@ -4,7 +4,7 @@ using GtkLayerShell;
 // Globals
 bool IS_SESSION_WAYLAND;
 string WM_NAME;
-int64 start_time = 0;
+// int64 start_time = 0;
 // Default style
 char* default_css = """
                 .root_box {

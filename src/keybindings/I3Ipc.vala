@@ -1,6 +1,10 @@
 /**
  * A client library for i3-wm that deserializes into idomatic Vala response types
  */
+
+using GLib;
+using Gee;
+
 namespace Ilia {
     enum I3_COMMAND {
         RUN_COMMAND,
@@ -42,7 +46,75 @@ namespace Ilia {
     public class ConfigReply {
         public string config { get; private set; }
 
-        internal ConfigReply (Json.Node responseJson) {
+
+        // Get array of include paths from config partial (may contain glob patterns)
+        private string[] get_includes_from_partial(string config) {
+          string[] lines = config.split("\n");
+          string[] include_paths = {};
+          foreach (unowned string line in lines) {
+              string stripped_line = line.strip();
+
+              // First token of include lines must be "include" followed by the path.
+              // Also supports globbing.
+              // Examples:
+              //   "include /path/to/config"
+              //   "include /path/to/config.d/*"
+              if (!stripped_line.has_prefix("include ")) {
+                  continue;
+              }
+              include_paths += stripped_line.split("include ", 2)[1];
+          }
+          return include_paths;
+        }
+        
+
+        private string walk_included_configs (string baseConfig) throws GLib.FileError {
+          var configBuilder = new StringBuilder ("\n");
+          HashSet<string> visited_paths = new HashSet<string> (); 
+          GLib.Queue<string> path_queue = new GLib.Queue<string> ();
+
+          string[] included_paths = get_includes_from_partial(baseConfig);
+          foreach(unowned string path in included_paths) {
+              path_queue.push_tail(path);
+          }
+
+          while(!path_queue.is_empty()) {
+
+            // Replace head of queue with paths obtained from glob matching
+            // Head of queue doesn't change if the string doesn't contain widcards
+            Posix.Glob pathMatcher = Posix.Glob();
+            string path_glob = path_queue.pop_head();
+            pathMatcher.glob(path_glob);
+            foreach(unowned string matched_path in pathMatcher.pathv) {
+              path_queue.push_head(matched_path);
+            }
+
+            // Path of config partial to be read
+            string config_path = path_queue.pop_head(); 
+
+            // Skip if the config partial already visited / read
+            if (visited_paths.contains(config_path)) {
+              continue;
+            }
+
+            // Read config partial and append to config builder
+            string config_partial;
+            FileUtils.get_contents (config_path, out config_partial);
+            configBuilder.append(config_partial);
+
+            // Append paths of configs included from current config partial to queue for bfs
+            string[] include_paths = get_includes_from_partial(config_partial);
+            foreach (unowned string path in include_paths) {
+              path_queue.push_tail(path);
+            }
+
+            visited_paths.add(config_path); 
+          }
+          return configBuilder.str;
+        }
+
+        private string get_i3_config (Json.Node responseJson) {
+
             var configBuilder = new StringBuilder("");
             var configs = responseJson.get_object ().get_array_member ("included_configs");
 
@@ -50,7 +122,21 @@ namespace Ilia {
                 configBuilder.append(node.get_object ().get_string_member ("variable_replaced_contents"));
             });
 
-            config = configBuilder.str;
+            return configBuilder.str;
+          }
+
+        private string get_sway_config (Json.Node responseJson) throws GLib.FileError {
+          string baseConfig = responseJson.get_object ().get_string_member ("config");
+          string walked_configs = walk_included_configs(baseConfig);
+          return baseConfig + walked_configs;
+        }
+
+        internal ConfigReply (Json.Node responseJson) throws GLib.FileError{
+          if (WM_NAME == "sway") {
+            config = get_sway_config(responseJson);
+          } else {
+              config = get_i3_config(responseJson);
+          }
         }
     }
 

@@ -5,6 +5,7 @@ project('ilia',
 add_global_arguments('-DGETTEXT_PACKAGE="ilia"',language: 'c')
 
 add_project_arguments(['--pkg', 'GtkLayerShell-0.1'], language: 'vala')
+add_project_arguments(['--pkg', 'posix'], language: 'vala')
 
 find_program ('glib-compile-schemas')
 gio_unix_2_0_dep = dependency('gio-unix-2.0')

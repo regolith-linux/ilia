@@ -1,3 +1,9 @@
+ilia (0.12.31) jammy; urgency=medium
+
+  * Added support for keybindings page in wayland
+
+ -- Soumya Ranjan Patnaik <soumyaranjan1812@gmail.com>  Mon, 02 Jan 2023 01:38:37 +0530
+
 ilia (0.12.30-jammy) jammy; urgency=medium
 
   * Added wayland support

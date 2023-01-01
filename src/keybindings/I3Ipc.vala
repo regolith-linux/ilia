@@ -95,6 +95,7 @@ namespace Ilia {
                 if (visited_paths.contains (config_path)) {
                     continue;
                 }
+                visited_paths.add (config_path);
 
                 // Read config partial and append to config builder
                 string config_partial;
@@ -106,8 +107,6 @@ namespace Ilia {
                 foreach (unowned string path in include_paths) {
                     path_queue.push_tail (path);
                 }
-
-                visited_paths.add (config_path);
             }
             return configBuilder.str;
         }

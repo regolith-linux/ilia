@@ -1,6 +1,10 @@
 /**
  * A client library for i3-wm that deserializes into idomatic Vala response types
  */
+
+using GLib;
+using Gee;
+
 namespace Ilia {
     enum I3_COMMAND {
         RUN_COMMAND,
@@ -42,15 +46,95 @@ namespace Ilia {
     public class ConfigReply {
         public string config { get; private set; }
 
-        internal ConfigReply (Json.Node responseJson) {
-            var configBuilder = new StringBuilder("");
+
+        // Get array of include paths from config partial (may contain glob patterns)
+        private string[] get_includes_from_partial (string config) {
+            string[] lines = config.split ("\n");
+            string[] include_paths = {};
+            foreach (unowned string line in lines) {
+                string stripped_line = line.strip ();
+
+                // First token of include lines must be "include" followed by the path.
+                // Also supports globbing.
+                // Examples:
+                // "include /path/to/config"
+                // "include /path/to/config.d/*"
+                if (!stripped_line.has_prefix ("include ")) {
+                    continue;
+                }
+                include_paths += stripped_line.split ("include ", 2)[1];
+            }
+            return include_paths;
+        }
+
+        private string walk_included_configs (string baseConfig) throws GLib.FileError {
+            var configBuilder = new StringBuilder ("\n");
+            HashSet<string> visited_paths = new HashSet<string> ();
+            GLib.Queue<string> path_queue = new GLib.Queue<string> ();
+
+            string[] included_paths = get_includes_from_partial (baseConfig);
+            foreach (unowned string path in included_paths) {
+                path_queue.push_tail (path);
+            }
+
+            while (!path_queue.is_empty ()) {
+
+                // Replace head of queue with paths obtained from glob matching
+                // Head of queue doesn't change if the string doesn't contain widcards
+                Posix.Glob pathMatcher = Posix.Glob ();
+                string path_glob = path_queue.pop_head ();
+                pathMatcher.glob (path_glob);
+                foreach (unowned string matched_path in pathMatcher.pathv) {
+                    path_queue.push_head (matched_path);
+                }
+
+                // Path of config partial to be read
+                string config_path = path_queue.pop_head ();
+
+                // Skip if the config partial already visited / read
+                if (visited_paths.contains (config_path)) {
+                    continue;
+                }
+                visited_paths.add (config_path);
+
+                // Read config partial and append to config builder
+                string config_partial;
+                FileUtils.get_contents (config_path, out config_partial);
+                configBuilder.append (config_partial);
+
+                // Append paths of configs included from current config partial to queue for bfs
+                string[] include_paths = get_includes_from_partial (config_partial);
+                foreach (unowned string path in include_paths) {
+                    path_queue.push_tail (path);
+                }
+            }
+            return configBuilder.str;
+        }
+
+        private string get_i3_config (Json.Node responseJson) {
+
+            var configBuilder = new StringBuilder ("");
             var configs = responseJson.get_object ().get_array_member ("included_configs");
 
             configs.foreach_element ((arr, index, node) => {
-                configBuilder.append(node.get_object ().get_string_member ("variable_replaced_contents"));
+                configBuilder.append (node.get_object ().get_string_member ("variable_replaced_contents"));
             });
 
-            config = configBuilder.str;
+            return configBuilder.str;
+        }
+
+        private string get_sway_config (Json.Node responseJson) throws GLib.FileError {
+            string baseConfig = responseJson.get_object ().get_string_member ("config");
+            string walked_configs = walk_included_configs (baseConfig);
+            return baseConfig + walked_configs;
+        }
+
+        internal ConfigReply (Json.Node responseJson) throws GLib.FileError {
+            if (WM_NAME == "sway") {
+                config = get_sway_config (responseJson);
+            } else {
+                config = get_i3_config (responseJson);
+            }
         }
     }
 
@@ -62,11 +146,11 @@ namespace Ilia {
         public string title { get; private set; }
 
         internal WindowProperties (Json.Object responseJson) {
-            if (responseJson.has_member("class")) clazz = responseJson.get_string_member ("class");
-            if (responseJson.has_member("instance")) instance = responseJson.get_string_member ("instance");
-            if (responseJson.has_member("machine")) machine = responseJson.get_string_member ("machine");
-            if (responseJson.has_member("title")) title = responseJson.get_string_member ("title");
-            if (responseJson.has_member("window_role")) window_role = responseJson.get_string_member ("window_role");
+            if (responseJson.has_member ("class")) clazz = responseJson.get_string_member ("class");
+            if (responseJson.has_member ("instance")) instance = responseJson.get_string_member ("instance");
+            if (responseJson.has_member ("machine")) machine = responseJson.get_string_member ("machine");
+            if (responseJson.has_member ("title")) title = responseJson.get_string_member ("title");
+            if (responseJson.has_member ("window_role")) window_role = responseJson.get_string_member ("window_role");
         }
     }
 
@@ -96,9 +180,9 @@ namespace Ilia {
             }
             if (obj.has_member ("output")) {
                 output = obj.get_string_member ("output");
-            }            
+            }
             if (obj.has_member ("window_properties")) {
-                windowProperties = new WindowProperties(obj.get_object_member ("window_properties"));
+                windowProperties = new WindowProperties (obj.get_object_member ("window_properties"));
             }
             if (obj.has_member ("app_id")) {
                 app_id = obj.get_string_member ("app_id");
@@ -106,26 +190,26 @@ namespace Ilia {
             if (obj.has_member ("layout")) {
                 layout = obj.get_string_member ("layout");
             }
-            
-            var jnodes = responseJson.get_object ().get_array_member("nodes");
+
+            var jnodes = responseJson.get_object ().get_array_member ("nodes");
 
             if (jnodes == null || jnodes.get_length () == 0) {
                 nodes = new TreeReply[0];
             } else {
                 nodes = new TreeReply[jnodes.get_length ()];
                 jnodes.foreach_element ((arr, index, node) => {
-                    nodes[index] = new TreeReply(node);
+                    nodes[index] = new TreeReply (node);
                 });
             }
 
-            var fnodes = responseJson.get_object ().get_array_member("floating_nodes");
+            var fnodes = responseJson.get_object ().get_array_member ("floating_nodes");
 
             if (fnodes == null || fnodes.get_length () == 0) {
                 floating_nodes = new TreeReply[0];
             } else {
                 floating_nodes = new TreeReply[fnodes.get_length ()];
                 fnodes.foreach_element ((arr, index, node) => {
-                    floating_nodes[index] = new TreeReply(node);
+                    floating_nodes[index] = new TreeReply (node);
                 });
             }
         }
@@ -139,7 +223,7 @@ namespace Ilia {
         private int buffer_size = 1024 * 128;
 
         public I3Client () throws GLib.Error {
-            var socket_path = Environment.get_variable("I3SOCK");
+            var socket_path = Environment.get_variable ("I3SOCK");
 
             var socketAddress = new UnixSocketAddress (socket_path);
 
@@ -189,12 +273,12 @@ namespace Ilia {
         private Json.Node ? i3_ipc (I3_COMMAND command) throws GLib.Error {
             ssize_t sent = socket.send (generate_request (command));
 
-            debug ("Sent " + sent.to_string () + " bytes to " + WM_NAME +".\n");
+            debug ("Sent " + sent.to_string () + " bytes to " + WM_NAME + ".\n");
             uint8[] buffer = new uint8[buffer_size];
 
             ssize_t len = socket.receive (buffer);
 
-            debug ("Received  " + len.to_string () + " bytes from " + WM_NAME +".\n");
+            debug ("Received  " + len.to_string () + " bytes from " + WM_NAME + ".\n");
 
             Bytes responseBytes = new Bytes.take (buffer[0 : len]);
 
@@ -226,7 +310,7 @@ namespace Ilia {
             return new ConfigReply (response);
         }
 
-        public TreeReply getTree() throws I3_ERROR, GLib.Error {
+        public TreeReply getTree () throws I3_ERROR, GLib.Error {
             var response = i3_ipc (I3_COMMAND.GET_TREE);
 
             if (response == null) {

@@ -70,7 +70,7 @@ namespace Ilia {
         if ((key.state & Gdk.ModifierType.CONTROL_MASK) == Gdk.ModifierType.CONTROL_MASK) { //CTRL
             bool is_last = selection_is_last (item_view.get_selection ());
 
-            if (key.keyval == 'p') {
+            if (key.keyval == 'p' || key.keyval == 'k') {
                 path.prev ();
                 item_view.get_selection ().select_path (path);
                 item_view.set_cursor (path, null, false);

@@ -345,6 +345,12 @@ namespace Ilia {
             listmodel.set (iter, 0, "↑ ↓", 1, "Change Selected Item");
 
             listmodel.append (out iter);
+            listmodel.set (iter, 0, "Ctrl+p Ctrl+n", 1, "Change Selected Item (emacs style)");
+
+            listmodel.append (out iter);
+            listmodel.set (iter, 0, "Ctrl+k Ctrl+j", 1, "Change Selected Item (vim style)");
+
+            listmodel.append (out iter);
             listmodel.set (iter, 0, "Esc", 1, "Exit");
         }
 

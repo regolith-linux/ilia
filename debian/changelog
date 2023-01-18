@@ -1,4 +1,4 @@
-ilia (0.12.31) jammy; urgency=medium
+ilia (0.12.31-jammy) jammy; urgency=medium
 
   * Added support for keybindings page in wayland
 

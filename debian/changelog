@@ -1,3 +1,11 @@
+ilia (0.12.30) focal; urgency=medium
+
+  [ Gabriel Oliveira ]
+  * add missing vim keybinding to navigation
+  * add keybings to help
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Tue, 17 Jan 2023 18:28:51 -0800
+
 ilia (0.12.29) focal; urgency=medium
 
   [ Ken Gilmer ]

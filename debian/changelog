@@ -1,8 +1,9 @@
-ilia (0.12.31-jammy) jammy; urgency=medium
+ilia (0.12.32-jammy) jammy; urgency=medium
 
+  [ Soumya Ranjan Patnaik ]
   * Added support for keybindings page in wayland
 
- -- Soumya Ranjan Patnaik <soumyaranjan1812@gmail.com>  Mon, 02 Jan 2023 01:38:37 +0530
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 22 Jan 2023 10:55:49 -0800
 
 ilia (0.12.30-jammy) jammy; urgency=medium
 

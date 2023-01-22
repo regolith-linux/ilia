@@ -1,10 +1,16 @@
+ilia (0.12.32) focal; urgency=medium
+
+  * version bump to fix unstable repo
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 22 Jan 2023 11:07:16 -0800
+
 ilia (0.12.31) focal; urgency=medium
 
   [ Gabriel Oliveira ]
   * add missing vim keybinding to navigation
   * add keybings to help
 
- -- Regolith Linux <regolith.linux@gmail.com>  Tue, 17 Jan 2023 18:28:51 -0800
+ -- Regolith Linux <regolith.linux@gmail.com>  Sun, 22 Jan 2023 11:07:08 -0800
 
 ilia (0.12.29) focal; urgency=medium
 

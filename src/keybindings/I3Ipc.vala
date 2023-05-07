@@ -46,6 +46,40 @@ namespace Ilia {
     public class ConfigReply {
         public string config { get; private set; }
 
+        private string expand_path_vars (string path) {
+            if (!path.contains("$")) {
+                return path;
+            }
+            string[] parts = path.split ("$");
+            string result = "";
+            for (int i = 0; i < parts.length; i++) {
+                string part = parts[i];
+
+                // part is empty if we either have two consequtive '$' or
+                // if the path starts with '$' and it is the first segment 
+                // of the split
+                if (part == "") {
+                    bool is_first_segment = i == 0;
+                    if (is_first_segment) {
+                        continue;
+                    }
+                    result += "$";
+                    continue;
+                }
+                int end = part.index_of ("/");
+                if (end == -1) {
+                    end = part.length;
+                }
+                string var_name = part[0:end];
+                string value = Environment.get_variable (var_name);
+                if (value != null) {
+                    result += value + part[end:part.length];
+                } else {
+                    result += "$" + part;
+                }
+            }
+            return result;
+        }
 
         // Get array of include paths from config partial (may contain glob patterns)
         private string[] get_includes_from_partial (string config) {
@@ -62,7 +96,8 @@ namespace Ilia {
                 if (!stripped_line.has_prefix ("include ")) {
                     continue;
                 }
-                include_paths += stripped_line.split ("include ", 2)[1];
+                string path = stripped_line.split ("include ", 2)[1];
+                include_paths += expand_path_vars (path);
             }
             return include_paths;
         }

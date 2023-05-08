@@ -44,6 +44,8 @@ namespace Ilia {
 
         private Gtk.TreePath path;
 
+        private Thread<void> iconLoadThread;
+
         public string get_name () {
             return "<u>A</u>pplications";
         }
@@ -98,6 +100,9 @@ namespace Ilia {
             scrolled.expand = true;
 
             root_widget = scrolled;
+
+            // Load app icons in background thread
+            iconLoadThread = new Thread<void> ("iconLoadThread", loadAppIcons);
         }
 
         public Gtk.Widget get_root () {
@@ -258,15 +263,17 @@ namespace Ilia {
             // var start_time = get_monotonic_time();
             // determine theme for icons
             icon_theme = Gtk.IconTheme.get_default ();
+            // Set a blank icon to avoid visual jank as real icons are loaded
+            Gdk.Pixbuf blank_icon = new Gdk.Pixbuf (Gdk.Colorspace.RGB, false, 8, icon_size, icon_size);
 
             var app_list = AppInfo.get_all ();
             foreach (AppInfo appinfo in app_list) {
-                read_desktop_file(appinfo);
+                read_desktop_file(appinfo, blank_icon);
             }
             // stdout.printf("time cost: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
         }
 
-        private void read_desktop_file (AppInfo appInfo) {
+        private void read_desktop_file (AppInfo appInfo, Gdk.Pixbuf? icon_img) {
             DesktopAppInfo app_info = new DesktopAppInfo (appInfo.get_id ());
 
             if (app_info != null && app_info.should_show ()) {
@@ -274,11 +281,7 @@ namespace Ilia {
 
                 var keywords = app_info.get_string ("Comment") + app_info.get_string ("Keywords");
 
-                Gdk.Pixbuf icon_img = null;
-
-                if (icon_size > 0) {
-                    icon_img = Ilia.load_icon_from_info (icon_theme, app_info, icon_size);
-
+                if (icon_size > 0) {                    
                     model.set (
                         iter,
                         ITEM_VIEW_COLUMN_ICON, icon_img,
@@ -295,6 +298,25 @@ namespace Ilia {
                     );
                 }
             }
+        }
+
+        // Iterate over model and load icons
+        void loadAppIcons() {
+            // stdout.printf("loadAppIcons start: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
+            TreeIter app_iter;
+            Value app_info_val;
+
+            for (bool next = model.get_iter_first (out app_iter); next; next = model.iter_next (ref app_iter)) {                
+                model.get_value(app_iter, ITEM_VIEW_COLUMN_APPINFO, out app_info_val);
+
+                Gdk.Pixbuf icon = Ilia.load_icon_from_info (icon_theme, (DesktopAppInfo) app_info_val, icon_size);
+
+                model.set (
+                    app_iter,
+                    ITEM_VIEW_COLUMN_ICON, icon
+                );                
+            }
+            // stdout.printf("loadAppIcons end  : %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
         }
 
         // In the case that neither success or failure signals are received, exit after a timeout

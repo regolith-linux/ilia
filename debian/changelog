@@ -1,3 +1,14 @@
+ilia (0.13.0-jammy) jammy; urgency=medium
+
+  [ Soumya Ranjan Patnaik ]
+  * Fixed bindings defined in user config partials not showing up
+
+  [ Regolith Linux ]
+  * Load icons in background thread. Enable basic clipboard support for entry text.
+  * Tweaks to sort/filter in desktop app page
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Tue, 09 May 2023 18:10:15 -0700
+
 ilia (0.12.32-jammy) jammy; urgency=medium
 
   [ Soumya Ranjan Patnaik ]

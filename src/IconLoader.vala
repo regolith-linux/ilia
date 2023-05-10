@@ -34,7 +34,7 @@ namespace Ilia {
                     try {
                         return new Gdk.Pixbuf.from_file_at_size (icon_name, size, size);
                     } catch (Error e) {
-                        stderr.printf ("1Error loading icon: %s\n", e.message);
+                        stderr.printf ("Error loading icon: %s\n", e.message);
                     }
                 }
             }

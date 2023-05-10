@@ -188,7 +188,7 @@ namespace Ilia {
                 }
             } catch (GLib.Error err) {
                 // TODO consistent error handling
-                stderr.printf ("Failed to read config from i3: %s\n", err.message);
+                stderr.printf ("Failed to read config from %s: %s\n", WM_NAME, err.message);
             }
         }
 
@@ -228,7 +228,13 @@ namespace Ilia {
         }
 
         private void execute_keybinding (string exec) {
-            string commandline = "/usr/bin/i3-msg \"" + exec + "\"";
+            string cli_bin = get_wm_cli();
+
+            if(cli_bin == null) {
+                stderr.printf ("Error: execute_keybinding failed - Action not supported for your WM");
+                return;
+            }
+            string commandline = cli_bin + "\"" + exec + "\"";
 
             try {
                 var app_info = AppInfo.create_from_commandline (commandline, null, AppInfoCreateFlags.NONE);

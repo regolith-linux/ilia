@@ -1,5 +1,6 @@
 using Gtk;
 
+// Globals
 // Default style
 char* default_css = """
                 .root_box {
@@ -33,26 +34,23 @@ public static int main (string[] args) {
     Gtk.init (ref args);
 
     var arg_map = parse_args (args);
-    
     if (arg_map.contains ("-h") || arg_map.contains ("--help")) print_help_and_exit ();
     if (arg_map.contains ("-v") || arg_map.contains ("--version")) print_version_and_exit ();
 
     var window = new Ilia.DialogWindow (arg_map);
-
     window.destroy.connect (Gtk.main_quit);
+
     initialize_style (window, arg_map);
     window.show_all ();
 
-    // Use the Gdk window to grab global inputs.
+    // Grab inputs from X11 backend after showing window
     Gdk.Window gdkwin = window.get_window ();
     var seat = grab_inputs (gdkwin);
-
     if (seat == null) {
         stderr.printf ("Failed to aquire access to input devices, aborting.");
         return 1;
-    } else {
-        window.set_seat (seat);
     }
+    window.set_seat (seat);
 
     // Handle mouse clicks by determining if a click is in or out of bounds
     // If we get a mouse click out of bounds of the window, exit.
@@ -212,3 +210,4 @@ errordomain ArgParser {
 bool is_key (string inval) {
     return inval.has_prefix ("-");
 }
+

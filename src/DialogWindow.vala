@@ -98,12 +98,21 @@ namespace Ilia {
                             return true;
                         }
                     }
-                    if (key.keyval == KEY_CODE_PLUS) { // Expand dialog
+                    if (key.keyval == '+') { // Expand dialog
                         change_size(128);
                         return true;
                     }
-                    if (key.keyval == KEY_CODE_MINUS) { // Contract dialog
+                    if (key.keyval == '-') { // Contract dialog
                         change_size(-128);
+                        return true;
+                    }
+                } else if ((key.state & Gdk.ModifierType.CONTROL_MASK) == Gdk.ModifierType.CONTROL_MASK) {
+                    if (key.keyval == 'c') { // Expand dialog
+                        clipboard_copy();
+                        return true;
+                    }
+                    if (key.keyval== 'v') {
+                        clipboard_paste();
                         return true;
                     }
                 }
@@ -392,6 +401,26 @@ namespace Ilia {
 
         void on_entry_activated () {
             dialog_pages[active_page].on_entry_activated ();
+        }
+
+        void clipboard_copy() {
+            var display = this.get_screen ().get_display ();
+            var clipboard = Clipboard.get_for_display (display, Gdk.SELECTION_CLIPBOARD);
+            
+            clipboard.set_text(entry.get_text(), entry.get_text().length);
+            clipboard.store();
+        }
+
+        void clipboard_paste() {
+            var display = this.get_screen ().get_display ();
+            var clipboard = Clipboard.get_for_display (display, Gdk.SELECTION_CLIPBOARD);
+
+            string text = clipboard.wait_for_text ();
+
+            if (text != null) {
+                int pos = entry.cursor_position;
+                entry.get_buffer().insert_text(pos, text.data);
+            }
         }
 
         public void quit() {

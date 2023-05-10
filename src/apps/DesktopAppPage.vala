@@ -170,6 +170,9 @@ namespace Ilia {
 
         // filter selection based on contents of Entry
         void on_entry_changed () {
+                        // Cause resorting
+            // TODO: find cleaner way of causing re-sort
+            model.set_sort_func (1, app_sort_func); 
             filter.refilter ();
             set_selection ();
         }
@@ -182,23 +185,28 @@ namespace Ilia {
         }
 
         private int app_sort_func (TreeModel model, TreeIter a, TreeIter b) {
-            string query_string = entry.get_text ().down ().strip ();
+            string query_string = entry.get_text ().down ();
             DesktopAppInfo app_a;
             model.@get (a, ITEM_VIEW_COLUMN_APPINFO, out app_a);
             DesktopAppInfo app_b;
             model.@get (b, ITEM_VIEW_COLUMN_APPINFO, out app_b);
 
-            var app_a_has_prefix = app_a.get_name ().down ().has_prefix (query_string);
-            var app_b_has_prefix = app_b.get_name ().down ().has_prefix (query_string);
+            var app_a_name = app_a.get_name ().down ();
+            var app_b_name = app_b.get_name ().down ();
 
-            if (query_string.length > 1 && (app_a_has_prefix || app_b_has_prefix)) {
-                if (app_b_has_prefix && !app_b_has_prefix) {
-                    // stdout.printf ("boosted %s\n", app_a.get_name ());
-                    return -1;
-                } else if (!app_a_has_prefix && app_b_has_prefix) {
-                    // stdout.printf ("boosted %s\n", app_b.get_name ());
-                    return 1;
-                }
+            if (query_string.length > 0) {
+                var app_a_has_prefix = app_a_name.has_prefix (query_string);
+                var app_b_has_prefix = app_b_name.has_prefix (query_string);
+    
+                if (query_string.length > 1 && (app_a_has_prefix || app_b_has_prefix)) {
+                    if (app_b_has_prefix && !app_b_has_prefix) {
+                        // stdout.printf ("boosted %s for %s\n", app_a.get_name (), query_string);
+                        return -1;
+                    } else if (!app_a_has_prefix && app_b_has_prefix) {
+                        // stdout.printf ("boosted %s for %s\n", app_b.get_name (), query_string);
+                        return 1;
+                    }
+                }    
             }
 
             var a_count = launch_counts.get (app_a.get_id ());
@@ -214,7 +222,7 @@ namespace Ilia {
                 }
             }
 
-            return app_a.get_name ().ascii_casecmp (app_b.get_name ());
+            return app_a_name.ascii_casecmp (app_b_name);
         }
 
         private HashTable<string, int> load_launch_counts (string[] history) {

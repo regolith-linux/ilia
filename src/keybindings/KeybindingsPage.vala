@@ -60,8 +60,8 @@ namespace Ilia {
 
             create_item_view ();
 
-            read_i3_config.begin ((obj, res) => {
-                read_i3_config.end (res);
+            read_config.begin ((obj, res) => {
+                read_config.end (res);
 
                 item_view.columns_autosize ();
                 model.set_sort_column_id (1, SortType.ASCENDING);
@@ -162,7 +162,7 @@ namespace Ilia {
         }
 
         // Read the active i3 configuration and populate the model with keybindings
-        private async void read_i3_config () {
+        private async void read_config () {
             try {
                 var i3_client = new I3Client ();
                 var config_file = i3_client.getConfig ().config;

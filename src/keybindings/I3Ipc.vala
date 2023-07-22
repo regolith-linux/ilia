@@ -6,7 +6,7 @@ using GLib;
 using Gee;
 
 namespace Ilia {
-    enum I3_COMMAND {
+    enum WM_COMMAND {
         RUN_COMMAND,
         GET_WORKSPACES,
         SUBSCRIBE,
@@ -21,7 +21,7 @@ namespace Ilia {
         SYNC
     }
 
-    public errordomain I3_ERROR {
+    public errordomain WM_ERROR {
         RPC_ERROR
     }
 
@@ -293,7 +293,7 @@ namespace Ilia {
             return (string) b.data;
         }
 
-        private uint8[] generate_request (I3_COMMAND cmd) {
+        private uint8[] generate_request (WM_COMMAND cmd) {
             ByteArray np = new ByteArray ();
 
             np.append (magic_number);
@@ -305,7 +305,7 @@ namespace Ilia {
             return message.get_data ();
         }
 
-        private Json.Node ? i3_ipc (I3_COMMAND command) throws GLib.Error {
+        private Json.Node ? wm_ipc (WM_COMMAND command) throws GLib.Error {
             ssize_t sent = socket.send (generate_request (command));
 
             debug ("Sent " + sent.to_string () + " bytes to " + WM_NAME + ".\n");
@@ -325,31 +325,31 @@ namespace Ilia {
             return parser.get_root ();
         }
 
-        public VersionReply getVersion () throws I3_ERROR, GLib.Error {
-            var response = i3_ipc (I3_COMMAND.GET_VERSION);
+        public VersionReply getVersion () throws WM_ERROR, GLib.Error {
+            var response = wm_ipc (WM_COMMAND.GET_VERSION);
 
             if (response == null) {
-                throw new I3_ERROR.RPC_ERROR ("No Response");
+                throw new WM_ERROR.RPC_ERROR ("No Response");
             }
 
             return new VersionReply (response);
         }
 
-        public ConfigReply getConfig () throws I3_ERROR, GLib.Error {
-            var response = i3_ipc (I3_COMMAND.GET_CONFIG);
+        public ConfigReply getConfig () throws WM_ERROR, GLib.Error {
+            var response = wm_ipc (WM_COMMAND.GET_CONFIG);
 
             if (response == null) {
-                throw new I3_ERROR.RPC_ERROR ("No Response");
+                throw new WM_ERROR.RPC_ERROR ("No Response");
             }
 
             return new ConfigReply (response);
         }
 
-        public TreeReply getTree () throws I3_ERROR, GLib.Error {
-            var response = i3_ipc (I3_COMMAND.GET_TREE);
+        public TreeReply getTree () throws WM_ERROR, GLib.Error {
+            var response = wm_ipc (WM_COMMAND.GET_TREE);
 
             if (response == null) {
-                throw new I3_ERROR.RPC_ERROR ("No Response");
+                throw new WM_ERROR.RPC_ERROR ("No Response");
             }
 
             return new TreeReply (response);

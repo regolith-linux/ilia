@@ -164,8 +164,8 @@ namespace Ilia {
         // Read the active configuration and populate the model with keybindings
         private async void read_config () {
             try {
-                var i3_client = new IPCClient ();
-                var config_file = i3_client.getConfig ().config;
+                var ipc_client = new IPCClient ();
+                var config_file = ipc_client.getConfig ().config;
                 var parser = new ConfigParser (config_file, "");
 
                 Map<string, ArrayList<Keybinding> > kbmodel = parser.parse ();

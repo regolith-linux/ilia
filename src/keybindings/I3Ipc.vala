@@ -250,14 +250,14 @@ namespace Ilia {
         }
     }
 
-    public class I3Client {
+    public class IPCClient {
         private Socket socket;
         private uint8[] magic_number = "i3-ipc".data;
         private uint8[] terminator = { '\0' };
         private int bytes_to_payload = 14;
         private int buffer_size = 1024 * 128;
 
-        public I3Client () throws GLib.Error {
+        public IPCClient () throws GLib.Error {
             var socket_path = Environment.get_variable ("I3SOCK");
 
             var socketAddress = new UnixSocketAddress (socket_path);
@@ -269,7 +269,7 @@ namespace Ilia {
             socket.set_blocking (true);
         }
 
-        ~I3Client () {
+        ~IPCClient () {
             if (socket != null) {
                 try {
                     socket.close ();

@@ -161,7 +161,7 @@ namespace Ilia {
 
         private void load_windows () {
             try {
-                var i3_client = new I3Client ();
+                var i3_client = new IPCClient ();
                 var node = i3_client.getTree ();
 
                 if (node != null) {

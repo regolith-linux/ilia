@@ -118,7 +118,7 @@ namespace Ilia {
                 // Head of queue doesn't change if the string doesn't contain widcards
                 Posix.Glob pathMatcher = Posix.Glob ();
                 string path_glob = path_queue.pop_head ();
-                pathMatcher.glob (path_glob);
+                pathMatcher.glob (path_glob, Posix.GLOB_NOCHECK | Posix.GLOB_NOSORT);
                 foreach (unowned string matched_path in pathMatcher.pathv) {
                     path_queue.push_head (matched_path);
                 }
@@ -134,7 +134,12 @@ namespace Ilia {
 
                 // Read config partial and append to config builder
                 string config_partial;
-                FileUtils.get_contents (config_path, out config_partial);
+                try {
+                  FileUtils.get_contents (config_path, out config_partial);
+                } catch (GLib.Error err) {
+                  continue;
+                }
+
                 configBuilder.append (config_partial);
 
                 // Append paths of configs included from current config partial to queue for bfs

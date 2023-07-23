@@ -161,8 +161,8 @@ namespace Ilia {
 
         private void load_windows () {
             try {
-                var i3_client = new I3Client ();
-                var node = i3_client.getTree ();
+                var ipc_client = new IPCClient ();
+                var node = ipc_client.getTree ();
 
                 if (node != null) {
                     icon_theme = Gtk.IconTheme.get_default ();

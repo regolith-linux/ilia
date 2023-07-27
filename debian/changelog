@@ -1,3 +1,13 @@
+ilia (0.13.1-jammy) jammy; urgency=medium
+
+  [ Soumya Ranjan Patnaik ]
+  * rename read_i3_config to read_config
+  * rename I3Client to IPCClient
+  * more window manager agnostic renames
+  * fix(wayland): ilia returns empty keybindings page if a directory included in the configs doesn't exist
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 27 Jul 2023 08:30:10 -0700
+
 ilia (0.13.0-jammy) jammy; urgency=medium
 
   [ Soumya Ranjan Patnaik ]

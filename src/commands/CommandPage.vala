@@ -231,8 +231,9 @@ namespace Ilia {
 
             try {
                 var app_info = AppInfo.create_from_commandline (commandline, null, GLib.AppInfoCreateFlags.NONE);
+                var runner = get_runner_app_info (app_info);
 
-                if (!app_info.launch (null, null)) {
+                if (!runner.launch (null, null)) {
                     stderr.printf ("Error: execute_command failed\n");
                 }
 

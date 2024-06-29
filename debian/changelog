@@ -1,9 +1,15 @@
 ilia (0.14.0) jammy; urgency=medium
 
+  [ Tuan Bui ]
+  * fix(wayland): Not show window inscratch for wayland
+
+  [ Regolith Linux ]
+  * fix: deb tool config
+
   [ Soumya Ranjan Patnaik ]
   * feat: launch apps and commands using systemd-run
 
- -- Regolith Linux <regolith.linux@gmail.com>  Sat, 29 Jun 2024 10:01:14 -0700
+ -- Regolith Linux <regolith.linux@gmail.com>  Sat, 29 Jun 2024 10:05:02 -0700
 
 ilia (0.13.1-jammy) jammy; urgency=medium
 

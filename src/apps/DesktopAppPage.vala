@@ -342,6 +342,7 @@ namespace Ilia {
             filter.@get (selection, ITEM_VIEW_COLUMN_APPINFO, out app_info);
 
             try {
+                AppInfo runner = get_runner_app_info (app_info);
                 AppLaunchContext ctx = new AppLaunchContext();
 
                 ctx.launched.connect ((info, platform_data) => {
@@ -359,7 +360,7 @@ namespace Ilia {
                     // TODO ~ perhaps add some visual hint that launch process has begun
                 });
 
-                var result = app_info.launch (null, ctx);
+                var result = runner.launch (null, ctx);
 
                 if (result) {
                     string key = app_info.get_id ();

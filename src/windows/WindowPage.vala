@@ -207,7 +207,7 @@ namespace Ilia {
 
         // Filter controls which TreeReply instances should be shown in window view
         private bool navigable_window(TreeReply node) {
-            bool rv = node.ntype == "con"                                 // specifies actual windows
+            bool rv = (node.ntype == "con" || node.ntype == "floating_con")                                 // specifies actual windows
                       && (node.window_type == "normal"
                           || node.window_type == "unknown"
                           || IS_SESSION_WAYLAND && node.layout == "none") // window type

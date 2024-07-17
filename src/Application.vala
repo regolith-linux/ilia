@@ -25,6 +25,11 @@ namespace Ilia {
 
             // Grab inputs from wayland backend before showing window
             if (IS_SESSION_WAYLAND) {
+                bool is_layer_shell_supported = GtkLayerShell.is_supported ();
+                if (!is_layer_shell_supported) {
+                    stderr.printf ("The wayland compositor does not support the layer-shell protocol, aborting.");
+                    Process.exit (1);
+                }
                 GtkLayerShell.init_for_window (window);
                 GtkLayerShell.set_layer(window, GtkLayerShell.Layer.OVERLAY);
                 GtkLayerShell.set_keyboard_mode (window, GtkLayerShell.KeyboardMode.EXCLUSIVE);

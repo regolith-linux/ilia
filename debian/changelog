@@ -1,3 +1,11 @@
+ilia (0.14.1) jammy; urgency=medium
+
+  [ Soumya Ranjan Patnaik ]
+  * fix: Ensure single instance using Gtk.Application
+  * chore: add layer_shell supported check
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Fri, 19 Jul 2024 17:52:47 -0700
+
 ilia (0.14.0) jammy; urgency=medium
 
   [ Tuan Bui ]

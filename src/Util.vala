@@ -32,4 +32,16 @@ namespace Ilia {
         }
         return false;
     }
+
+    /*
+     * Get the location for swaymsg or i3-msg as per the current session type
+     */
+    string? get_wm_cli(string wm_name) {
+        if (wm_name == "i3") {
+            return "/usr/bin/i3-msg ";
+        } else if (wm_name == "sway") {
+            return "/usr/bin/swaymsg ";
+        }
+        return null;
+    }
 }

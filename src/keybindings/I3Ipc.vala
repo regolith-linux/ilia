@@ -169,8 +169,8 @@ namespace Ilia {
             return baseConfig + walked_configs;
         }
 
-        internal ConfigReply (Json.Node responseJson) throws GLib.FileError {
-            if (WM_NAME == "sway") {
+        internal ConfigReply (Json.Node responseJson, string wm_name) throws GLib.FileError {
+            if (wm_name == "sway") {
                 config = get_sway_config (responseJson);
             } else {
                 config = get_i3_config (responseJson);
@@ -261,8 +261,10 @@ namespace Ilia {
         private uint8[] terminator = { '\0' };
         private int bytes_to_payload = 14;
         private int buffer_size = 1024 * 128;
+        private string wm_name;
 
-        public IPCClient () throws GLib.Error {
+        public IPCClient (string wm_name) throws GLib.Error {
+            this.wm_name = wm_name;
             var socket_path = Environment.get_variable ("I3SOCK");
 
             var socketAddress = new UnixSocketAddress (socket_path);
@@ -280,7 +282,7 @@ namespace Ilia {
                     socket.close ();
                 } catch (GLib.Error err) {
                     // TODO consistent error handling
-                    stderr.printf ("Failed to close %s socket: %s\n", WM_NAME, err.message);
+                    stderr.printf ("Failed to close %s socket: %s\n", wm_name, err.message);
                 }
             }
         }
@@ -313,12 +315,12 @@ namespace Ilia {
         private Json.Node ? wm_ipc (WM_COMMAND command) throws GLib.Error {
             ssize_t sent = socket.send (generate_request (command));
 
-            debug ("Sent " + sent.to_string () + " bytes to " + WM_NAME + ".\n");
+            debug ("Sent " + sent.to_string () + " bytes to " + wm_name + ".\n");
             uint8[] buffer = new uint8[buffer_size];
 
             ssize_t len = socket.receive (buffer);
 
-            debug ("Received  " + len.to_string () + " bytes from " + WM_NAME + ".\n");
+            debug ("Received  " + len.to_string () + " bytes from " + wm_name + ".\n");
 
             Bytes responseBytes = new Bytes.take (buffer[0 : len]);
 
@@ -347,7 +349,7 @@ namespace Ilia {
                 throw new WM_ERROR.RPC_ERROR ("No Response");
             }
 
-            return new ConfigReply (response);
+            return new ConfigReply (response, this.wm_name);
         }
 
         public TreeReply getTree () throws WM_ERROR, GLib.Error {

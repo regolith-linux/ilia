@@ -1,4 +1,16 @@
+/**
+ * Ilia module contracts
+ */
 namespace Ilia {
+    /**
+     * Represents actions and state that DialogPage types may access from the active session.
+     */
+    public interface SessionContoller : GLib.Object {
+
+        // Exit the app
+        public abstract void quit ();
+    }
+
     /**
      * A DialogPage represents a filtered, sorted view for the global search entry upon some domain.
      */
@@ -6,7 +18,7 @@ namespace Ilia {
         /**
          * Initialize the page. Create widgets, load model data, etc.
          */
-        public async abstract void initialize (GLib.Settings settings, HashTable<string, string ? > arg_map, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error;
+        public async abstract void initialize (GLib.Settings settings, HashTable<string, string ? > arg_map, Gtk.Entry entry, SessionContoller sessionController, string wm_name, bool is_wayland) throws GLib.Error;
 
         /**
          * Return the root widget of the page

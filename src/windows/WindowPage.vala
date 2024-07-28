@@ -28,6 +28,10 @@ namespace Ilia {
 
         private Gtk.TreePath path;
 
+        private string wm_name;
+
+        private bool is_wayland;
+
         public string get_name () {
             return "<u>W</u>indows";
         }
@@ -52,9 +56,11 @@ namespace Ilia {
             return keybindings;
         }
 
-        public async void initialize (GLib.Settings settings, HashTable<string, string ? > arg_map, Gtk.Entry entry, SessionContoller sessionController) throws GLib.Error {
+        public async void initialize (GLib.Settings settings, HashTable<string, string ? > arg_map, Gtk.Entry entry, SessionContoller sessionController, string wm_name, bool is_wayland) throws GLib.Error {
             this.entry = entry;
             this.session_controller = sessionController;
+            this.wm_name = wm_name;
+            this.is_wayland = is_wayland;
 
             icon_size = settings.get_int ("icon-size");
 
@@ -161,7 +167,7 @@ namespace Ilia {
 
         private void load_windows () {
             try {
-                var ipc_client = new IPCClient ();
+                var ipc_client = new IPCClient (this.wm_name);
                 var node = ipc_client.getTree ();
 
                 if (node != null) {
@@ -170,7 +176,7 @@ namespace Ilia {
                 }
             } catch (GLib.Error err) {
                 // TODO consistent error handling
-                stderr.printf ("Failed to read or parse window tree from %s: %s\n", WM_NAME, err.message);
+                stderr.printf ("Failed to read or parse window tree from %s: %s\n", this.wm_name, err.message);
             }
         }
 
@@ -210,7 +216,7 @@ namespace Ilia {
             bool rv = (node.ntype == "con" || node.ntype == "floating_con")                                 // specifies actual windows
                       && (node.window_type == "normal"
                           || node.window_type == "unknown"
-                          || IS_SESSION_WAYLAND && node.layout == "none") // window type
+                          || is_wayland && node.layout == "none") // window type
                       && node.windowProperties.clazz != "i3bar";          // ignore i3bar
 
             return rv;
@@ -246,7 +252,7 @@ namespace Ilia {
         // [window_role="gnome-terminal-window-6bee2ec0-eb8b-4b10-aafc-7c2708201d43" title="Terminal"] focus
         private void focus_window (string id) {
             string exec = "[con_id=\"" + id + "\"] focus";
-            string cli_bin = get_wm_cli();
+            string cli_bin = get_wm_cli(this.wm_name);
 
             if (cli_bin == null) {
                 stderr.printf("Error: Cannot focus window - action not supported for your WM.\n");

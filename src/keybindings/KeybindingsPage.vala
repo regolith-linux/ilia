@@ -25,6 +25,8 @@ namespace Ilia {
 
         private Gtk.TreePath path;
 
+        private string wm_name;
+
         public string get_name () {
             return "<u>K</u>eybindings";
         }
@@ -49,9 +51,10 @@ namespace Ilia {
             return keybindings;
         }
 
-        public async void initialize (GLib.Settings settings, HashTable<string, string ? > arg_map, Gtk.Entry entry, SessionContoller sessionController) {
+        public async void initialize (GLib.Settings settings, HashTable<string, string ? > arg_map, Gtk.Entry entry, SessionContoller sessionController, string wm_name, bool is_wayland) {
             this.entry = entry;
             this.session_controller = sessionController;
+            this.wm_name = wm_name;
 
             model = new Gtk.ListStore (ITEM_VIEW_COLUMNS, typeof (string), typeof (string), typeof (string));
 
@@ -164,7 +167,7 @@ namespace Ilia {
         // Read the active configuration and populate the model with keybindings
         private async void read_config () {
             try {
-                var ipc_client = new IPCClient ();
+                var ipc_client = new IPCClient (this.wm_name);
                 var config_file = ipc_client.getConfig ().config;
                 var parser = new ConfigParser (config_file, "");
 
@@ -188,7 +191,7 @@ namespace Ilia {
                 }
             } catch (GLib.Error err) {
                 // TODO consistent error handling
-                stderr.printf ("Failed to read config from %s: %s\n", WM_NAME, err.message);
+                stderr.printf ("Failed to read config from %s: %s\n", this.wm_name, err.message);
             }
         }
 
@@ -228,7 +231,7 @@ namespace Ilia {
         }
 
         private void execute_keybinding (string exec) {
-            string cli_bin = get_wm_cli();
+            string cli_bin = get_wm_cli(this.wm_name);
 
             if(cli_bin == null) {
                 stderr.printf ("Error: execute_keybinding failed - Action not supported for your WM");

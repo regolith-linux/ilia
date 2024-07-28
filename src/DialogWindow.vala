@@ -308,14 +308,14 @@ namespace Ilia {
                 case "notifications":
                     start_page = 2;
                     break;
-                case "keybindings":
+                // case "keybindings":
+                //     start_page = 3;
+                //     break;
+                case "windows":
                     start_page = 3;
                     break;
-                case "windows":
-                    start_page = 4;
-                    break;
                 case "tracker":
-                    start_page = 5;
+                    start_page = 4;
                     break;
                 default:
                     stderr.printf("Unknown page type: %s\n", focus_page);

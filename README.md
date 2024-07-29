@@ -1,12 +1,8 @@
 # Ilia - A Desktop Executor
 
-Ilia provides a modal interface prompting the user to select an item from a list. There are various items or pages that can be selected from by specifying the desired page via a command-line parameter. Also, all pages can be loaded together in "all page" mode.
+Ilia is a tool for users to invoke actions such as launching apps, viewing notifications, and finding windows.  It provides a modal interface consisting of a filter box, and a list of matching items. There are a set pages that can be selected from by specifying the desired page via a command-line parameter or by tab if all pages are loaded (controlled by command-line parameter).
 
 ![Ilia Screenshot](https://regolith-desktop.com/regolith-ilia-keybinding-window.png)
-
-## Status
-
-Ilia is in active development and should be considered `beta` quality.
 
 ## Features
 
@@ -81,4 +77,4 @@ $ src/ilia
 
 ## Package
 
-Debian packages for Debian and Ubuntu are available in the [Regolith 2 package repository](https://github.com/regolith-linux/voulage).
+Debian packages for Debian and Ubuntu are available in the [Regolith package repository](https://github.com/regolith-linux/voulage).

@@ -20,11 +20,27 @@ namespace Ilia {
         }
 
         protected override void activate () {
-            var window = new Ilia.DialogWindow (this.arg_map);
+            // Get session type (wayland or x11) and set the flag
+            string session_type = Environment.get_variable ("XDG_SESSION_TYPE");
+            string gdk_backend = Environment.get_variable ("GDK_BACKEND");
+            var is_wayland_session = session_type == "wayland" && gdk_backend != "x11";
+
+            // Set window manager
+            string sway_sock = Environment.get_variable ("SWAYSOCK");
+            string i3_sock = Environment.get_variable ("I3SOCK");
+
+            string wm_name = "Unknown";
+            if (sway_sock != null) {
+                wm_name = "sway";
+            } else if (i3_sock != null) {
+                wm_name = "i3";
+            }
+
+            var window = new Ilia.DialogWindow (this.arg_map, is_wayland_session, wm_name);
             window.set_application (this);
 
             // Grab inputs from wayland backend before showing window
-            if (IS_SESSION_WAYLAND) {
+            if (is_wayland_session) {
                 bool is_layer_shell_supported = GtkLayerShell.is_supported ();
                 if (!is_layer_shell_supported) {
                     stderr.printf ("The wayland compositor does not support the layer-shell protocol, aborting.");
@@ -39,8 +55,8 @@ namespace Ilia {
             window.show_all ();
 
             // Grab inputs from X11 backend after showing window
-            if (!IS_SESSION_WAYLAND) {
-            Gdk.Window gdkwin = window.get_window ();
+            if (!is_wayland_session) {
+                Gdk.Window gdkwin = window.get_window ();
                 var seat = grab_inputs (gdkwin);
                 if (seat == null) {
                     stderr.printf ("Failed to aquire access to input devices, aborting.");

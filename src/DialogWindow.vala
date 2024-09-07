@@ -51,61 +51,60 @@ namespace Ilia {
         private string wm_name;
         private bool is_wayland;
 
-        public DialogWindow (HashTable<string, string? > arg_map, bool is_wayland_session, string wm_name) {
+        public DialogWindow (HashTable<string, string ?> arg_map, bool is_wayland_session, string wm_name) {
             Object(type: Gtk.WindowType.POPUP); // Window is unmanaged
             window_position = WindowPosition.CENTER_ALWAYS;
 
             this.wm_name = wm_name;
             this.is_wayland = is_wayland_session;
 
-            settings = new GLib.Settings ("org.regolith-linux.ilia");
+            settings = new GLib.Settings("org.regolith-linux.ilia");
 
             entry = new Gtk.Entry ();
-            entry.get_style_context ().add_class ("filter_entry");
+            entry.get_style_context ().add_class("filter_entry");
             entry.hexpand = true;
-            entry.button_press_event.connect ((event) => {
+            entry.button_press_event.connect((event) => {
                 // Disable context menu as causes de-focus event to exit execution
                 return event.button == 3; // squelch right button click event
             });
 
-            entry.changed.connect (on_entry_changed);
+            entry.changed.connect(on_entry_changed);
 
             notebook = new Notebook ();
-            notebook.get_style_context ().add_class ("notebook");
-            notebook.set_tab_pos (PositionType.BOTTOM);
+            notebook.get_style_context ().add_class("notebook");
+            notebook.set_tab_pos(PositionType.BOTTOM);
 
-            var focus_page = arg_map.get ("-p") ?? "Apps";
+            var focus_page = arg_map.get("-p") ?? "Apps";
             bool all_page_mode = arg_map.contains("-a");
 
-            init_pages (arg_map, focus_page, all_page_mode);
+            init_pages(arg_map, focus_page, all_page_mode);
 
             grid = new Gtk.Grid ();
-            grid.get_style_context ().add_class ("root_box");
-            grid.attach (entry, 0, 0, 1, 1);
-            grid.attach (notebook, 0, 1, 1, 1);
-            add (grid);
+            grid.get_style_context ().add_class("root_box");
+            grid.attach(entry, 0, 0, 1, 1);
+            grid.attach(notebook, 0, 1, 1, 1);
+            add(grid);
 
-            if (is_wayland_session) {
-                set_size_request (settings.get_int ("window-width"), settings.get_int ("window-height"));
-            } else {
-                set_default_size (settings.get_int ("window-width"), settings.get_int ("window-height"));
-            }
+            if (is_wayland_session)
+                set_size_request(settings.get_int("window-width"), settings.get_int("window-height"));
+            else
+                set_default_size(settings.get_int("window-width"), settings.get_int("window-height"));
 
 
             // Exit if focus leaves us
-            focus_out_event.connect (() => {
+            focus_out_event.connect(() => {
                 quit ();
                 return false;
             });
 
             // Route keys based on function
-            key_press_event.connect ((key) => {
-                if ((key.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK) { //ALT
+            key_press_event.connect((key) => {
+                if ((key.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK) { // ALT
                     // Enable page nav keybindings in all page mode.
                     for (int i = 0; i < total_pages; ++i) {
-                        if (dialog_pages[i].get_keybinding() == key.keyval || (dialog_pages[i].get_keybinding() - 32) == key.keyval) {
+                        if (dialog_pages[i].get_keybinding () == key.keyval || (dialog_pages[i].get_keybinding () - 32) == key.keyval) {
                             // Allow both upper/lower case match
-                            notebook.set_current_page (i);
+                            notebook.set_current_page(i);
                             return true;
                         }
                     }
@@ -119,69 +118,68 @@ namespace Ilia {
                     }
                 } else if ((key.state & Gdk.ModifierType.CONTROL_MASK) == Gdk.ModifierType.CONTROL_MASK) {
                     if (key.keyval == 'c') { // Expand dialog
-                        clipboard_copy();
+                        clipboard_copy ();
                         return true;
                     }
-                    if (key.keyval== 'v') {
-                        clipboard_paste();
+                    if (key.keyval == 'v') {
+                        clipboard_paste ();
                         return true;
                     }
                 }
 
                 bool key_handled = false;
                 switch (key.keyval) {
-                    case KEY_CODE_ESCAPE:
-                    case KEY_CODE_SUPER:    // Explicit exit
-                        quit ();
-                        break;
-                    case KEY_CODE_BRIGHT_UP:
-                    case KEY_CODE_BRIGHT_DOWN:
-                    case KEY_CODE_MIC_MUTE:
-                    case KEY_CODE_VOLUME_UP:
-                    case KEY_CODE_VOLUME_DOWN:
-                    case KEY_CODE_VOLUME_MUTE:
-                    case KEY_CODE_PRINTSRC: // Implicit exit
-                        quit ();
-                        break;
-                    case KEY_CODE_UP:
-                    case KEY_CODE_DOWN:
-                    case KEY_CODE_ENTER:
-                    case KEY_CODE_PGDOWN:
-                    case KEY_CODE_PGUP:     // Let UI handle these nav keys
-                        dialog_pages[active_page].show ();
-                        break;
-                    case KEY_CODE_RIGHT:
-                    case KEY_CODE_LEFT:     // Switch pages
-                        notebook.grab_focus ();
-                        break;
-                    default:                // Pass key event to active page for handling
-                        // stdout.printf ("Keycode: %u\n", key.keyval);
-                        key_handled = dialog_pages[active_page].key_event (key);
-                        if (!key_handled) {
-                            entry.grab_focus_without_selecting (); // causes entry to consume all unhandled key events
-                        }
-                        break;
+                        case KEY_CODE_ESCAPE:
+                        case KEY_CODE_SUPER: // Explicit exit
+                            quit ();
+                            break;
+                        case KEY_CODE_BRIGHT_UP:
+                        case KEY_CODE_BRIGHT_DOWN:
+                        case KEY_CODE_MIC_MUTE:
+                        case KEY_CODE_VOLUME_UP:
+                        case KEY_CODE_VOLUME_DOWN:
+                        case KEY_CODE_VOLUME_MUTE:
+                        case KEY_CODE_PRINTSRC: // Implicit exit
+                            quit ();
+                            break;
+                        case KEY_CODE_UP:
+                        case KEY_CODE_DOWN:
+                        case KEY_CODE_ENTER:
+                        case KEY_CODE_PGDOWN:
+                        case KEY_CODE_PGUP: // Let UI handle these nav keys
+                            dialog_pages[active_page].show ();
+                            break;
+                        case KEY_CODE_RIGHT:
+                        case KEY_CODE_LEFT: // Switch pages
+                            notebook.grab_focus ();
+                            break;
+                        default:            // Pass key event to active page for handling
+                            // stdout.printf ("Keycode: %u\n", key.keyval);
+                            key_handled = dialog_pages[active_page].key_event(key);
+                            if (!key_handled)
+                                entry.grab_focus_without_selecting (); // causes entry to consume all unhandled key events
+                            break;
                 }
 
                 return key_handled;
             });
 
-            entry.activate.connect (on_entry_activated);
+            entry.activate.connect(on_entry_activated);
 
             dialog_pages[active_page].show (); // Get page ready to use
         }
 
         public override void show_all() {
-            base.show_all();
-            notebook.set_current_page ((int) active_page);
-            notebook.switch_page.connect (on_page_switch);
+            base.show_all ();
+            notebook.set_current_page((int) active_page);
+            notebook.switch_page.connect(on_page_switch);
         }
 
         public void set_seat(Gdk.Seat seat) {
             this.seat = seat;
         }
 
-        private void init_pages (HashTable<string, string? > arg_map, string focus_page, bool all_page_mode) {
+        private void init_pages(HashTable<string, string ?> arg_map, string focus_page, bool all_page_mode) {
             if (all_page_mode) {
                 total_pages = create_all_pages(arg_map, focus_page, ref active_page);
             } else {
@@ -192,89 +190,89 @@ namespace Ilia {
 
             // Exit if unable to load active page
             if (dialog_pages[0] == null) {
-                stderr.printf ("No page loaded, exiting\n");
-                Process.exit (1);
+                stderr.printf("No page loaded, exiting\n");
+                Process.exit(1);
             }
 
             // This allows for multiple page loads.  Until startup performance is addressed, only load one page.
             for (int i = 0; i < total_pages; ++i) {
-                Gtk.Box box = new Gtk.Box (Gtk.Orientation.HORIZONTAL, 0);
+                Gtk.Box box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
                 var label = new Label(null);
-                label.set_markup (dialog_pages[i].get_name ());
-                var image = new Image.from_icon_name (dialog_pages[i].get_icon_name (), Gtk.IconSize.BUTTON);
+                label.set_markup(dialog_pages[i].get_name ());
+                var image = new Image.from_icon_name(dialog_pages[i].get_icon_name (), Gtk.IconSize.BUTTON);
                 var button = new Button ();
-                button.set_can_focus (false);
+                button.set_can_focus(false);
                 button.relief = ReliefStyle.NONE;
-                button.add (image);
+                button.add(image);
                 int page = i;
                 button.clicked.connect(() => {
-                    notebook.set_current_page (page);
+                    notebook.set_current_page(page);
                 });
 
-                box.pack_start (button, false, false, 0);
-                box.pack_start (label, false, false, 5);
+                box.pack_start(button, false, false, 0);
+                box.pack_start(label, false, false, 5);
                 box.show_all ();
-                notebook.append_page (dialog_pages[i].get_root (), box);
+                notebook.append_page(dialog_pages[i].get_root (), box);
             }
 
             // FIXME - rework help UI to be consistent for both single and all page modes
             if (!all_page_mode) {
                 // Create help page
-                var help_label = new Label ("Help");
+                var help_label = new Label("Help");
                 var help_widget = new Gtk.Box(Gtk.Orientation.VERTICAL, 5);
 
                 var page_help_label = new Label(dialog_pages[0].get_help ());
-                page_help_label.set_line_wrap (true);
+                page_help_label.set_line_wrap(true);
                 help_widget.pack_start(page_help_label, false, false, 5);
 
                 var keybindings_title = new Label("Keybindings");
-                keybindings_title.get_style_context ().add_class ("help_heading");
+                keybindings_title.get_style_context ().add_class("help_heading");
                 help_widget.pack_start(keybindings_title, false, false, 5);
 
                 keybinding_view = new TreeView ();
-                setup_help_treeview (keybinding_view, dialog_pages[0].get_keybindings ());
+                setup_help_treeview(keybinding_view, dialog_pages[0].get_keybindings ());
                 help_widget.pack_start(keybinding_view, false, false, 5);
-                notebook.append_page (help_widget, help_label);
-                keybinding_view.realize.connect (() => {
+                notebook.append_page(help_widget, help_label);
+                keybinding_view.realize.connect(() => {
                     keybinding_view.columns_autosize ();
                 });
             }
         }
 
-        private void create_page(string focus_page, HashTable<string, string? > arg_map) {
+        private void create_page(string focus_page, HashTable<string, string ?> arg_map) {
             dialog_pages = new DialogPage[1];
 
             switch (focus_page.down ()) {
                 case "apps":
                     dialog_pages[0] = new DesktopAppPage ();
-                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "terminal":
                     dialog_pages[0] = new CommandPage ();
-                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "notifications":
                     dialog_pages[0] = new RoficationPage ();
-                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "keybindings":
                     dialog_pages[0] = new KeybingingsPage ();
-                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "textlist":
                     dialog_pages[0] = new TextListPage ();
-                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "windows":
                     dialog_pages[0] = new WindowPage ();
-                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "tracker":
                     dialog_pages[0] = new TrackerPage ();
-                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 default:
-                    stderr.printf ("Unknown page type: %s\n", focus_page);
+                    stderr.printf("Unknown page type: %s\n", focus_page);
                     break;
             }
         }
@@ -282,22 +280,22 @@ namespace Ilia {
         /**
          * Creates pages for all generally usable pages
          */
-        private int create_all_pages(HashTable<string, string? > arg_map, string focus_page, ref uint start_page) {
+        private int create_all_pages(HashTable<string, string ?> arg_map, string focus_page, ref uint start_page) {
             int page_count = 6;
             dialog_pages = new DialogPage[page_count];
 
             dialog_pages[0] = new DesktopAppPage ();
-            dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+            dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             dialog_pages[1] = new CommandPage ();
-            dialog_pages[1].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+            dialog_pages[1].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             dialog_pages[2] = new RoficationPage ();
-            dialog_pages[2].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+            dialog_pages[2].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             dialog_pages[3] = new KeybingingsPage ();
-            dialog_pages[3].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+            dialog_pages[3].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             dialog_pages[4] = new WindowPage ();
-            dialog_pages[4].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+            dialog_pages[4].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             dialog_pages[5] = new TrackerPage ();
-            dialog_pages[5].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+            dialog_pages[5].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             // last page, help, will be initialized later in init
 
             switch (focus_page.down ()) {
@@ -320,7 +318,7 @@ namespace Ilia {
                     start_page = 5;
                     break;
                 default:
-                    stderr.printf ("Unknown page type: %s\n", focus_page);
+                    stderr.printf("Unknown page type: %s\n", focus_page);
                     start_page = 0;
                     break;
             }
@@ -328,45 +326,44 @@ namespace Ilia {
             return page_count;
         }
 
-        private void setup_help_treeview (TreeView view, HashTable<string, string>? keybindings) {
-            var listmodel = new Gtk.ListStore (2, typeof (string), typeof (string));
-            view.set_model (listmodel);
+        private void setup_help_treeview(TreeView view, HashTable<string, string> ? keybindings) {
+            var listmodel = new Gtk.ListStore(2, typeof (string), typeof (string));
+            view.set_model(listmodel);
 
             view.headers_visible = false;
             view.fixed_height_mode = true;
             view.enable_search = false;
 
-            view.insert_column_with_attributes (-1, "Key", new CellRendererText (), "text", 0);
-            view.insert_column_with_attributes (-1, "Function", new CellRendererText (), "text", 1);
+            view.insert_column_with_attributes(-1, "Key", new CellRendererText (), "text", 0);
+            view.insert_column_with_attributes(-1, "Function", new CellRendererText (), "text", 1);
 
             TreeIter iter;
 
-            if (keybindings != null) {
-                keybindings.foreach ((key, val) => {
+            if (keybindings != null)
+                keybindings.foreach((key, val) => {
                     TreeIter iter2;
 
-                    listmodel.append (out iter2);
-                    listmodel.set (iter2, 0, key, 1, val);
+                    listmodel.append(out iter2);
+                    listmodel.set(iter2, 0, key, 1, val);
                 });
-            }
 
-            listmodel.append (out iter);
-            listmodel.set (iter, 0, "Alt -", 1, "Decrease Dialog Size");
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Alt -", 1, "Decrease Dialog Size");
 
-            listmodel.append (out iter);
-            listmodel.set (iter, 0, "Alt +", 1, "Increase Dialog Size");
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Alt +", 1, "Increase Dialog Size");
 
-            listmodel.append (out iter);
-            listmodel.set (iter, 0, "↑ ↓", 1, "Change Selected Item");
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "↑ ↓", 1, "Change Selected Item");
 
-            listmodel.append (out iter);
-            listmodel.set (iter, 0, "Ctrl+p Ctrl+n", 1, "Change Selected Item (emacs style)");
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl+p Ctrl+n", 1, "Change Selected Item (emacs style)");
 
-            listmodel.append (out iter);
-            listmodel.set (iter, 0, "Ctrl+k Ctrl+j", 1, "Change Selected Item (vim style)");
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl+k Ctrl+j", 1, "Change Selected Item (vim style)");
 
-            listmodel.append (out iter);
-            listmodel.set (iter, 0, "Esc", 1, "Exit");
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Esc", 1, "Exit");
         }
 
         // Resize the dialog, bigger or smaller
@@ -378,64 +375,64 @@ namespace Ilia {
             height += delta;
 
             // Ignore changes past min bounds
-            if (width < MIN_WINDOW_WIDTH || height < MIN_WINDOW_HEIGHT) return;
+            if (width < MIN_WINDOW_WIDTH || height < MIN_WINDOW_HEIGHT)return;
 
-            var monitor = this.get_screen ().get_display ().get_monitor (0); //Assume first monitor
+            var monitor = this.get_screen ().get_display ().get_monitor(0);  // Assume first monitor
             if (monitor != null) {
                 var geometry = monitor.get_geometry ();
 
-                if (width >= geometry.width || height >= geometry.height) return;
+                if (width >= geometry.width || height >= geometry.height)return;
             }
 
-            resize (width, height);
+            resize(width, height);
 
             settings.set_int("window-width", width);
             settings.set_int("window-height", height);
         }
 
-        void on_page_switch (Widget? page, uint page_num) {
+        void on_page_switch(Widget ? page, uint page_num) {
             if (page_num == total_pages) { // On help page
-                entry.set_sensitive (false);
+                entry.set_sensitive(false);
             } else if (dialog_pages[page_num] != null) {
                 active_page = page_num;
 
                 entry.secondary_icon_name = dialog_pages[active_page].get_icon_name ();
-                entry.set_sensitive (true);
+                entry.set_sensitive(true);
             }
             dialog_pages[active_page].show ();
         }
 
         // filter selection based on contents of Entry
-        void on_entry_changed () {
+        void on_entry_changed() {
             dialog_pages[active_page].on_entry_changed ();
         }
 
-        void on_entry_activated () {
+        void on_entry_activated() {
             dialog_pages[active_page].on_entry_activated ();
         }
 
         void clipboard_copy() {
             var display = this.get_screen ().get_display ();
-            var clipboard = Clipboard.get_for_display (display, Gdk.SELECTION_CLIPBOARD);
-            
-            clipboard.set_text(entry.get_text(), entry.get_text().length);
-            clipboard.store();
+            var clipboard = Clipboard.get_for_display(display, Gdk.SELECTION_CLIPBOARD);
+
+            clipboard.set_text(entry.get_text (), entry.get_text ().length);
+            clipboard.store ();
         }
 
         void clipboard_paste() {
             var display = this.get_screen ().get_display ();
-            var clipboard = Clipboard.get_for_display (display, Gdk.SELECTION_CLIPBOARD);
+            var clipboard = Clipboard.get_for_display(display, Gdk.SELECTION_CLIPBOARD);
 
             string text = clipboard.wait_for_text ();
 
             if (text != null) {
                 int pos = entry.cursor_position;
-                entry.get_buffer().insert_text(pos, text.data);
+                entry.get_buffer ().insert_text(pos, text.data);
             }
         }
 
         public void quit() {
-            if (seat != null) seat.ungrab ();
+            if (seat != null)seat.ungrab ();
             hide ();
             close ();
         }

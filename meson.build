@@ -31,3 +31,12 @@ meson.add_install_script(join_paths(meson.current_source_dir(),'meson_scripts','
 install_data('data/org.regolith-linux.ilia.gschema.xml', install_dir: join_paths(get_option('prefix'),get_option('datadir'), 'glib-2.0', 'schemas'))
 meson.add_install_script('meson_scripts/install_schemas.sh')
 subdir('src')
+
+uncrustify = find_program('uncrustify', required : false)
+if uncrustify.found()
+    run_target('fixstyle',
+        command : [
+            'meson_scripts/uncrustify.sh',
+        ],
+    )
+endif # uncrustify

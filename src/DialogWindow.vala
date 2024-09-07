@@ -48,9 +48,15 @@ namespace Ilia {
 
         private Gtk.TreeView keybinding_view;
 
-        public DialogWindow (HashTable<string, string? > arg_map) {
+        private string wm_name;
+        private bool is_wayland;
+
+        public DialogWindow (HashTable<string, string? > arg_map, bool is_wayland_session, string wm_name) {
             Object(type: Gtk.WindowType.POPUP); // Window is unmanaged
             window_position = WindowPosition.CENTER_ALWAYS;
+
+            this.wm_name = wm_name;
+            this.is_wayland = is_wayland_session;
 
             settings = new GLib.Settings ("org.regolith-linux.ilia");
 
@@ -79,7 +85,7 @@ namespace Ilia {
             grid.attach (notebook, 0, 1, 1, 1);
             add (grid);
 
-            if (IS_SESSION_WAYLAND) {
+            if (is_wayland_session) {
                 set_size_request (settings.get_int ("window-width"), settings.get_int ("window-height"));
             } else {
                 set_default_size (settings.get_int ("window-width"), settings.get_int ("window-height"));
@@ -241,31 +247,31 @@ namespace Ilia {
             switch (focus_page.down ()) {
                 case "apps":
                     dialog_pages[0] = new DesktopAppPage ();
-                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
+                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "terminal":
                     dialog_pages[0] = new CommandPage ();
-                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
+                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "notifications":
                     dialog_pages[0] = new RoficationPage ();
-                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
+                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "keybindings":
                     dialog_pages[0] = new KeybingingsPage ();
-                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
+                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "textlist":
                     dialog_pages[0] = new TextListPage ();
-                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
+                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "windows":
                     dialog_pages[0] = new WindowPage ();
-                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
+                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "tracker":
                     dialog_pages[0] = new TrackerPage ();
-                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
+                    dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 default:
                     stderr.printf ("Unknown page type: %s\n", focus_page);
@@ -281,17 +287,17 @@ namespace Ilia {
             dialog_pages = new DialogPage[page_count];
 
             dialog_pages[0] = new DesktopAppPage ();
-            dialog_pages[0].initialize.begin (settings, arg_map, entry, this);
+            dialog_pages[0].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             dialog_pages[1] = new CommandPage ();
-            dialog_pages[1].initialize.begin (settings, arg_map, entry, this);
+            dialog_pages[1].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             dialog_pages[2] = new RoficationPage ();
-            dialog_pages[2].initialize.begin (settings, arg_map, entry, this);
+            dialog_pages[2].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             dialog_pages[3] = new KeybingingsPage ();
-            dialog_pages[3].initialize.begin (settings, arg_map, entry, this);
+            dialog_pages[3].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             dialog_pages[4] = new WindowPage ();
-            dialog_pages[4].initialize.begin (settings, arg_map, entry, this);
+            dialog_pages[4].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             dialog_pages[5] = new TrackerPage ();
-            dialog_pages[5].initialize.begin (settings, arg_map, entry, this);
+            dialog_pages[5].initialize.begin (settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             // last page, help, will be initialized later in init
 
             switch (focus_page.down ()) {

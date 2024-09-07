@@ -56,7 +56,7 @@ namespace Ilia {
             window_position = WindowPosition.CENTER_ALWAYS;
 
             this.wm_name = wm_name;
-            this.is_wayland = is_wayland;
+            this.is_wayland = is_wayland_session;
 
             settings = new GLib.Settings ("org.regolith-linux.ilia");
 

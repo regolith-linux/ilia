@@ -1,5 +1,32 @@
 using Gtk;
 
+// Default style
+char * default_css = """
+                .root_box {
+                    margin: 8px;
+                }
+
+                window {
+                    border-style: dotted;
+                    border-width: 1px;
+                }
+
+                .filter_entry {
+                    border: none;
+                    background: none;
+                    min-height: 36px;
+                    min-width: 320px;
+                }
+
+                .notebook {
+                    border: none;
+                }
+
+                .keybindings {
+                    font-family: monospace;
+                }
+            """;
+
 namespace Ilia {
     class Application : Gtk.Application {
         private GLib.HashTable<string, string ?> arg_map;

@@ -42,4 +42,36 @@ namespace Ilia {
             return "/usr/bin/swaymsg ";
         return null;
     }
+
+    /* Get AppInfo object used to run a command */
+    public static AppInfo get_runner_app_info(AppInfo app_info) throws GLib.Error {
+        string systemd_run_path = GLib.Environment.find_program_in_path("systemd-run");
+        if (systemd_run_path == null)
+            return app_info;
+        string app_id = app_info.get_id ();
+        stdout.printf("KG2: \nbefore: '%s'\nafter : '%s'\n", app_id, systemd_escape(app_id));
+        stdout.flush();
+        string exec = app_info.get_commandline ();
+        string random_suffix = Uuid.string_random ().slice(0, 8);
+        string unit_name = "run_ilia_" + systemd_escape(app_id) + "_" + random_suffix + ".scope";
+        string systemd_launch = "systemd-run --user --scope --unit \"" + unit_name + "\" " + exec;
+        return AppInfo.create_from_commandline(systemd_launch, app_id, AppInfoCreateFlags.NONE);
+    }
+
+    public static string systemd_escape(string unescaped) {
+        
+        string rv = unescaped
+                // .replace(".", "\\x2e")
+                .replace("@", "\\x40")
+                .replace("-", "\\x2d")                
+                .replace(" ", "\\x20")
+                .replace("'", "\\x27")
+                .replace("=", "\\x3d")
+                .replace("/", "-");
+
+        stderr.printf("KGWH before: %s\n", unescaped);
+        stderr.printf("KGWH after : %s\n", rv);
+
+        return rv;
+    }
 }

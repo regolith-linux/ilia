@@ -28,25 +28,27 @@ ilia_deps += [pango_dep]
 ilia_deps += [x11_dep]
 ilia_deps += [gtk_layer_shell_dep]
 ilia_sources = [cfgfile_1]
-ilia_sources += ['ModuleApi.vala']
-ilia_sources += ['DialogWindow.vala']
-ilia_sources += ['Application.vala']
-ilia_sources += ['Main.vala']
-ilia_sources += ['IconLoader.vala']
-ilia_sources += ['Util.vala']
-ilia_sources += ['apps/DesktopAppPage.vala']
-ilia_sources += ['commands/CommandPage.vala']
-ilia_sources += ['keybindings/ConfigParser.vala']
-ilia_sources += ['keybindings/I3Ipc.vala']
-ilia_sources += ['keybindings/KeybindingsPage.vala']
-ilia_sources += ['notifications/RoficationClient.vala']
-ilia_sources += ['notifications/RoficationPage.vala']
-ilia_sources += ['textlist/TextListPage.vala']
-ilia_sources += ['tracker/TrackerPage.vala']
-ilia_sources += ['windows/WindowPage.vala']
+ilia_sources += files([
+    'ModuleApi.vala',
+    'DialogWindow.vala',
+    'Application.vala',
+    'IconLoader.vala',
+    'Util.vala',
+    'apps/DesktopAppPage.vala',
+    'commands/CommandPage.vala',
+    'keybindings/ConfigParser.vala',
+    'keybindings/I3Ipc.vala',
+    'keybindings/KeybindingsPage.vala',
+    'notifications/RoficationClient.vala',
+    'notifications/RoficationPage.vala',
+    'textlist/TextListPage.vala',
+    'tracker/TrackerPage.vala',
+    'windows/WindowPage.vala',
+    ])
+    
 ilia_link_args = ['-rdynamic']
 
-executable('ilia',ilia_sources,
+executable('ilia',ilia_sources + files(['Main.vala']),
     dependencies: ilia_deps,
     link_args: ilia_link_args,
     install: true)

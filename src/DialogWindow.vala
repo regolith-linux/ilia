@@ -1,31 +1,7 @@
 using Gtk;
 
 namespace Ilia {
-    public const int KEY_CODE_ESCAPE = 65307;
-    public const int KEY_CODE_LEFT_ALT = 65513;
-    public const int KEY_CODE_RIGHT_ALT = 65514;
-    public const int KEY_CODE_SUPER = 65515;
-    public const int KEY_CODE_UP = 65364;
-    public const int KEY_CODE_DOWN = 65362;
-    public const int KEY_CODE_ENTER = 65293;
-    public const int KEY_CODE_PGDOWN = 65366;
-    public const int KEY_CODE_PGUP = 65365;
-    public const int KEY_CODE_RIGHT = 65363;
-    public const int KEY_CODE_LEFT = 65361;
-    public const int KEY_CODE_PLUS = 43;
-    public const int KEY_CODE_MINUS = 45;
-    public const int KEY_CODE_QUESTION = 63;
-
-    public const int KEY_CODE_PRINTSRC = 65377;
-    public const int KEY_CODE_BRIGHT_UP = 269025026;
-    public const int KEY_CODE_BRIGHT_DOWN = 269025027;
-    public const int KEY_CODE_MIC_MUTE = 269025202;
-    public const int KEY_CODE_VOLUME_UP = 269025043;
-    public const int KEY_CODE_VOLUME_DOWN = 269025041;
-    public const int KEY_CODE_VOLUME_MUTE = 269025042;
-
-    // Primary UI
-    public class DialogWindow : Window, SessionContoller {
+    public class DialogWindow : Window, SessionController { // Primary UI
         const int MIN_WINDOW_WIDTH = 160;
         const int MIN_WINDOW_HEIGHT = 100;
 
@@ -255,10 +231,10 @@ namespace Ilia {
                     dialog_pages[0] = new RoficationPage ();
                     dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
-                case "keybindings":
-                    dialog_pages[0] = new KeybingingsPage ();
-                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-                    break;
+                // case "keybindings":
+                //     dialog_pages[0] = new KeybingingsPage ();
+                //     dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+                //     break;
                 case "textlist":
                     dialog_pages[0] = new TextListPage ();
                     dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
@@ -281,7 +257,7 @@ namespace Ilia {
          * Creates pages for all generally usable pages
          */
         private int create_all_pages(HashTable<string, string ?> arg_map, string focus_page, ref uint start_page) {
-            int page_count = 6;
+            int page_count = 5;
             dialog_pages = new DialogPage[page_count];
 
             dialog_pages[0] = new DesktopAppPage ();
@@ -290,12 +266,12 @@ namespace Ilia {
             dialog_pages[1].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             dialog_pages[2] = new RoficationPage ();
             dialog_pages[2].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[3] = new KeybingingsPage ();
+            // dialog_pages[3] = new KeybingingsPage ();
+            // dialog_pages[3].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+            dialog_pages[3] = new WindowPage ();
             dialog_pages[3].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[4] = new WindowPage ();
+            dialog_pages[4] = new TrackerPage ();
             dialog_pages[4].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[5] = new TrackerPage ();
-            dialog_pages[5].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             // last page, help, will be initialized later in init
 
             switch (focus_page.down ()) {

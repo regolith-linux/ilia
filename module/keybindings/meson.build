@@ -28,10 +28,10 @@ ilia_keybindings_deps += [pango_dep]
 ilia_keybindings_deps += [x11_dep]
 ilia_keybindings_deps += [gtk_layer_shell_dep]
 ilia_keybindings_sources = [cfgfile_1]
-ilia_keybindings_sources += ['../../src/DialogPage.vala']
-ilia_keybindings_sources += ['../../src/SessionController.vala']
-ilia_keybindings_sources += ['ConfigParser.vala']
+ilia_keybindings_sources += ['ModuleApi.vala']
 ilia_keybindings_sources += ['I3Ipc.vala']
+ilia_keybindings_sources += ['Util.vala']
+ilia_keybindings_sources += ['ConfigParser.vala']
 ilia_keybindings_sources += ['KeybindingsPage.vala']
 
 

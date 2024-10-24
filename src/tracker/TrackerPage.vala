@@ -25,7 +25,7 @@ namespace Ilia {
 
         private Gtk.Entry entry;
 
-        private SessionContoller session_controller;
+        private SessionController session_controller;
 
         private Gtk.Widget root_widget;
         // Active icon theme
@@ -66,7 +66,7 @@ namespace Ilia {
             item_view.grab_focus ();
         }
 
-        public async void initialize(GLib.Settings settings, HashTable<string, string ?> arg_map, Gtk.Entry entry, SessionContoller sessionController, string wm_name, bool is_wayland) throws GLib.Error {
+        public async void initialize(GLib.Settings settings, HashTable<string, string ?> arg_map, Gtk.Entry entry, SessionController sessionController, string wm_name, bool is_wayland) throws GLib.Error {
             this.entry = entry;
             this.session_controller = sessionController;
 

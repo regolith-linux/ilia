@@ -5,7 +5,7 @@ src/SessionController.vala
 src/apps/DesktopAppPage.vala
 src/commands/CommandPage.vala
 src/keybindings/ConfigParser.vala
-src/keybindings/I3Ipc.vala
+src/I3Ipc.vala
 src/keybindings/KeybindingsPage.vala
 src/notifications/RoficationClient.vala
 src/notifications/RoficationPage.vala

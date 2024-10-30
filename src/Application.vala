@@ -3,6 +3,8 @@ using Gtk;
 namespace Ilia {
     class Application : Gtk.Application {
         private GLib.HashTable<string, string ?> arg_map;
+        // Reference to all active dialog pages
+        private DialogPage[] dialog_pages;
 
         public Application () {
             Object(
@@ -35,7 +37,15 @@ namespace Ilia {
             else if (i3_sock != null)
                 wm_name = "i3";
 
-            var window = new Ilia.DialogWindow(this.arg_map, is_wayland_session, wm_name);
+            // Page init
+            var focus_page = this.arg_map.get("-p") ?? "Apps";
+            bool all_page_mode = this.arg_map.contains("-a");
+            uint active_page = 0;
+
+            init_pages(this.arg_map, focus_page, all_page_mode, ref active_page);
+
+            // Dialog init
+            var window = new Ilia.DialogWindow(this.arg_map, is_wayland_session, wm_name, dialog_pages, active_page, all_page_mode);
             window.set_application(this);
 
             // Grab inputs from wayland backend before showing window
@@ -80,6 +90,98 @@ namespace Ilia {
 
                 return !click_out_bounds;
             });
+        }
+
+        private void init_pages(HashTable<string, string ?> arg_map, string focus_page, bool all_page_mode, ref uint active_page) {
+            int total_pages;
+
+            if (all_page_mode) {
+                total_pages = create_all_pages(arg_map, focus_page, ref active_page);
+            } else {
+                total_pages = 1;
+                active_page = 0;
+                create_page(focus_page, arg_map);
+            }
+
+            // Exit if unable to load active page
+            if (dialog_pages[0] == null) {
+                stderr.printf("No page loaded, exiting\n");
+                Process.exit(1);
+            }
+        }
+
+        private void create_page(string focus_page, HashTable<string, string ?> arg_map) {
+            dialog_pages = new DialogPage[1];
+
+            switch (focus_page.down ()) {
+                case "apps":
+                    dialog_pages[0] = new DesktopAppPage ();
+                    break;
+                case "terminal":
+                    dialog_pages[0] = new CommandPage ();
+                    break;
+                case "notifications":
+                    dialog_pages[0] = new RoficationPage ();
+                    break;
+                // case "keybindings":
+                //     dialog_pages[0] = new KeybingingsPage ();
+                //     break;
+                case "textlist":
+                    dialog_pages[0] = new TextListPage ();
+                    break;
+                case "windows":
+                    dialog_pages[0] = new WindowPage ();
+                    break;
+                case "tracker":
+                    dialog_pages[0] = new TrackerPage ();
+                    break;
+                default:
+                    stderr.printf("Unknown page type: %s\n", focus_page);
+                    break;
+            }
+        }
+
+        /**
+         * Creates pages for all generally usable pages
+         */
+        private int create_all_pages(HashTable<string, string ?> arg_map, string focus_page, ref uint start_page) {
+            int page_count = 5;
+            DialogPage[] dialog_pages = new DialogPage[page_count];
+
+            dialog_pages[0] = new DesktopAppPage ();
+            dialog_pages[1] = new CommandPage ();
+            dialog_pages[2] = new RoficationPage ();
+            // dialog_pages[3] = new KeybingingsPage ();
+            dialog_pages[3] = new WindowPage ();
+            dialog_pages[4] = new TrackerPage ();
+            // last page, help, will be initialized later in init
+
+            switch (focus_page.down ()) {
+                case "apps":
+                    start_page = 0;
+                    break;
+                case "terminal":
+                    start_page = 1;
+                    break;
+                case "notifications":
+                    start_page = 2;
+                    break;
+                // case "keybindings":
+                //     start_page = 3;
+                //     break;
+                case "windows":
+                    start_page = 3;
+                    break;
+                case "tracker":
+                    start_page = 4;
+                    break;
+                default:
+                    stderr.printf("Unknown page type: %s\n", focus_page);
+                    start_page = 0;
+                    break;
+            }
+
+            return page_count;
         }
 
         private void initialize_style(Gtk.Window window, HashTable<string, string ?> arg_map) {

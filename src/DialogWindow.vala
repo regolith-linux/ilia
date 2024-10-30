@@ -27,14 +27,15 @@ namespace Ilia {
         private string wm_name;
         private bool is_wayland;
 
-        public DialogWindow (HashTable<string, string ?> arg_map, bool is_wayland_session, string wm_name) {
+        public DialogWindow (HashTable<string, string ?> arg_map, bool is_wayland_session, string wm_name, DialogPage[] pages, uint active_page, bool all_page_mode) {
             Object(type: Gtk.WindowType.POPUP); // Window is unmanaged
             window_position = WindowPosition.CENTER_ALWAYS;
 
             this.wm_name = wm_name;
             this.is_wayland = is_wayland_session;
-
-            settings = new GLib.Settings("org.regolith-linux.ilia");
+            this.dialog_pages = pages;
+            this.settings = new GLib.Settings("org.regolith-linux.ilia");
+            this.active_page = active_page;
 
             entry = new Gtk.Entry ();
             entry.get_style_context ().add_class("filter_entry");
@@ -49,11 +50,52 @@ namespace Ilia {
             notebook = new Notebook ();
             notebook.get_style_context ().add_class("notebook");
             notebook.set_tab_pos(PositionType.BOTTOM);
+            
+            for (int i = 0; i < pages.length; ++i) {
+                dialog_pages[i].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
 
-            var focus_page = arg_map.get("-p") ?? "Apps";
-            bool all_page_mode = arg_map.contains("-a");
+                // This allows for multiple page loads.  Until startup performance is addressed, only load one page.
+                Gtk.Box box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+                var label = new Label(null);
+                label.set_markup(dialog_pages[i].get_name ());
+                var image = new Image.from_icon_name(dialog_pages[i].get_icon_name (), Gtk.IconSize.BUTTON);
+                var button = new Button ();
+                button.set_can_focus(false);
+                button.relief = ReliefStyle.NONE;
+                button.add(image);
+                int page = i;
+                button.clicked.connect(() => {
+                    notebook.set_current_page(page);
+                });
 
-            init_pages(arg_map, focus_page, all_page_mode);
+                box.pack_start(button, false, false, 0);
+                box.pack_start(label, false, false, 5);
+                box.show_all ();
+                notebook.append_page(dialog_pages[i].get_root (), box);
+            }
+            
+            // FIXME - rework help UI to be consistent for both single and all page modes
+            if (!all_page_mode) {
+                // Create help page
+                var help_label = new Label("Help");
+                var help_widget = new Gtk.Box(Gtk.Orientation.VERTICAL, 5);
+
+                var page_help_label = new Label(dialog_pages[0].get_help ());
+                page_help_label.set_line_wrap(true);
+                help_widget.pack_start(page_help_label, false, false, 5);
+
+                var keybindings_title = new Label("Keybindings");
+                keybindings_title.get_style_context ().add_class("help_heading");
+                help_widget.pack_start(keybindings_title, false, false, 5);
+
+                keybinding_view = new TreeView ();
+                setup_help_treeview(keybinding_view, dialog_pages[0].get_keybindings ());
+                help_widget.pack_start(keybinding_view, false, false, 5);
+                notebook.append_page(help_widget, help_label);
+                keybinding_view.realize.connect(() => {
+                    keybinding_view.columns_autosize ();
+                });
+            }
 
             grid = new Gtk.Grid ();
             grid.get_style_context ().add_class("root_box");
@@ -153,153 +195,6 @@ namespace Ilia {
 
         public void set_seat(Gdk.Seat seat) {
             this.seat = seat;
-        }
-
-        private void init_pages(HashTable<string, string ?> arg_map, string focus_page, bool all_page_mode) {
-            if (all_page_mode) {
-                total_pages = create_all_pages(arg_map, focus_page, ref active_page);
-            } else {
-                total_pages = 1;
-                active_page = 0;
-                create_page(focus_page, arg_map);
-            }
-
-            // Exit if unable to load active page
-            if (dialog_pages[0] == null) {
-                stderr.printf("No page loaded, exiting\n");
-                Process.exit(1);
-            }
-
-            // This allows for multiple page loads.  Until startup performance is addressed, only load one page.
-            for (int i = 0; i < total_pages; ++i) {
-                Gtk.Box box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
-                var label = new Label(null);
-                label.set_markup(dialog_pages[i].get_name ());
-                var image = new Image.from_icon_name(dialog_pages[i].get_icon_name (), Gtk.IconSize.BUTTON);
-                var button = new Button ();
-                button.set_can_focus(false);
-                button.relief = ReliefStyle.NONE;
-                button.add(image);
-                int page = i;
-                button.clicked.connect(() => {
-                    notebook.set_current_page(page);
-                });
-
-                box.pack_start(button, false, false, 0);
-                box.pack_start(label, false, false, 5);
-                box.show_all ();
-                notebook.append_page(dialog_pages[i].get_root (), box);
-            }
-
-            // FIXME - rework help UI to be consistent for both single and all page modes
-            if (!all_page_mode) {
-                // Create help page
-                var help_label = new Label("Help");
-                var help_widget = new Gtk.Box(Gtk.Orientation.VERTICAL, 5);
-
-                var page_help_label = new Label(dialog_pages[0].get_help ());
-                page_help_label.set_line_wrap(true);
-                help_widget.pack_start(page_help_label, false, false, 5);
-
-                var keybindings_title = new Label("Keybindings");
-                keybindings_title.get_style_context ().add_class("help_heading");
-                help_widget.pack_start(keybindings_title, false, false, 5);
-
-                keybinding_view = new TreeView ();
-                setup_help_treeview(keybinding_view, dialog_pages[0].get_keybindings ());
-                help_widget.pack_start(keybinding_view, false, false, 5);
-                notebook.append_page(help_widget, help_label);
-                keybinding_view.realize.connect(() => {
-                    keybinding_view.columns_autosize ();
-                });
-            }
-        }
-
-        private void create_page(string focus_page, HashTable<string, string ?> arg_map) {
-            dialog_pages = new DialogPage[1];
-
-            switch (focus_page.down ()) {
-                case "apps":
-                    dialog_pages[0] = new DesktopAppPage ();
-                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-                    break;
-                case "terminal":
-                    dialog_pages[0] = new CommandPage ();
-                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-                    break;
-                case "notifications":
-                    dialog_pages[0] = new RoficationPage ();
-                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-                    break;
-                // case "keybindings":
-                //     dialog_pages[0] = new KeybingingsPage ();
-                //     dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-                //     break;
-                case "textlist":
-                    dialog_pages[0] = new TextListPage ();
-                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-                    break;
-                case "windows":
-                    dialog_pages[0] = new WindowPage ();
-                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-                    break;
-                case "tracker":
-                    dialog_pages[0] = new TrackerPage ();
-                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-                    break;
-                default:
-                    stderr.printf("Unknown page type: %s\n", focus_page);
-                    break;
-            }
-        }
-
-        /**
-         * Creates pages for all generally usable pages
-         */
-        private int create_all_pages(HashTable<string, string ?> arg_map, string focus_page, ref uint start_page) {
-            int page_count = 5;
-            dialog_pages = new DialogPage[page_count];
-
-            dialog_pages[0] = new DesktopAppPage ();
-            dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[1] = new CommandPage ();
-            dialog_pages[1].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[2] = new RoficationPage ();
-            dialog_pages[2].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            // dialog_pages[3] = new KeybingingsPage ();
-            // dialog_pages[3].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[3] = new WindowPage ();
-            dialog_pages[3].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[4] = new TrackerPage ();
-            dialog_pages[4].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            // last page, help, will be initialized later in init
-
-            switch (focus_page.down ()) {
-                case "apps":
-                    start_page = 0;
-                    break;
-                case "terminal":
-                    start_page = 1;
-                    break;
-                case "notifications":
-                    start_page = 2;
-                    break;
-                // case "keybindings":
-                //     start_page = 3;
-                //     break;
-                case "windows":
-                    start_page = 3;
-                    break;
-                case "tracker":
-                    start_page = 4;
-                    break;
-                default:
-                    stderr.printf("Unknown page type: %s\n", focus_page);
-                    start_page = 0;
-                    break;
-            }
-
-            return page_count;
         }
 
         private void setup_help_treeview(TreeView view, HashTable<string, string> ? keybindings) {

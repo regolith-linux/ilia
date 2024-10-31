@@ -104,7 +104,7 @@ namespace Ilia {
             }
 
             // Exit if unable to load active page
-            if (dialog_pages[0] == null) {
+            if (dialog_pages == null || dialog_pages[0] == null) {
                 stderr.printf("No page loaded, exiting\n");
                 Process.exit(1);
             }
@@ -146,7 +146,7 @@ namespace Ilia {
          */
         private int create_all_pages(HashTable<string, string ?> arg_map, string focus_page, ref uint start_page) {
             int page_count = 5;
-            DialogPage[] dialog_pages = new DialogPage[page_count];
+            dialog_pages = new DialogPage[page_count];
 
             dialog_pages[0] = new DesktopAppPage ();
             dialog_pages[1] = new CommandPage ();

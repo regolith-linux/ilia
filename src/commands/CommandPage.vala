@@ -25,6 +25,8 @@ namespace Ilia {
 
         private Gtk.TreePath path;
 
+        private bool quiet = false;
+
         public string get_name() {
             return "<u>C</u>ommands";
         }
@@ -52,6 +54,9 @@ namespace Ilia {
         public async void initialize(GLib.Settings settings, HashTable<string, string ?> arg_map, Gtk.Entry entry, SessionContoller sessionController, string wm_name, bool is_wayland) throws GLib.Error {
             this.entry = entry;
             this.session_controller = sessionController;
+
+            if (arg_map.contains("-q"))
+                this.quiet = true;
 
             model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (string), typeof (string));
 
@@ -219,9 +224,14 @@ namespace Ilia {
             // TODO ~ Enable two launch modes with some modifier.  By default terminal exits when program exits.
             // todo is to add another mode in which the terminal does not exit after program completes.
 
-            // string commandline = "/usr/bin/x-terminal-emulator -e \"bash -c '" + cmd_path + "; exec bash'\"";
-            // string commandline = "x-terminal-emulator -e \"bash -c '" + cmd_path + "'\"";
-            string commandline = "x-terminal-emulator -e '" + cmd_path + "'";
+            string commandline;
+            if (this.quiet)
+                // if -q is given, call cmd_path through bash and ignore output
+                commandline = "bash -c '" + cmd_path + " > /dev/null 2>&1'";
+            else
+                // commandline = "/usr/bin/x-terminal-emulator -e \"bash -c '" + cmd_path + "; exec bash'\"";
+                // commandline = "x-terminal-emulator -e \"bash -c '" + cmd_path + "'\"";
+                commandline = "x-terminal-emulator -e '" + cmd_path + "'";
 
             // stdout.printf("%s\n", commandline);
 

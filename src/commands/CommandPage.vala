@@ -226,8 +226,8 @@ namespace Ilia {
 
             string commandline;
             if (this.quiet)
-                // if -q is given, call cmd_path through nohup and ignore output
-                commandline = "nohup " + cmd_path + " 2>&1 > /dev/null &";
+                // if -q is given, call cmd_path without opening a terminal emulator
+                commandline = cmd_path;
             else
                 // commandline = "/usr/bin/x-terminal-emulator -e \"bash -c '" + cmd_path + "; exec bash'\"";
                 // commandline = "x-terminal-emulator -e \"bash -c '" + cmd_path + "'\"";

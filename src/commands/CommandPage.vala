@@ -226,8 +226,8 @@ namespace Ilia {
 
             string commandline;
             if (this.quiet)
-                // if -q is given, call cmd_path through bash and ignore output
-                commandline = "bash -c '" + cmd_path + " > /dev/null 2>&1'";
+                // if -q is given, call cmd_path through nohup and ignore output
+                commandline = "nohup " + cmd_path + " 2>&1 > /dev/null &";
             else
                 // commandline = "/usr/bin/x-terminal-emulator -e \"bash -c '" + cmd_path + "; exec bash'\"";
                 // commandline = "x-terminal-emulator -e \"bash -c '" + cmd_path + "'\"";

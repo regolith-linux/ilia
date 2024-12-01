@@ -27,16 +27,19 @@ ilia_keybindings_deps += [gtk_3_0_dep]
 ilia_keybindings_deps += [pango_dep]
 ilia_keybindings_deps += [x11_dep]
 ilia_keybindings_deps += [gtk_layer_shell_dep]
+ilia_keybindings_deps += [gmodule_dep]
 ilia_keybindings_sources = [cfgfile_1]
 ilia_keybindings_sources += ['ModuleApi.vala']
 ilia_keybindings_sources += ['I3Ipc.vala']
 ilia_keybindings_sources += ['Util.vala']
 ilia_keybindings_sources += ['ConfigParser.vala']
 ilia_keybindings_sources += ['KeybindingsPage.vala']
+# ilia_keybindings_sources += ['plugin-interface.vala', 'plugin.vala']
 
 
 shlib = shared_library('ilia-keybindings', ilia_keybindings_sources,
                dependencies: ilia_keybindings_deps,
+               link_args: ['-rdynamic'],
                install: true,
                install_dir: [true, true, true])
 

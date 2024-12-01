@@ -22,6 +22,13 @@ namespace Ilia {
         }
 
         protected override void activate() {
+            stdout.printf("Application activate() start\n");
+            var registrar = new PluginRegistrar<DialogPage> ("libilia-keybindings.so");
+            registrar.load ("register_plugin");
+            var plugin = registrar.new_object ();
+            // var message = plugin.hello ();
+            // stdout.printf("message      : %s\n", message);
+
             // Get session type (wayland or x11) and set the flag
             string session_type = Environment.get_variable("XDG_SESSION_TYPE");
             string gdk_backend = Environment.get_variable("GDK_BACKEND");
@@ -42,12 +49,15 @@ namespace Ilia {
             bool all_page_mode = this.arg_map.contains("-a");
             uint active_page = 0;
 
-            init_pages(this.arg_map, focus_page, all_page_mode, ref active_page);
+            // init_pages(this.arg_map, focus_page, all_page_mode, ref active_page);
+
+            dialog_pages = new DialogPage[1];
+            dialog_pages[0] = plugin;
 
             // Dialog init
-            var window = new Ilia.DialogWindow(this.arg_map, is_wayland_session, wm_name, dialog_pages, active_page, all_page_mode);
+            var window = new Ilia.DialogWindow(this.arg_map, is_wayland_session, wm_name, dialog_pages, active_page, all_page_mode);            
             window.set_application(this);
-
+            
             // Grab inputs from wayland backend before showing window
             if (is_wayland_session) {
                 bool is_layer_shell_supported = GtkLayerShell.is_supported ();
@@ -90,9 +100,11 @@ namespace Ilia {
 
                 return !click_out_bounds;
             });
+            stdout.printf("Application activate() end\n");            
         }
 
         private void init_pages(HashTable<string, string ?> arg_map, string focus_page, bool all_page_mode, ref uint active_page) {
+            stdout.printf("Application init_pages() start\n");
             int total_pages;
 
             if (all_page_mode) {
@@ -101,16 +113,18 @@ namespace Ilia {
                 total_pages = 1;
                 active_page = 0;
                 create_page(focus_page, arg_map);
-            }
+            }            
 
             // Exit if unable to load active page
             if (dialog_pages == null || dialog_pages[0] == null) {
                 stderr.printf("No page loaded, exiting\n");
                 Process.exit(1);
             }
+            stdout.printf("Application init_pages() end\n");
         }
 
         private void create_page(string focus_page, HashTable<string, string ?> arg_map) {
+            stdout.printf("Application create_page() start\n");
             dialog_pages = new DialogPage[1];
 
             switch (focus_page.down ()) {
@@ -136,15 +150,33 @@ namespace Ilia {
                     dialog_pages[0] = new TrackerPage ();
                     break;
                 default:
-                    stderr.printf("Unknown page type: %s\n", focus_page);
+                    var plugin_page = load_page_from_library(focus_page);
+
+                    if (plugin_page != null) {
+                        dialog_pages[0] = plugin_page;
+                    } else {
+                        stderr.printf("Unknown page type: %s\n", focus_page);
+                    }
+                    //stdout.printf("name: %s\n", plugin_page.get_name());
                     break;
             }
+            stdout.printf("Application create_page() end\n");
+        }
+
+        private DialogPage? load_page_from_library(string page_name) {
+            var registrar = new PluginRegistrar<DialogPage> (page_name);
+            registrar.load ("register_plugin");            
+
+            var db = registrar.new_object ();
+
+            return db;
         }
 
         /**
          * Creates pages for all generally usable pages
          */
         private int create_all_pages(HashTable<string, string ?> arg_map, string focus_page, ref uint start_page) {
+            stdout.printf("Application create_all_pages() start\n");
             int page_count = 5;
             dialog_pages = new DialogPage[page_count];
 
@@ -181,10 +213,12 @@ namespace Ilia {
                     break;
             }
 
+            stdout.printf("Application create_all_pages() end\n");
             return page_count;
         }
 
         private void initialize_style(Gtk.Window window, HashTable<string, string ?> arg_map) {
+            stdout.printf("Application initialize_style() start\n");
             try {
                 if (arg_map.contains("-t") && arg_map.get("-t") != null) {
                     var file = File.new_for_path(arg_map.get("-t"));
@@ -206,6 +240,7 @@ namespace Ilia {
             } catch (GLib.Error ex) {
                 error("Failed to initalize style: " + ex.message);
             }
+            stdout.printf("Application initialize_style() end\n");
         }
 
         // Grabs the input devices for a given window
@@ -214,6 +249,7 @@ namespace Ilia {
         // increasing time window and eventually give up and exit if ultimately unable to aquire
         // the keyboard and mouse resources.
         Gdk.Seat ? grab_inputs(Gdk.Window gdkwin) {
+            stdout.printf("Application grab_inputs() start\n");
             var display = gdkwin.get_display (); // Gdk.Display.get_default();
             if (display == null) {
                 stderr.printf("Failed to get Display\n");
@@ -239,6 +275,7 @@ namespace Ilia {
                 }
             } while (grabStatus != Gdk.GrabStatus.SUCCESS && attempt < 8);
 
+            stdout.printf("Application grab_inputs() end\n");
             if (grabStatus != Gdk.GrabStatus.SUCCESS) {
                 stderr.printf("Aborting, failed to grab input: %d\n", grabStatus);
                 return null;
@@ -313,5 +350,42 @@ namespace Ilia {
             return inval.has_prefix("-");
         }
     }
-}
 
+    public class PluginRegistrar<T> : Object {
+
+        public string path { get; private set; }
+    
+        private Type type;
+        private Module module;
+    
+        private delegate Type RegisterPluginFunction (Module module);
+    
+        public PluginRegistrar (string name) {
+            assert (Module.supported ());
+            this.path = Module.build_path (Environment.get_variable ("PWD"), name);
+        }
+    
+        public bool load (string init_fn_name) {
+            stdout.printf ("Loading plugin with path: '%s'\n", path);
+    
+            module = Module.open (path, ModuleFlags.LAZY);
+            if (module == null) {
+                return false;
+            }
+    
+            stdout.printf ("Loaded module: '%s'\n", module.name ());
+    
+            void* function;
+            module.symbol (init_fn_name, out function);
+            unowned RegisterPluginFunction register_plugin = (RegisterPluginFunction) function;
+    
+            type = register_plugin (module);
+            stdout.printf ("Plugin type: %s\n\n", type.name ());
+            return true;
+        }
+    
+        public T new_object () {
+            return Object.new (type);
+        }
+    }
+}

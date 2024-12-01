@@ -52,6 +52,7 @@ namespace Ilia {
         }
 
         public async void initialize(GLib.Settings settings, HashTable<string, string ?> arg_map, Gtk.Entry entry, SessionController sessionController, string wm_name, bool is_wayland) {
+            stdout.printf("plugin init\n");
             this.entry = entry;
             this.session_controller = sessionController;
             this.wm_name = wm_name;
@@ -64,23 +65,27 @@ namespace Ilia {
             create_item_view ();
 
             read_config.begin((obj, res) => {
+                stdout.printf("read_config cl s\n");
                 read_config.end(res);
 
                 item_view.columns_autosize ();
                 model.set_sort_column_id(1, SortType.ASCENDING);
                 // model.set_sort_func (0, app_sort_func);
                 set_selection ();
+                stdout.printf("read_config cl e\n");
             });
-
+ 
             var scrolled = new Gtk.ScrolledWindow(null, null);
             scrolled.add(item_view);
             scrolled.expand = true;
 
             root_widget = scrolled;
+            stdout.printf("plugin init complete\n");
         }
 
         public void show() {
             item_view.grab_focus ();
+            stdout.printf("plugin init complete\n");
         }
 
         public Gtk.Widget get_root() {
@@ -89,6 +94,7 @@ namespace Ilia {
 
         // Initialize the view displaying selections
         private void create_item_view() {
+            stdout.printf("create_item_view s\n");
             item_view = new Gtk.TreeView.with_model(filter);
             item_view.get_style_context ().add_class("keybindings");
 
@@ -110,6 +116,7 @@ namespace Ilia {
 
             // Launch app on row selection
             item_view.row_activated.connect(on_row_activated);
+            stdout.printf("create_item_view e\n");
         }
 
         public bool key_event(Gdk.EventKey event_key) {
@@ -134,8 +141,10 @@ namespace Ilia {
 
         // filter selection based on contents of Entry
         void on_entry_changed() {
+            stdout.printf("on_entry_changed s\n");
             filter.refilter ();
             set_selection ();
+            stdout.printf("on_entry_changed e\n");
         }
 
         // called on enter when in text box
@@ -164,6 +173,7 @@ namespace Ilia {
 
         // Read the active configuration and populate the model with keybindings
         private async void read_config() {
+            stdout.printf("read_config s\n");
             try {
                 var ipc_client = new IPCClient(this.wm_name);
                 var config_file = ipc_client.getConfig ().config;
@@ -191,6 +201,7 @@ namespace Ilia {
                 // TODO consistent error handling
                 stderr.printf("Failed to read config from %s: %s\n", this.wm_name, err.message);
             }
+            stdout.printf("read_config e\n");
         }
 
         public static string format_spec(string raw_keybinding) {
@@ -247,4 +258,9 @@ namespace Ilia {
             }
         }
     }
+}
+
+public Type register_plugin (Module module) {
+    // types are registered automatically
+    return typeof (Ilia.KeybingingsPage);
 }

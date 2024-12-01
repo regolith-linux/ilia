@@ -71,6 +71,7 @@ namespace Ilia {
         }
 
         public async void initialize(GLib.Settings settings, HashTable<string, string ?> arg_map, Gtk.Entry entry, SessionController sessionController, string wm_name, bool is_wayland) throws GLib.Error {
+            stdout.printf("DesktopAppPage init complete\n");
             this.settings = settings;
             this.entry = entry;
             this.session_controller = sessionController;

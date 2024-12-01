@@ -1,7 +1,7 @@
 using Gtk;
 
 namespace Ilia {
-    public class DialogWindow : Window, SessionController { // Primary UI
+    public class DialogWindow : ApplicationWindow, SessionController { // Primary UI
         const int MIN_WINDOW_WIDTH = 160;
         const int MIN_WINDOW_HEIGHT = 100;
 
@@ -49,11 +49,17 @@ namespace Ilia {
 
             notebook = new Notebook ();
             notebook.get_style_context ().add_class("notebook");
-            notebook.set_tab_pos(PositionType.BOTTOM);
+            notebook.set_tab_pos(PositionType.BOTTOM);            
             
             for (int i = 0; i < pages.length; ++i) {
+                stdout.printf("calling into page\n");
+                var name = dialog_pages[i].get_name();
+                
+                stdout.printf("page name: %s\n", name);
+                
                 dialog_pages[i].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
 
+                stdout.printf("after page init\n");
                 // This allows for multiple page loads.  Until startup performance is addressed, only load one page.
                 Gtk.Box box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
                 var label = new Label(null);
@@ -72,7 +78,8 @@ namespace Ilia {
                 box.pack_start(label, false, false, 5);
                 box.show_all ();
                 notebook.append_page(dialog_pages[i].get_root (), box);
-            }
+                stdout.printf("after append_page\n");                
+            }            
             
             // FIXME - rework help UI to be consistent for both single and all page modes
             if (!all_page_mode) {
@@ -95,7 +102,7 @@ namespace Ilia {
                 keybinding_view.realize.connect(() => {
                     keybinding_view.columns_autosize ();
                 });
-            }
+            }            
 
             grid = new Gtk.Grid ();
             grid.get_style_context ().add_class("root_box");
@@ -107,7 +114,6 @@ namespace Ilia {
                 set_size_request(settings.get_int("window-width"), settings.get_int("window-height"));
             else
                 set_default_size(settings.get_int("window-width"), settings.get_int("window-height"));
-
 
             // Exit if focus leaves us
             focus_out_event.connect(() => {
@@ -182,19 +188,18 @@ namespace Ilia {
                 return key_handled;
             });
 
-            entry.activate.connect(on_entry_activated);
-
-            dialog_pages[active_page].show (); // Get page ready to use
+            entry.activate.connect(on_entry_activated);            
+            dialog_pages[active_page].show (); // Get page ready to use            
         }
 
-        public override void show_all() {
+        public override void show_all() {            
             base.show_all ();
             notebook.set_current_page((int) active_page);
-            notebook.switch_page.connect(on_page_switch);
+            notebook.switch_page.connect(on_page_switch);           
         }
 
         public void set_seat(Gdk.Seat seat) {
-            this.seat = seat;
+            this.seat = seat;            
         }
 
         private void setup_help_treeview(TreeView view, HashTable<string, string> ? keybindings) {
@@ -262,6 +267,7 @@ namespace Ilia {
         }
 
         void on_page_switch(Widget ? page, uint page_num) {
+            stdout.printf("crash check!\n");
             if (page_num == total_pages) { // On help page
                 entry.set_sensitive(false);
             } else if (dialog_pages[page_num] != null) {
@@ -271,6 +277,7 @@ namespace Ilia {
                 entry.set_sensitive(true);
             }
             dialog_pages[active_page].show ();
+            stdout.printf("crash check 2!\n");
         }
 
         // filter selection based on contents of Entry

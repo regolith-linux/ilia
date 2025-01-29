@@ -1,3 +1,26 @@
+ilia (0.15.0) jammy; urgency=medium
+
+  [ Regolith Linux ]
+  * chore: extract functions from contracts
+  * chore: extract global state to module apis
+  * chore: readme cleanup
+  * fix: util functions are pub static
+  * fix: member var set typo
+  * feat: specify a source format standard
+  * feat: integrate uncrustify into build
+  * feat: add new build info to readme
+  * chore: apply source formatter to all source
+  * fix: implement systemd-escape for app launch compat. related: https://github.com/regolith-linux/ilia/pull/93
+
+  [ Khosrow Moossavi ]
+  * chore: remove obsolete package broadcast action
+  * feat: enable github action to test pull requests
+  * feat: enable github action to publish to unstable
+  * feat: enable github action to publish to testing
+  * feat: enable github action to prepare release
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 29 Jan 2025 10:51:28 -0500
+
 ilia (0.14.1) jammy; urgency=medium
 
   [ Soumya Ranjan Patnaik ]

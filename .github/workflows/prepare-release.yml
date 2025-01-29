@@ -51,4 +51,5 @@ jobs:
           name: ${{ steps.prepare.outputs.release-version }}
           tag_name: ${{ steps.prepare.outputs.release-version }}
           token: ${{ secrets.ORG_BROADCAST_TOKEN2 }}
+          target_commitish: "${{ github.sha }}"
           generate_release_notes: true

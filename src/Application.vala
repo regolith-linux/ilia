@@ -180,6 +180,7 @@ namespace Ilia {
             stdout.printf("\npages:\n");
             stdout.printf("\t'apps' - launch desktop applications (default)\n");
             stdout.printf("\t'terminal' - launch a terminal command\n");
+            stdout.printf("\t\t-q: quiet execution\n");
             stdout.printf("\t'notifications' - launch notifications manager\n");
             stdout.printf("\t'keybindings' - launch keybindings viewer\n");
             stdout.printf("\t'textlist' - select an item from a specified list\n");

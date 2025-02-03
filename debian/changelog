@@ -1,3 +1,10 @@
+ilia (0.15.1) jammy; urgency=medium
+
+  [ Khosrow Moossavi ]
+  * fix: create release tag from correct git sha
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Mon, 03 Feb 2025 20:55:19 +0000
+
 ilia (0.15.0) jammy; urgency=medium
 
   [ Regolith Linux ]

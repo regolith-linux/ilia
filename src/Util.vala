@@ -16,6 +16,8 @@ namespace Ilia {
                 path.next ();
                 item_view.get_selection ().select_path(path);
                 item_view.set_cursor(path, null, false);
+            } else {
+		return false;
             }
 
             return true;

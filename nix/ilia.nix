@@ -3,7 +3,6 @@
   # callPackage automatically populates all of these arguments from nixpkgs
 , atk
 , cairo
-, gobject-introspection
 , gtk3
 , gtk-layer-shell
 , json-glib
@@ -36,7 +35,6 @@ stdenv.mkDerivation {
   buildInputs = [
     atk
     cairo
-    gobject-introspection # avoids error, "Package Gtk-3.0 not found in Vala API directories or Ggobject-introspection GIR directories"
     gtk3
     gtk-layer-shell
     json-glib

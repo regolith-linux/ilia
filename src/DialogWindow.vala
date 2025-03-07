@@ -117,12 +117,57 @@ namespace Ilia {
                         return true;
                     }
                 } else if ((key.state & Gdk.ModifierType.CONTROL_MASK) == Gdk.ModifierType.CONTROL_MASK) {
-                    if (key.keyval == 'c') { // Expand dialog
-                        clipboard_copy ();
+                    // movement with vim commands and editing with Ctrl key
+                    if (key.keyval == 'h') { // Left - vim style
+                        int pos = entry.get_position();
+                        if (pos > 0)
+                            entry.set_position(pos - 1);
                         return true;
                     }
-                    if (key.keyval == 'v') {
-                        clipboard_paste ();
+                    if (key.keyval == 'l') { // Right - vim style
+                        int pos = entry.get_position();
+                        if (pos < entry.text.length)
+                            entry.set_position(pos + 1);
+                        return true;
+                    }
+                    if (key.keyval == 'j' || key.keyval == 'n') { // Down - vim/emacs style
+                        bool key_handled = dialog_pages[active_page].key_event(key);
+                        return key_handled;
+                    }
+                    if (key.keyval == 'k' || key.keyval == 'p') { // Up - vim/emacs style
+                        bool key_handled = dialog_pages[active_page].key_event(key);
+                        return key_handled;
+                    }
+                    if (key.keyval == '0') { // Beginning of line - vim style
+                        entry.set_position(0);
+                        return true;
+                    }
+                    if (key.keyval == '4' && (key.state & Gdk.ModifierType.SHIFT_MASK) != 0) { // End of line (Ctrl+$) - vim style
+                        entry.set_position(entry.text.length);
+                        return true;
+                    }
+                    if (key.keyval == 'a') { // Select all - like Ctrl+A
+                        entry.select_region(0, entry.text.length);
+                        return true;
+                    }
+                    if (key.keyval == 'w') { // Forward one word - vim style
+                        move_forward_word();
+                        return true;
+                    }
+                    if (key.keyval == 'b') { // Back one word - vim style
+                        move_backward_word();
+                        return true;
+                    }
+                    if (key.keyval == 'c') { // Copy - Ctrl+C
+                        clipboard_copy();
+                        return true;
+                    }
+                    if (key.keyval == 'v') { // Paste - Ctrl+V
+                        clipboard_paste();
+                        return true;
+                    }
+                    if (key.keyval == 'x') { // Cut - Ctrl+X
+                        clipboard_cut();
                         return true;
                     }
                 }
@@ -415,8 +460,29 @@ namespace Ilia {
             var display = this.get_screen ().get_display ();
             var clipboard = Clipboard.get_for_display(display, Gdk.SELECTION_CLIPBOARD);
 
-            clipboard.set_text(entry.get_text (), entry.get_text ().length);
-            clipboard.store ();
+            int start, end;
+            if (entry.get_selection_bounds(out start, out end)) {
+                string selected_text = entry.get_text().substring(start, end - start);
+                clipboard.set_text(selected_text, selected_text.length);
+            } else {
+                clipboard.set_text(entry.get_text(), entry.get_text().length);
+            }
+            clipboard.store();
+        }
+
+        void clipboard_cut() {
+            var display = this.get_screen().get_display();
+            var clipboard = Clipboard.get_for_display(display, Gdk.SELECTION_CLIPBOARD);
+            
+            int start, end;
+            if (entry.get_selection_bounds(out start, out end)) {
+                string selected_text = entry.get_text().substring(start, end - start);
+                clipboard.set_text(selected_text, selected_text.length);
+                clipboard.store();
+                
+                // Delete selected text
+                entry.get_buffer().delete_text(start, end - start);
+            }
         }
 
         void clipboard_paste() {
@@ -426,9 +492,61 @@ namespace Ilia {
             string text = clipboard.wait_for_text ();
 
             if (text != null) {
-                int pos = entry.cursor_position;
-                entry.get_buffer ().insert_text(pos, text.data);
+                int start, end;
+                
+                if (entry.get_selection_bounds(out start, out end)) {
+                    entry.get_buffer().delete_text(start, end - start);
+                    entry.get_buffer().insert_text(start, text.data);
+                } else {
+                    int pos = entry.cursor_position;
+                    entry.get_buffer().insert_text(pos, text.data);
+                }
             }
+        }
+        
+        void move_forward_word() {
+            string text = entry.get_text();
+            int pos = entry.get_position();
+            bool found_word_break = false;
+            
+            for (int i = pos; i < text.length; i++) {
+                unichar c = text.get_char(text.index_of_nth_char(i));
+                if (c.isspace() || c.ispunct()) {
+                    found_word_break = true;
+                } else if (found_word_break) {
+                    entry.set_position(text.index_of_nth_char(i));
+                    return;
+                }
+            }
+            
+            entry.set_position(text.length);
+        }
+        
+        void move_backward_word() {
+            string text = entry.get_text();
+            int pos = entry.get_position();
+            bool found_word = false;
+            
+            for (int i = pos - 1; i >= 0; i--) {
+                unichar c = text.get_char(text.index_of_nth_char(i));
+                if (c.isspace() || c.ispunct()) {
+                    found_word = true;
+                    break;
+                }
+                pos = text.index_of_nth_char(i);
+            }
+        
+            found_word = false;
+            for (int i = pos - 1; i >= 0; i--) {
+                unichar c = text.get_char(text.index_of_nth_char(i));
+                if (!(c.isspace() || c.ispunct())) {
+                    found_word = true;
+                } else if (found_word) {
+                    entry.set_position(text.index_of_nth_char(i+1));
+                    return;
+                }
+            }
+            entry.set_position(0);
         }
 
         public void quit() {

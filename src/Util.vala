@@ -12,13 +12,13 @@ namespace Ilia {
                 path.prev ();
                 item_view.get_selection ().select_path(path);
                 item_view.set_cursor(path, null, false);
+                return true;
             } else if ((key.keyval == 'n' || key.keyval == 'j') && !is_last) {
                 path.next ();
                 item_view.get_selection ().select_path(path);
                 item_view.set_cursor(path, null, false);
+                return true;
             }
-
-            return true;
         }
 
         return false;

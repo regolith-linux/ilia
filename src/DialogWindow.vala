@@ -108,11 +108,11 @@ namespace Ilia {
                             return true;
                         }
                     }
-                    if (key.keyval == '+') { // Expand dialog
+                    if (key.keyval == KEY_CODE_PLUS || key.keyval == '+') { // Expand dialog
                         change_size(128);
                         return true;
                     }
-                    if (key.keyval == '-') { // Contract dialog
+                    if (key.keyval == KEY_CODE_MINUS || key.keyval == '-') { // Contract dialog
                         change_size(-128);
                         return true;
                     }
@@ -277,7 +277,13 @@ namespace Ilia {
                 keybinding_view = new TreeView ();
                 setup_help_treeview(keybinding_view, dialog_pages[0].get_keybindings ());
                 help_widget.pack_start(keybinding_view, false, false, 5);
-                notebook.append_page(help_widget, help_label);
+                
+                //scrollable help
+                var scrolled_window = new ScrolledWindow(null, null);
+                scrolled_window.set_policy(PolicyType.AUTOMATIC, PolicyType.AUTOMATIC);
+                scrolled_window.add(help_widget);
+                
+                notebook.append_page(scrolled_window, help_label);
                 keybinding_view.realize.connect(() => {
                     keybinding_view.columns_autosize ();
                 });
@@ -374,14 +380,14 @@ namespace Ilia {
         private void setup_help_treeview(TreeView view, HashTable<string, string> ? keybindings) {
             var listmodel = new Gtk.ListStore(2, typeof (string), typeof (string));
             view.set_model(listmodel);
-
+        
             view.headers_visible = false;
             view.fixed_height_mode = true;
             view.enable_search = false;
-
+        
             view.insert_column_with_attributes(-1, "Key", new CellRendererText (), "text", 0);
             view.insert_column_with_attributes(-1, "Function", new CellRendererText (), "text", 1);
-
+        
             TreeIter iter;
 
             if (keybindings != null)
@@ -391,24 +397,54 @@ namespace Ilia {
                     listmodel.append(out iter2);
                     listmodel.set(iter2, 0, key, 1, val);
                 });
-
+            
             listmodel.append(out iter);
-            listmodel.set(iter, 0, "Alt -", 1, "Decrease Dialog Size");
-
+            listmodel.set(iter, 0, "↑ / ↓", 1, "Navigate items");
+            
             listmodel.append(out iter);
-            listmodel.set(iter, 0, "Alt +", 1, "Increase Dialog Size");
-
+            listmodel.set(iter, 0, "← / →", 1, "Switch tabs");
+            
             listmodel.append(out iter);
-            listmodel.set(iter, 0, "↑ ↓", 1, "Change Selected Item");
-
+            listmodel.set(iter, 0, "Enter", 1, "Select item");
+            
             listmodel.append(out iter);
-            listmodel.set(iter, 0, "Ctrl+p Ctrl+n", 1, "Change Selected Item (emacs style)");
-
-            listmodel.append(out iter);
-            listmodel.set(iter, 0, "Ctrl+k Ctrl+j", 1, "Change Selected Item (vim style)");
-
+            listmodel.set(iter, 0, "PgUp / PgDown", 1, "Page navigation");
+            
+            // Window control
             listmodel.append(out iter);
             listmodel.set(iter, 0, "Esc", 1, "Exit");
+            
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Alt + -", 1, "Decrease dialog size");
+        
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Alt + +", 1, "Increase dialog size");
+            
+            // Combined Vim/Emacs navigation
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + h", 1, "Move cursor left (vim)");
+            
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + l", 1, "Move cursor right (vim)");
+            
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + j / Ctrl + n", 1, "Move down (vim/emacs)");
+            
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + k / Ctrl + p", 1, "Move up (vim/emacs)");
+
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + 0", 1, "Beginning of line (vim)");
+            
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + Shift + 4", 1, "End of line (vim)");
+            
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + w", 1, "Forward one word (vim)");
+            
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + b", 1, "Backward one word (vim)");
+        
         }
 
         // Resize the dialog, bigger or smaller
@@ -429,10 +465,26 @@ namespace Ilia {
                 if (width >= geometry.width || height >= geometry.height)return;
             }
 
-            resize(width, height);
+            // Handle resize differently based on wm
+            if (is_wayland) {
+                set_size_request(width, height);
+            } else {
+                resize(width, height);
+            }
 
             settings.set_int("window-width", width);
             settings.set_int("window-height", height);
+            
+            // ui refresh
+            queue_resize();
+            
+            // ui adjustment
+            if (notebook != null) {
+                notebook.queue_resize();
+            }
+            
+            // ui adjustment
+            queue_draw();
         }
 
         void on_page_switch(Widget ? page, uint page_num) {

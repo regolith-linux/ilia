@@ -5,8 +5,8 @@ namespace Ilia {
     public const int KEY_CODE_LEFT_ALT = 65513;
     public const int KEY_CODE_RIGHT_ALT = 65514;
     public const int KEY_CODE_SUPER = 65515;
-    public const int KEY_CODE_UP = 65364;
-    public const int KEY_CODE_DOWN = 65362;
+    public const int KEY_CODE_UP = 65362;
+    public const int KEY_CODE_DOWN = 65364;
     public const int KEY_CODE_ENTER = 65293;
     public const int KEY_CODE_PGDOWN = 65366;
     public const int KEY_CODE_PGUP = 65365;
@@ -28,6 +28,7 @@ namespace Ilia {
     public class DialogWindow : Window, SessionContoller {
         const int MIN_WINDOW_WIDTH = 160;
         const int MIN_WINDOW_HEIGHT = 100;
+        const int SCROLL_STEP = 20; // pixels to scroll at a time
 
         // Reference to all active dialog pages
         private DialogPage[] dialog_pages;
@@ -47,6 +48,8 @@ namespace Ilia {
         protected Gdk.Seat seat;
 
         private Gtk.TreeView keybinding_view;
+        private ScrolledWindow help_scrolled_window;
+        private bool is_on_help_page = false;
 
         private string wm_name;
         private bool is_wayland;
@@ -131,10 +134,18 @@ namespace Ilia {
                         return true;
                     }
                     if (key.keyval == 'j' || key.keyval == 'n') { // Down - vim/emacs style
+                        if (is_on_help_page && help_scrolled_window != null) {
+                            scroll_help_window(true);
+                            return true;
+                        }
                         bool key_handled = dialog_pages[active_page].key_event(key);
                         return key_handled;
                     }
                     if (key.keyval == 'k' || key.keyval == 'p') { // Up - vim/emacs style
+                        if (is_on_help_page && help_scrolled_window != null) {
+                            scroll_help_window(false);
+                            return true;
+                        }
                         bool key_handled = dialog_pages[active_page].key_event(key);
                         return key_handled;
                     }
@@ -188,10 +199,46 @@ namespace Ilia {
                             quit ();
                             break;
                         case KEY_CODE_UP:
+                            if (is_on_help_page && help_scrolled_window != null) {
+                                scroll_help_window(false);
+                                return true;
+                            }
+                            dialog_pages[active_page].show ();
+                            break;
                         case KEY_CODE_DOWN:
+                            if (is_on_help_page && help_scrolled_window != null) {
+                                scroll_help_window(true);
+                                return true;
+                            }
+                            dialog_pages[active_page].show ();
+                            break;
                         case KEY_CODE_ENTER:
+                            dialog_pages[active_page].show ();
+                            break;
                         case KEY_CODE_PGDOWN:
-                        case KEY_CODE_PGUP: // Let UI handle these nav keys
+                            if (is_on_help_page && help_scrolled_window != null) {
+                                var adj = help_scrolled_window.get_vadjustment();
+                                double page_size = adj.get_page_size();
+                                double new_value = double.min(
+                                    adj.get_value() + page_size,
+                                    adj.get_upper() - page_size
+                                );
+                                adj.set_value(new_value);
+                                return true;
+                            }
+                            dialog_pages[active_page].show ();
+                            break;
+                        case KEY_CODE_PGUP:
+                            if (is_on_help_page && help_scrolled_window != null) {
+                                var adj = help_scrolled_window.get_vadjustment();
+                                double page_size = adj.get_page_size();
+                                double new_value = double.max(
+                                    adj.get_value() - page_size,
+                                    adj.get_lower()
+                                );
+                                adj.set_value(new_value);
+                                return true;
+                            }
                             dialog_pages[active_page].show ();
                             break;
                         case KEY_CODE_RIGHT:
@@ -278,12 +325,12 @@ namespace Ilia {
                 setup_help_treeview(keybinding_view, dialog_pages[0].get_keybindings ());
                 help_widget.pack_start(keybinding_view, false, false, 5);
                 
-                //scrollable help
-                var scrolled_window = new ScrolledWindow(null, null);
-                scrolled_window.set_policy(PolicyType.AUTOMATIC, PolicyType.AUTOMATIC);
-                scrolled_window.add(help_widget);
+                //making help dialogWindow scrollable
+                help_scrolled_window = new ScrolledWindow(null, null);
+                help_scrolled_window.set_policy(PolicyType.AUTOMATIC, PolicyType.AUTOMATIC);
+                help_scrolled_window.add(help_widget);
                 
-                notebook.append_page(scrolled_window, help_label);
+                notebook.append_page(help_scrolled_window, help_label);
                 keybinding_view.realize.connect(() => {
                     keybinding_view.columns_autosize ();
                 });
@@ -490,9 +537,10 @@ namespace Ilia {
         void on_page_switch(Widget ? page, uint page_num) {
             if (page_num == total_pages) { // On help page
                 entry.set_sensitive(false);
+                is_on_help_page = true;
             } else if (dialog_pages[page_num] != null) {
                 active_page = page_num;
-
+                is_on_help_page = false;
                 entry.secondary_icon_name = dialog_pages[active_page].get_icon_name ();
                 entry.set_sensitive(true);
             }
@@ -599,6 +647,31 @@ namespace Ilia {
                 }
             }
             entry.set_position(0);
+        }
+
+        private void scroll_help_window(bool scroll_down) {
+            if (help_scrolled_window == null) {
+                return;
+            }
+            
+            var adjustment = scroll_down ? 
+                help_scrolled_window.get_vadjustment() : 
+                help_scrolled_window.get_vadjustment();
+                
+            double new_value;
+            if (scroll_down) {
+                new_value = double.min(
+                    adjustment.get_value() + SCROLL_STEP,
+                    adjustment.get_upper() - adjustment.get_page_size()
+                );
+            } else {
+                new_value = double.max(
+                    adjustment.get_value() - SCROLL_STEP,
+                    adjustment.get_lower()
+                );
+            }
+            
+            adjustment.set_value(new_value);
         }
 
         public void quit() {

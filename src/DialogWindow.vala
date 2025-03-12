@@ -597,9 +597,11 @@ namespace Ilia {
                 if (entry.get_selection_bounds(out start, out end)) {
                     entry.get_buffer().delete_text(start, end - start);
                     entry.get_buffer().insert_text(start, text.data);
+                    entry.set_position(start + text.length); // if there's a selection, paste after it
                 } else {
                     int pos = entry.cursor_position;
                     entry.get_buffer().insert_text(pos, text.data);
+                    entry.set_position(pos + text.length); // if there's no selection, paste at cursor
                 }
             }
         }

@@ -5,8 +5,8 @@ namespace Ilia {
     public const int KEY_CODE_LEFT_ALT = 65513;
     public const int KEY_CODE_RIGHT_ALT = 65514;
     public const int KEY_CODE_SUPER = 65515;
-    public const int KEY_CODE_UP = 65364;
-    public const int KEY_CODE_DOWN = 65362;
+    public const int KEY_CODE_UP = 65362;
+    public const int KEY_CODE_DOWN = 65364;
     public const int KEY_CODE_ENTER = 65293;
     public const int KEY_CODE_PGDOWN = 65366;
     public const int KEY_CODE_PGUP = 65365;
@@ -28,6 +28,7 @@ namespace Ilia {
     public class DialogWindow : Window, SessionContoller {
         const int MIN_WINDOW_WIDTH = 160;
         const int MIN_WINDOW_HEIGHT = 100;
+        const int SCROLL_STEP = 20; // pixels to scroll at a time
 
         // Reference to all active dialog pages
         private DialogPage[] dialog_pages;
@@ -47,6 +48,8 @@ namespace Ilia {
         protected Gdk.Seat seat;
 
         private Gtk.TreeView keybinding_view;
+        private ScrolledWindow help_scrolled_window;
+        private bool is_on_help_page = false;
 
         private string wm_name;
         private bool is_wayland;
@@ -108,11 +111,11 @@ namespace Ilia {
                             return true;
                         }
                     }
-                    if (key.keyval == '+') { // Expand dialog
+                    if (key.keyval == KEY_CODE_PLUS || key.keyval == '+') { // Expand dialog
                         change_size(128);
                         return true;
                     }
-                    if (key.keyval == '-') { // Contract dialog
+                    if (key.keyval == KEY_CODE_MINUS || key.keyval == '-') { // Contract dialog
                         change_size(-128);
                         return true;
                     }
@@ -131,10 +134,18 @@ namespace Ilia {
                         return true;
                     }
                     if (key.keyval == 'j' || key.keyval == 'n') { // Down - vim/emacs style
+                        if (is_on_help_page && help_scrolled_window != null) {
+                            scroll_help_window(true);
+                            return true;
+                        }
                         bool key_handled = dialog_pages[active_page].key_event(key);
                         return key_handled;
                     }
                     if (key.keyval == 'k' || key.keyval == 'p') { // Up - vim/emacs style
+                        if (is_on_help_page && help_scrolled_window != null) {
+                            scroll_help_window(false);
+                            return true;
+                        }
                         bool key_handled = dialog_pages[active_page].key_event(key);
                         return key_handled;
                     }
@@ -188,10 +199,46 @@ namespace Ilia {
                             quit ();
                             break;
                         case KEY_CODE_UP:
+                            if (is_on_help_page && help_scrolled_window != null) {
+                                scroll_help_window(false);
+                                return true;
+                            }
+                            dialog_pages[active_page].show ();
+                            break;
                         case KEY_CODE_DOWN:
+                            if (is_on_help_page && help_scrolled_window != null) {
+                                scroll_help_window(true);
+                                return true;
+                            }
+                            dialog_pages[active_page].show ();
+                            break;
                         case KEY_CODE_ENTER:
+                            dialog_pages[active_page].show ();
+                            break;
                         case KEY_CODE_PGDOWN:
-                        case KEY_CODE_PGUP: // Let UI handle these nav keys
+                            if (is_on_help_page && help_scrolled_window != null) {
+                                var adj = help_scrolled_window.get_vadjustment();
+                                double page_size = adj.get_page_size();
+                                double new_value = double.min(
+                                    adj.get_value() + page_size,
+                                    adj.get_upper() - page_size
+                                );
+                                adj.set_value(new_value);
+                                return true;
+                            }
+                            dialog_pages[active_page].show ();
+                            break;
+                        case KEY_CODE_PGUP:
+                            if (is_on_help_page && help_scrolled_window != null) {
+                                var adj = help_scrolled_window.get_vadjustment();
+                                double page_size = adj.get_page_size();
+                                double new_value = double.max(
+                                    adj.get_value() - page_size,
+                                    adj.get_lower()
+                                );
+                                adj.set_value(new_value);
+                                return true;
+                            }
                             dialog_pages[active_page].show ();
                             break;
                         case KEY_CODE_RIGHT:
@@ -277,7 +324,13 @@ namespace Ilia {
                 keybinding_view = new TreeView ();
                 setup_help_treeview(keybinding_view, dialog_pages[0].get_keybindings ());
                 help_widget.pack_start(keybinding_view, false, false, 5);
-                notebook.append_page(help_widget, help_label);
+                
+                //making help dialogWindow scrollable
+                help_scrolled_window = new ScrolledWindow(null, null);
+                help_scrolled_window.set_policy(PolicyType.AUTOMATIC, PolicyType.AUTOMATIC);
+                help_scrolled_window.add(help_widget);
+                
+                notebook.append_page(help_scrolled_window, help_label);
                 keybinding_view.realize.connect(() => {
                     keybinding_view.columns_autosize ();
                 });
@@ -316,6 +369,10 @@ namespace Ilia {
                     dialog_pages[0] = new TrackerPage ();
                     dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
+                case "clipboard":
+                    dialog_pages[0] = new ClipboardPage ();
+                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+                    break;
                 default:
                     stderr.printf("Unknown page type: %s\n", focus_page);
                     break;
@@ -326,7 +383,7 @@ namespace Ilia {
          * Creates pages for all generally usable pages
          */
         private int create_all_pages(HashTable<string, string ?> arg_map, string focus_page, ref uint start_page) {
-            int page_count = 6;
+            int page_count = 7; // Increased to include Clipboard page
             dialog_pages = new DialogPage[page_count];
 
             dialog_pages[0] = new DesktopAppPage ();
@@ -341,6 +398,8 @@ namespace Ilia {
             dialog_pages[4].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             dialog_pages[5] = new TrackerPage ();
             dialog_pages[5].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+            dialog_pages[6] = new ClipboardPage ();
+            dialog_pages[6].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             // last page, help, will be initialized later in init
 
             switch (focus_page.down ()) {
@@ -362,6 +421,9 @@ namespace Ilia {
                 case "tracker":
                     start_page = 5;
                     break;
+                case "clipboard":
+                    start_page = 6;
+                    break;
                 default:
                     stderr.printf("Unknown page type: %s\n", focus_page);
                     start_page = 0;
@@ -374,14 +436,14 @@ namespace Ilia {
         private void setup_help_treeview(TreeView view, HashTable<string, string> ? keybindings) {
             var listmodel = new Gtk.ListStore(2, typeof (string), typeof (string));
             view.set_model(listmodel);
-
+        
             view.headers_visible = false;
             view.fixed_height_mode = true;
             view.enable_search = false;
-
+        
             view.insert_column_with_attributes(-1, "Key", new CellRendererText (), "text", 0);
             view.insert_column_with_attributes(-1, "Function", new CellRendererText (), "text", 1);
-
+        
             TreeIter iter;
 
             if (keybindings != null)
@@ -391,24 +453,54 @@ namespace Ilia {
                     listmodel.append(out iter2);
                     listmodel.set(iter2, 0, key, 1, val);
                 });
-
+            
             listmodel.append(out iter);
-            listmodel.set(iter, 0, "Alt -", 1, "Decrease Dialog Size");
-
+            listmodel.set(iter, 0, "↑ / ↓", 1, "Navigate items");
+            
             listmodel.append(out iter);
-            listmodel.set(iter, 0, "Alt +", 1, "Increase Dialog Size");
-
+            listmodel.set(iter, 0, "← / →", 1, "Switch tabs");
+            
             listmodel.append(out iter);
-            listmodel.set(iter, 0, "↑ ↓", 1, "Change Selected Item");
-
+            listmodel.set(iter, 0, "Enter", 1, "Select item");
+            
             listmodel.append(out iter);
-            listmodel.set(iter, 0, "Ctrl+p Ctrl+n", 1, "Change Selected Item (emacs style)");
-
-            listmodel.append(out iter);
-            listmodel.set(iter, 0, "Ctrl+k Ctrl+j", 1, "Change Selected Item (vim style)");
-
+            listmodel.set(iter, 0, "PgUp / PgDown", 1, "Page navigation");
+            
+            // Window control
             listmodel.append(out iter);
             listmodel.set(iter, 0, "Esc", 1, "Exit");
+            
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Alt + -", 1, "Decrease dialog size");
+        
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Alt + +", 1, "Increase dialog size");
+            
+            // Combined Vim/Emacs navigation
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + h", 1, "Move cursor left (vim)");
+            
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + l", 1, "Move cursor right (vim)");
+            
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + j / Ctrl + n", 1, "Move down (vim/emacs)");
+            
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + k / Ctrl + p", 1, "Move up (vim/emacs)");
+
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + 0", 1, "Beginning of line (vim)");
+            
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + Shift + 4", 1, "End of line (vim)");
+            
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + w", 1, "Forward one word (vim)");
+            
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Ctrl + b", 1, "Backward one word (vim)");
+        
         }
 
         // Resize the dialog, bigger or smaller
@@ -429,18 +521,35 @@ namespace Ilia {
                 if (width >= geometry.width || height >= geometry.height)return;
             }
 
-            resize(width, height);
+            // Handle resize differently based on wm
+            if (is_wayland) {
+                set_size_request(width, height);
+            } else {
+                resize(width, height);
+            }
 
             settings.set_int("window-width", width);
             settings.set_int("window-height", height);
+            
+            // ui refresh
+            queue_resize();
+            
+            // ui adjustment
+            if (notebook != null) {
+                notebook.queue_resize();
+            }
+            
+            // ui adjustment
+            queue_draw();
         }
 
         void on_page_switch(Widget ? page, uint page_num) {
             if (page_num == total_pages) { // On help page
                 entry.set_sensitive(false);
+                is_on_help_page = true;
             } else if (dialog_pages[page_num] != null) {
                 active_page = page_num;
-
+                is_on_help_page = false;
                 entry.secondary_icon_name = dialog_pages[active_page].get_icon_name ();
                 entry.set_sensitive(true);
             }
@@ -497,9 +606,11 @@ namespace Ilia {
                 if (entry.get_selection_bounds(out start, out end)) {
                     entry.get_buffer().delete_text(start, end - start);
                     entry.get_buffer().insert_text(start, text.data);
+                    entry.set_position(start + text.length); // if there's a selection, paste after it
                 } else {
                     int pos = entry.cursor_position;
                     entry.get_buffer().insert_text(pos, text.data);
+                    entry.set_position(pos + text.length); // if there's no selection, paste at cursor
                 }
             }
         }
@@ -547,6 +658,31 @@ namespace Ilia {
                 }
             }
             entry.set_position(0);
+        }
+
+        private void scroll_help_window(bool scroll_down) {
+            if (help_scrolled_window == null) {
+                return;
+            }
+            
+            var adjustment = scroll_down ? 
+                help_scrolled_window.get_vadjustment() : 
+                help_scrolled_window.get_vadjustment();
+                
+            double new_value;
+            if (scroll_down) {
+                new_value = double.min(
+                    adjustment.get_value() + SCROLL_STEP,
+                    adjustment.get_upper() - adjustment.get_page_size()
+                );
+            } else {
+                new_value = double.max(
+                    adjustment.get_value() - SCROLL_STEP,
+                    adjustment.get_lower()
+                );
+            }
+            
+            adjustment.set_value(new_value);
         }
 
         public void quit() {

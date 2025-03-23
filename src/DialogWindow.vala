@@ -496,10 +496,9 @@ namespace Ilia {
                 
                 if (entry.get_selection_bounds(out start, out end)) {
                     entry.get_buffer().delete_text(start, end - start);
-                    entry.get_buffer().insert_text(start, text.data);
+                    entry.insert_at_cursor(text);
                 } else {
-                    int pos = entry.cursor_position;
-                    entry.get_buffer().insert_text(pos, text.data);
+                    entry.insert_at_cursor(text);
                 }
             }
         }

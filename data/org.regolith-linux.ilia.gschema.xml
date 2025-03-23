@@ -8,6 +8,13 @@
         A table of apps that have been launced and the total count.  Used for sorting apps.
       </description>
     </key>
+    <key name="clipboard-history" type="as">
+      <default>[]</default>
+      <summary>Clipboard history items</summary>
+      <description>
+        clipboard-history persistance between sessions.
+      </description>
+    </key>
     <key name="window-width" type="i">
       <default>490</default>
       <summary>Window width</summary>

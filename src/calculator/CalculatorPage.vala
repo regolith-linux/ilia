@@ -89,6 +89,7 @@ namespace Ilia {
             var grid = new Gtk.Grid();
             grid.set_column_spacing(5);
             grid.set_row_spacing(5);
+            grid.set_vexpand(true);
 
             string[,] buttons = {
                 { "sin(", "cos(", "tan(" },
@@ -103,13 +104,17 @@ namespace Ilia {
                     string label = buttons[i, j];
                     var button = new Gtk.Button.with_label(label);
                     button.clicked.connect(() => on_button_clicked(label));
+
+                    button.set_hexpand(true);
+                    button.set_vexpand(true);
+
                     grid.attach(button, j, i, 1, 1);
                 }
             }
 
             vbox.pack_start(result_title, false, false, 0);
             vbox.pack_start(result_frame, false, false, 0);
-            vbox.pack_start(grid, false, false, 0);
+            vbox.pack_start(grid, true, true, 0);
 
             root_widget = vbox;
         }

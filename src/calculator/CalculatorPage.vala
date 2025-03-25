@@ -85,11 +85,14 @@ namespace Ilia {
 
             result_frame.add(result_box);
 
-            // Button grid
+            var grid_container = new Gtk.Box(Gtk.Orientation.VERTICAL, 5);
+            grid_container.set_halign(Gtk.Align.CENTER);
+
             var grid = new Gtk.Grid();
             grid.set_column_spacing(5);
             grid.set_row_spacing(5);
             grid.set_vexpand(true);
+            grid.set_size_request(500, -1);
 
             string[,] buttons = {
                 { "sin(", "cos(", "tan(" },
@@ -112,9 +115,12 @@ namespace Ilia {
                 }
             }
 
+            // Container limits the max width of button grid
+            grid_container.pack_start(grid, true, true, 0);
+
             vbox.pack_start(result_title, false, false, 0);
             vbox.pack_start(result_frame, false, false, 0);
-            vbox.pack_start(grid, true, true, 0);
+            vbox.pack_start(grid_container, true, true, 0);
 
             root_widget = vbox;
         }

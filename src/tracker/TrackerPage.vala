@@ -10,11 +10,19 @@ namespace Ilia {
 
         // TODO: look into these flags, copied from
         // https://github.com/paysonwallach/tracker-web-bridge/blob/f9b6d99ebf7506e698713684f9d999a6a6d4e5dd/src/Application.vala
+        #if USE_OLD_TRACKER_SPARQL_NAMESPACE
         private const Tracker.Sparql.ConnectionFlags connection_flags =
             Tracker.Sparql.ConnectionFlags.FTS_ENABLE_STEMMER |
             Tracker.Sparql.ConnectionFlags.FTS_ENABLE_UNACCENT |
             Tracker.Sparql.ConnectionFlags.FTS_ENABLE_STOP_WORDS |
             Tracker.Sparql.ConnectionFlags.FTS_IGNORE_NUMBERS;
+        #else
+        private const Tsparql.SparqlConnectionFlags connection_flags =
+            Tsparql.SparqlConnectionFlags.FTS_ENABLE_STEMMER |
+            Tsparql.SparqlConnectionFlags.FTS_ENABLE_UNACCENT |
+            Tsparql.SparqlConnectionFlags.FTS_ENABLE_STOP_WORDS |
+            Tsparql.SparqlConnectionFlags.FTS_IGNORE_NUMBERS;
+        #endif
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -159,7 +167,13 @@ namespace Ilia {
         private void full_text_search() {
             try {
                 var queryterm = entry.get_text ();
+
+                #if USE_OLD_TRACKER_SPARQL_NAMESPACE
                 var connection = Tracker.Sparql.Connection.bus_new("org.freedesktop.Tracker3.Miner.Files", null, null);
+                #else
+                var connection = Tsparql.SparqlConnection.bus_new("org.freedesktop.Tracker3.Miner.Files", null, null);
+                #endif
+
                 var query = "SELECT DISTINCT nie:url(?f) nie:title(?f) nie:mimeType(?f) WHERE { ?f fts:match '" + queryterm + "' }";
 
                 var cursor = connection.query(query);

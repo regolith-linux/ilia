@@ -10,7 +10,15 @@ add_project_arguments(['--pkg', 'posix'], language: 'vala')
 find_program ('glib-compile-schemas')
 gio_unix_2_0_dep = dependency('gio-unix-2.0')
 json_glib_1_0_dep = dependency('json-glib-1.0')
-tracker_sparql_3_0_dep = dependency('tracker-sparql-3.0')
+
+tinysparql_3_0_dep = dependency('tinysparql-3.0', required: false)
+
+# Fallback to 'tracker-sparql-3.0' if 'tinysparql-3.0' is not found
+if not tinysparql_3_0_dep.found()
+    tinysparql_3_0_dep = dependency('tracker-sparql-3.0', required: true)
+    add_project_arguments('-D', 'USE_OLD_TRACKER_SPARQL_NAMESPACE', language: 'vala')
+endif
+
 atk_dep = dependency('atk')
 cairo_gobject_dep = dependency('cairo-gobject')
 gdk_3_0_dep = dependency('gdk-3.0')

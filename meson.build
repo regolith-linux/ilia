@@ -23,6 +23,7 @@ gtk_3_0_dep = dependency('gtk+-3.0')
 gtk_layer_shell_dep = meson.get_compiler('c').find_library('gtk-layer-shell', required: false)
 pango_dep = dependency('pango')
 x11_dep = dependency('x11')
+libm = meson.get_compiler('c').find_library('m', required: false)
 
 meson.add_install_script(join_paths(meson.current_source_dir(),'meson_scripts','install_data.sh'),join_paths(get_option('prefix'),get_option('datadir'),'ilia'),join_paths(meson.current_source_dir(),'data/local','','*'))
 

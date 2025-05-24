@@ -36,6 +36,7 @@ ilia_sources += files([
     'Util.vala',
     'apps/DesktopAppPage.vala',
     'commands/CommandPage.vala',
+    'clipboard/ClipboardPage.vala',
     'keybindings/ConfigParser.vala',
     'keybindings/I3Ipc.vala',
     'keybindings/KeybindingsPage.vala',

@@ -329,24 +329,7 @@ namespace Ilia {
                 return 1;
             }
 
-            // If both are favorites or both are not favorites, check usage counts
-            int a_count = 0;
-            int b_count = 0;
-
-            if (app_a.get_id() in launch_counts) {
-                a_count = launch_counts.get(app_a.get_id());
-            }
-
-            if (app_b.get_id() in launch_counts) {
-                b_count = launch_counts.get(app_b.get_id());
-            }
-
-            // If launch counts are different, sort by count (most used first)
-            if (a_count != b_count) {
-                return b_count - a_count;
-            }
-
-            // If both apps have same favorite status and launch count, sort alphabetically
+            // If both are favorites or both are not favorites, sort alphabetically first
             var app_a_name = app_a.get_name().down();
             var app_b_name = app_b.get_name().down();
             

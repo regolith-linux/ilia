@@ -86,7 +86,7 @@ namespace Ilia {
 
             grid = new Gtk.Grid ();
             grid.get_style_context ().add_class("root_box");
-            grid.attach(entry, 0, 0, 1, 1);
+            grid.attach(entry_box, 0, 0, 1, 1);
             grid.attach(notebook, 0, 1, 1, 1);
             add(grid);
 

@@ -8,6 +8,13 @@
         A table of apps that have been launced and the total count.  Used for sorting apps.
       </description>
     </key>
+    <key name="favorite-apps" type="as">
+      <default>[]</default>
+      <summary>List of favorite application IDs</summary>
+      <description>
+        A list of application IDs that have been marked as favorites.
+      </description>
+    </key>
     <key name="clipboard-history" type="as">
       <default>[]</default>
       <summary>Clipboard history items</summary>

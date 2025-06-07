@@ -63,12 +63,17 @@ namespace Ilia {
             entry = new Gtk.Entry ();
             entry.get_style_context ().add_class("filter_entry");
             entry.hexpand = true;
+            entry.set_icon_from_icon_name(Gtk.EntryIconPosition.PRIMARY, "system-search-symbolic");
             entry.button_press_event.connect((event) => {
                 // Disable context menu as causes de-focus event to exit execution
                 return event.button == 3; // squelch right button click event
             });
 
             entry.changed.connect(on_entry_changed);
+            
+            // Create a box for the entry and header
+            var entry_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+            entry_box.pack_start(entry, true, true, 0);
 
             notebook = new Notebook ();
             notebook.get_style_context ().add_class("notebook");
@@ -115,6 +120,11 @@ namespace Ilia {
                     if (key.keyval == '-') { // Contract dialog
                         change_size(-128);
                         return true;
+                    }
+                    // Pass Alt+D key event to active page for handling desktop app actions
+                    if (key.keyval == 'd' || key.keyval == 'D') {
+                        bool key_handled = dialog_pages[active_page].key_event(key);
+                        return key_handled;
                     }
                 } else if ((key.state & Gdk.ModifierType.CONTROL_MASK) == Gdk.ModifierType.CONTROL_MASK) {
                     // movement with vim commands and editing with Ctrl key
@@ -562,6 +572,10 @@ namespace Ilia {
             if (seat != null)seat.ungrab ();
             hide ();
             close ();
+        }
+        
+        public string get_wm_name() {
+            return this.wm_name;
         }
     }
 }

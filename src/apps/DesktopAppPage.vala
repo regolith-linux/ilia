@@ -819,8 +819,8 @@ namespace Ilia {
                             
                             hide_app_actions();
                             
-                            // Show a temporary notification
-                            show_notification("Desktop shortcut created");
+                            // Print status message to console
+                            stdout.printf("Desktop shortcut created\n");
                         } catch (Error e) {
                             stderr.printf("Failed to create desktop shortcut: %s\n", e.message);
                             hide_app_actions();
@@ -943,22 +943,11 @@ namespace Ilia {
             // Refresh the view
             on_entry_changed();
             
-            // Show confirmation notification
+            // Status message to console instead of notification
             if (is_favorite) {
-                show_notification(@"$(app_info.get_name()) removed from favorites");
+                stdout.printf("%s removed from favorites\n", app_info.get_name());
             } else {
-                show_notification(@"$(app_info.get_name()) added to favorites");
-            }
-        }
-        
-        // Show a temporary notification
-        private void show_notification(string message) {
-            try {
-                Notify.Notification notification = new Notify.Notification("Ilia", message, "org.regolith-linux.ilia");
-                notification.set_timeout(2000); // 2 seconds
-                notification.show();
-            } catch (Error e) {
-                stderr.printf("Failed to show notification: %s\n", e.message);
+                stdout.printf("%s added to favorites\n", app_info.get_name());
             }
         }
         

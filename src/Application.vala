@@ -1,5 +1,4 @@
 using Gtk;
-using Notify;
 
 // Default style
 char * default_css = """
@@ -48,9 +47,6 @@ namespace Ilia {
         }
 
         protected override void activate() {
-            // Initialize libnotify
-            Notify.init("Ilia");
-
             // Get session type (wayland or x11) and set the flag
             string session_type = Environment.get_variable("XDG_SESSION_TYPE");
             string gdk_backend = Environment.get_variable("GDK_BACKEND");

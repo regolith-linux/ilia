@@ -27,7 +27,6 @@ ilia_deps += [gtk_3_0_dep]
 ilia_deps += [pango_dep]
 ilia_deps += [x11_dep]
 ilia_deps += [gtk_layer_shell_dep]
-ilia_deps += [dependency('libnotify')]
 
 ilia_sources = [cfgfile_1]
 ilia_sources += files([

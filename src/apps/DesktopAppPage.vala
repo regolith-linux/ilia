@@ -422,12 +422,18 @@ namespace Ilia {
 
                 var keywords = app_info.get_string("Comment") + app_info.get_string("Keywords");
                 bool is_favorite = string_in_array(app_info.get_id(), favorite_apps);
+                
+                //favourite symbol
+                string display_name = app_info.get_name();
+                if (is_favorite) {
+                    display_name = display_name + " ★";
+                }
 
                 if (icon_size > 0)
                     model.set(
                         iter,
                         ITEM_VIEW_COLUMN_ICON, icon_img,
-                        ITEM_VIEW_COLUMN_NAME, app_info.get_name (),
+                        ITEM_VIEW_COLUMN_NAME, display_name,
                         ITEM_VIEW_COLUMN_KEYWORDS, keywords,
                         ITEM_VIEW_COLUMN_APPINFO, app_info,
                         ITEM_VIEW_COLUMN_IS_FAVORITE, is_favorite
@@ -435,7 +441,7 @@ namespace Ilia {
                 else
                     model.set(
                         iter,
-                        ITEM_VIEW_COLUMN_NAME, app_info.get_name (),
+                        ITEM_VIEW_COLUMN_NAME, display_name,
                         ITEM_VIEW_COLUMN_KEYWORDS, keywords,
                         ITEM_VIEW_COLUMN_APPINFO, app_info,
                         ITEM_VIEW_COLUMN_IS_FAVORITE, is_favorite
@@ -932,8 +938,21 @@ namespace Ilia {
                 model.get(iter, ITEM_VIEW_COLUMN_APPINFO, out current_app);
                 
                 if (current_app.get_id() == app_id) {
-                    // Update the favorite flag
-                    model.set(iter, ITEM_VIEW_COLUMN_IS_FAVORITE, !is_favorite);
+                    bool new_favorite_status = !is_favorite;
+                    model.set(iter, ITEM_VIEW_COLUMN_IS_FAVORITE, new_favorite_status);
+                    
+                    string current_name = current_app.get_name();
+                    string display_name;
+                    
+                    if (new_favorite_status) {
+                        // Add star in favorites
+                        display_name = current_name + " ★";
+                    } else {
+                        // Remove star  from favorites
+                        display_name = current_name;
+                    }
+                    
+                    model.set(iter, ITEM_VIEW_COLUMN_NAME, display_name);
                     break;
                 }
                 

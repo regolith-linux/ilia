@@ -29,11 +29,13 @@ namespace Ilia {
 
         // For storing clipboard history
         private string[] clipboard_history;
+        private string[] clipboard_timestamps; // Store timestamps for each item
         private int history_index;
 
         // Clipboard monitor
         private Gtk.Clipboard clipboard;
         private uint clipboard_monitor_id;
+        private string last_clipboard_text = "";
 
         public string get_name() {
             return "Clip<u>b</u>oard";
@@ -66,6 +68,7 @@ namespace Ilia {
 
             // Initialize clipboard history storage
             clipboard_history = new string[CLIPBOARD_HISTORY_MAX];
+            clipboard_timestamps = new string[CLIPBOARD_HISTORY_MAX];
             history_index = 0;
 
             model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof(string), typeof(string), typeof(string));
@@ -84,7 +87,12 @@ namespace Ilia {
                 clipboard = Gtk.Clipboard.get_for_display(display, Gdk.SELECTION_CLIPBOARD);
 
                 // Initial content check
-                check_clipboard_content();
+                clipboard.request_text((clipboard, text) => {
+                    if (text != null && text.strip() != "") {
+                        last_clipboard_text = text;
+                        add_to_history(text);
+                    }
+                });
 
                 // Set up clipboard monitoring
                 start_monitoring_clipboard();
@@ -108,12 +116,16 @@ namespace Ilia {
             // Clear existing history
             for (int i = 0; i < CLIPBOARD_HISTORY_MAX; i++) {
                 clipboard_history[i] = null;
+                clipboard_timestamps[i] = null;
             }
 
             // Load saved history (limited to max size)
             int count = int.min(saved_history.length, CLIPBOARD_HISTORY_MAX);
             for (int i = 0; i < count; i++) {
                 clipboard_history[i] = saved_history[i];
+                // Generate timestamp for loaded items
+                var now = new DateTime.now_local();
+                clipboard_timestamps[i] = now.format("%H:%M:%S");
             }
 
             // Update model with loaded history
@@ -139,7 +151,8 @@ namespace Ilia {
         private void check_clipboard_content() {
             if (clipboard != null) {
                 clipboard.request_text((clipboard, text) => {
-                    if (text != null && text.strip() != "") {
+                    if (text != null && text.strip() != "" && text != last_clipboard_text) {
+                        last_clipboard_text = text;
                         add_to_history(text);
                     }
                 });
@@ -147,7 +160,7 @@ namespace Ilia {
         }
 
         private void start_monitoring_clipboard() {
-            clipboard_monitor_id = Timeout.add(1000, () => {
+            clipboard_monitor_id = Timeout.add(2000, () => {
                 check_clipboard_content();
                 return true;
             });
@@ -178,15 +191,13 @@ namespace Ilia {
             var keycode = key.keyval;
 
             if (keycode == Ilia.KEY_CODE_ENTER) {
-                if (filter.get_iter_first(out iter)) {
-                    Gtk.TreeSelection selection = item_view.get_selection();
-                    Gtk.TreeModel model;
-                    Gtk.TreeIter selected_iter;
+                Gtk.TreeSelection selection = item_view.get_selection();
+                Gtk.TreeModel model;
+                Gtk.TreeIter selected_iter;
 
-                    if (selection.get_selected(out model, out selected_iter)) {
-                        copy_to_clipboard_from_selection(selected_iter);
-                        return true;
-                    }
+                if (selection.get_selected(out model, out selected_iter)) {
+                    copy_to_clipboard_from_selection(selected_iter);
+                    return true;
                 }
             }
 
@@ -258,7 +269,7 @@ namespace Ilia {
 
         // called on enter when in text box
         public void on_entry_activated() {
-            if (filter.get_iter(out iter, path))
+            if (path != null && filter.get_iter(out iter, path))
                 copy_to_clipboard_from_selection(iter);
         }
 
@@ -268,7 +279,7 @@ namespace Ilia {
             if (query_string.length > 0) {
                 GLib.Value content_value;
                 string content;
-                model.get_value(iter, ITEM_VIEW_COLUMN_CONTENT, out content_value);
+                m.get_value(iter, ITEM_VIEW_COLUMN_CONTENT, out content_value);
                 content = content_value.get_string();
 
                 return content != null && content.down().contains(query_string);
@@ -279,19 +290,31 @@ namespace Ilia {
 
         // Add text to history if it's not already there
         private void add_to_history(string text) {
+            // Get current timestamp
+            var now = new DateTime.now_local();
+            string timestamp = now.format("%H:%M:%S");
+
             // Check if text is already in the history to avoid duplicates
             for (int i = 0; i < CLIPBOARD_HISTORY_MAX; i++) {
                 if (clipboard_history[i] != null && clipboard_history[i] == text) {
+                    // If it's already at the top, don't do anything
+                    if (i == 0) {
+                        clipboard_timestamps[0] = timestamp;
+                        return;
+                    }
+
                     // Move this item to the top (most recent)
-                    string temp = clipboard_history[i];
+                    string temp_text = clipboard_history[i];
 
                     // Shift items down to make room at the top
                     for (int j = i; j > 0; j--) {
                         clipboard_history[j] = clipboard_history[j-1];
+                        clipboard_timestamps[j] = clipboard_timestamps[j-1];
                     }
 
                     // Place at the top
-                    clipboard_history[0] = temp;
+                    clipboard_history[0] = temp_text;
+                    clipboard_timestamps[0] = timestamp;
 
                     // Update the model to reflect the changes
                     update_model();
@@ -305,10 +328,12 @@ namespace Ilia {
             // Make room for new item
             for (int i = CLIPBOARD_HISTORY_MAX - 1; i > 0; i--) {
                 clipboard_history[i] = clipboard_history[i-1];
+                clipboard_timestamps[i] = clipboard_timestamps[i-1];
             }
 
             // to add new item at the top
             clipboard_history[0] = text;
+            clipboard_timestamps[0] = timestamp;
             history_index = (history_index + 1) % CLIPBOARD_HISTORY_MAX;
 
             update_model();
@@ -318,15 +343,24 @@ namespace Ilia {
 
         // Update the tree model with the current clipboard history
         private void update_model() {
+            // Store current selection path to restore it later
+            Gtk.TreeSelection selection = item_view.get_selection();
+            Gtk.TreeModel current_model;
+            Gtk.TreeIter current_iter;
+            Gtk.TreePath? selected_path = null;
+            
+            if (selection.get_selected(out current_model, out current_iter)) {
+                selected_path = current_model.get_path(current_iter);
+            }
+
             // Clear the model
             model.clear();
 
             // Add clipboard history items to the model
             for (int i = 0; i < CLIPBOARD_HISTORY_MAX; i++) {
                 if (clipboard_history[i] != null && clipboard_history[i].strip() != "") {
-                    // Get current date/time
-                    var now = new DateTime.now_local();
-                    string timestamp = now.format("%H:%M:%S");
+                    // Use stored timestamp or current time as fallback
+                    string timestamp = clipboard_timestamps[i] ?? new DateTime.now_local().format("%H:%M:%S");
 
                     // Create a preview (truncated version for display)
                     string preview = clipboard_history[i];
@@ -348,8 +382,12 @@ namespace Ilia {
             }
 
             // Reset selection after model update
-             if (model.get_iter_first(out iter))
+            if (selected_path != null && filter.get_iter(out iter, selected_path)) {
+                selection.select_iter(iter);
+                item_view.set_cursor(selected_path, null, false);
+            } else {
                 set_selection();
+            }
         }
 
         // Copy selected text to clipboard
@@ -364,6 +402,9 @@ namespace Ilia {
 
                 //stop monitoring to prevent re-adding
                 stop_monitoring_clipboard();
+
+                // Update our tracked clipboard text
+                last_clipboard_text = content;
 
                 clipboard.set_text(content, -1);
                 clipboard.store();

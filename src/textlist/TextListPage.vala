@@ -57,7 +57,7 @@ namespace Ilia {
         }
 
         public void show() {
-            item_view.grab_focus ();
+            item_view.grab_focus();
         }
 
         public async void initialize(GLib.Settings settings, HashTable<string, string ?> arg_map, Gtk.Entry entry, SessionContoller sessionController, string wm_name, bool is_wayland) throws GLib.Error {
@@ -81,10 +81,10 @@ namespace Ilia {
             filter = new Gtk.TreeModelFilter(model, null);
             filter.set_visible_func(filter_func);
 
-            create_item_view ();
+            create_item_view();
 
             load_items(settings.get_int("icon-size"));
-            set_selection ();
+            set_selection();
 
             var scrolled = new Gtk.ScrolledWindow(null, null);
             scrolled.add(item_view);
@@ -112,8 +112,8 @@ namespace Ilia {
 
             // Create columns
             if (this.render_icon_flag)
-                item_view.insert_column_with_attributes(-1, "Icon", new CellRendererPixbuf (), "pixbuf", ITEM_VIEW_COLUMN_ICON);
-            item_view.insert_column_with_attributes(-1, "Name", new CellRendererText (), "text", name_column_index);
+                item_view.insert_column_with_attributes(-1, "Icon", new CellRendererPixbuf(), "pixbuf", ITEM_VIEW_COLUMN_ICON);
+            item_view.insert_column_with_attributes(-1, "Name", new CellRendererText(), "text", name_column_index);
 
             // Launch app on one click
             item_view.set_activate_on_single_click(true);
@@ -144,8 +144,8 @@ namespace Ilia {
 
         // filter selection based on contents of Entry
         void on_entry_changed() {
-            filter.refilter ();
-            set_selection ();
+            filter.refilter();
+            set_selection();
         }
 
         // called on enter when in text box
@@ -156,15 +156,15 @@ namespace Ilia {
 
         // traverse the model and show items with metadata that matches entry filter string
         private bool filter_func(Gtk.TreeModel m, Gtk.TreeIter iter) {
-            string queryString = entry.get_text ().down ().strip ();
+            string queryString = entry.get_text().down().strip();
 
             if (queryString.length > 0) {
                 GLib.Value item_value;
                 string strval;
                 model.get_value(iter, name_column_index, out item_value);
-                strval = item_value.get_string ();
+                strval = item_value.get_string();
 
-                return (strval != null && strval.down ().contains(queryString));
+                return (strval != null && strval.down().contains(queryString));
             } else {
                 return true;
             }
@@ -175,7 +175,7 @@ namespace Ilia {
             Gdk.Pixbuf ? pixbuf = null;
 
             if (this.render_icon_flag) {
-                var icon_theme = Gtk.IconTheme.get_default ();
+                var icon_theme = Gtk.IconTheme.get_default();
 
                 if (icon != null && icon.length > 0)
                     pixbuf = Ilia.load_icon_from_name(icon_theme, icon, icon_size);
@@ -185,7 +185,7 @@ namespace Ilia {
             }
 
             do {
-                name = stdin.read_line ();
+                name = stdin.read_line();
                 if (name != null) {
                     model.append(out iter);
 
@@ -206,17 +206,17 @@ namespace Ilia {
 
         // Automatically set the first item in the list as selected.
         private void set_selection() {
-            Gtk.TreeSelection selection = item_view.get_selection ();
+            Gtk.TreeSelection selection = item_view.get_selection();
 
-            if (selection.count_selected_rows () == 0) { // initial state, nothing explicitly selected by user
+            if (selection.count_selected_rows() == 0) {  // initial state, nothing explicitly selected by user
                 selection.set_mode(SelectionMode.SINGLE);
                 if (path == null)
-                    path = new Gtk.TreePath.first ();
+                    path = new Gtk.TreePath.first();
                 selection.select_path(path);
             } else { // an existing item has selection, ensure it's visible
                 var path_list = selection.get_selected_rows(null);
                 if (path_list != null) {
-                    unowned var element = path_list.first ();
+                    unowned var element = path_list.first();
                     item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
                 }
             }
@@ -233,7 +233,7 @@ namespace Ilia {
         private void print(string selection) {
             stdout.printf("%s\n", selection);
 
-            session_controller.quit ();
+            session_controller.quit();
         }
     }
 }

@@ -34,11 +34,11 @@ namespace Ilia {
         public string major { get; private set; }
 
         internal VersionReply (Json.Node responseJson) {
-            human_readable = responseJson.get_object ().get_string_member("human_readable");
-            loaded_config_file_name = responseJson.get_object ().get_string_member("loaded_config_file_name");
-            minor = responseJson.get_object ().get_string_member("minor");
-            patch = responseJson.get_object ().get_string_member("patch");
-            major = responseJson.get_object ().get_string_member("major");
+            human_readable = responseJson.get_object().get_string_member("human_readable");
+            loaded_config_file_name = responseJson.get_object().get_string_member("loaded_config_file_name");
+            minor = responseJson.get_object().get_string_member("minor");
+            patch = responseJson.get_object().get_string_member("patch");
+            major = responseJson.get_object().get_string_member("major");
         }
     }
 
@@ -82,7 +82,7 @@ namespace Ilia {
             string[] lines = config.split("\n");
             string[] include_paths = {};
             foreach (unowned string line in lines) {
-                string stripped_line = line.strip ();
+                string stripped_line = line.strip();
 
                 // First token of include lines must be "include" followed by the path.
                 // Also supports globbing.
@@ -107,19 +107,19 @@ namespace Ilia {
                 path_queue.push_tail(path);
             }
 
-            while (!path_queue.is_empty ()) {
+            while (!path_queue.is_empty()) {
 
                 // Replace head of queue with paths obtained from glob matching
                 // Head of queue doesn't change if the string doesn't contain widcards
-                Posix.Glob pathMatcher = Posix.Glob ();
-                string path_glob = path_queue.pop_head ();
+                Posix.Glob pathMatcher = Posix.Glob();
+                string path_glob = path_queue.pop_head();
                 pathMatcher.glob(path_glob, Posix.GLOB_NOCHECK | Posix.GLOB_NOSORT);
                 foreach (unowned string matched_path in pathMatcher.pathv) {
                     path_queue.push_head(matched_path);
                 }
 
                 // Path of config partial to be read
-                string config_path = path_queue.pop_head ();
+                string config_path = path_queue.pop_head();
 
                 // Skip if the config partial already visited / read
                 if (visited_paths.contains(config_path))
@@ -148,17 +148,17 @@ namespace Ilia {
         private string get_i3_config(Json.Node responseJson) {
 
             var configBuilder = new StringBuilder("");
-            var configs = responseJson.get_object ().get_array_member("included_configs");
+            var configs = responseJson.get_object().get_array_member("included_configs");
 
             configs.foreach_element((arr, index, node) => {
-                configBuilder.append(node.get_object ().get_string_member("variable_replaced_contents"));
+                configBuilder.append(node.get_object().get_string_member("variable_replaced_contents"));
             });
 
             return configBuilder.str;
         }
 
         private string get_sway_config(Json.Node responseJson) throws GLib.FileError {
-            string baseConfig = responseJson.get_object ().get_string_member("config");
+            string baseConfig = responseJson.get_object().get_string_member("config");
             string walked_configs = walk_included_configs(baseConfig);
             return baseConfig + walked_configs;
         }
@@ -201,9 +201,9 @@ namespace Ilia {
         public TreeReply[] floating_nodes { get; private set; }
 
         internal TreeReply (Json.Node responseJson) {
-            var obj = responseJson.get_object ();
+            var obj = responseJson.get_object();
 
-            id = obj.get_int_member("id").to_string ();
+            id = obj.get_int_member("id").to_string();
             ntype = obj.get_string_member("type");
             urgent = obj.get_boolean_member("urgent");
             name = obj.get_string_member("name");
@@ -219,23 +219,23 @@ namespace Ilia {
             if (obj.has_member("layout"))
                 layout = obj.get_string_member("layout");
 
-            var jnodes = responseJson.get_object ().get_array_member("nodes");
+            var jnodes = responseJson.get_object().get_array_member("nodes");
 
-            if (jnodes == null || jnodes.get_length () == 0) {
+            if (jnodes == null || jnodes.get_length() == 0) {
                 nodes = new TreeReply[0];
             } else {
-                nodes = new TreeReply[jnodes.get_length ()];
+                nodes = new TreeReply[jnodes.get_length()];
                 jnodes.foreach_element((arr, index, node) => {
                     nodes[index] = new TreeReply(node);
                 });
             }
 
-            var fnodes = responseJson.get_object ().get_array_member("floating_nodes");
+            var fnodes = responseJson.get_object().get_array_member("floating_nodes");
 
-            if (fnodes == null || fnodes.get_length () == 0) {
+            if (fnodes == null || fnodes.get_length() == 0) {
                 floating_nodes = new TreeReply[0];
             } else {
-                floating_nodes = new TreeReply[fnodes.get_length ()];
+                floating_nodes = new TreeReply[fnodes.get_length()];
                 fnodes.foreach_element((arr, index, node) => {
                     floating_nodes[index] = new TreeReply(node);
                 });
@@ -267,7 +267,7 @@ namespace Ilia {
         ~IPCClient () {
             if (socket != null) {
                 try {
-                    socket.close ();
+                    socket.close();
                 } catch (GLib.Error err) {
                     // TODO consistent error handling
                     stderr.printf("Failed to close %s socket: %s\n", wm_name, err.message);
@@ -277,11 +277,11 @@ namespace Ilia {
 
         private uint8[] int32_to_uint8_array(int32 input) {
             Variant val = new Variant.int32(input);
-            return val.get_data_as_bytes ().get_data ();
+            return val.get_data_as_bytes().get_data();
         }
 
         private string terminate_string(uint8[] rawString) {
-            ByteArray b = new ByteArray ();
+            ByteArray b = new ByteArray();
             b.append(rawString);
             b.append(terminator);
 
@@ -289,7 +289,7 @@ namespace Ilia {
         }
 
         private uint8[] generate_request(WM_COMMAND cmd) {
-            ByteArray np = new ByteArray ();
+            ByteArray np = new ByteArray();
 
             np.append(magic_number);
             np.append(int32_to_uint8_array(0));   // payloadSize.get_data_as_bytes().get_data());
@@ -297,27 +297,27 @@ namespace Ilia {
 
             Bytes message = ByteArray.free_to_bytes(np);
 
-            return message.get_data ();
+            return message.get_data();
         }
 
         private Json.Node ? wm_ipc(WM_COMMAND command) throws GLib.Error {
             ssize_t sent = socket.send(generate_request(command));
 
-            debug("Sent " + sent.to_string () + " bytes to " + wm_name);
+            debug("Sent " + sent.to_string() + " bytes to " + wm_name);
             uint8[] buffer = new uint8[buffer_size];
 
             ssize_t len = socket.receive(buffer);
 
-            debug("Received  " + len.to_string () + " bytes from " + wm_name);
+            debug("Received  " + len.to_string() + " bytes from " + wm_name);
 
             Bytes responseBytes = new Bytes.take(buffer[0 : len]);
 
-            string payload = terminate_string(responseBytes.slice(bytes_to_payload, responseBytes.length).get_data ());
+            string payload = terminate_string(responseBytes.slice(bytes_to_payload, responseBytes.length).get_data());
 
-            Json.Parser parser = new Json.Parser ();
+            Json.Parser parser = new Json.Parser();
             parser.load_from_data(payload);
 
-            return parser.get_root ();
+            return parser.get_root();
         }
 
         public VersionReply getVersion() throws WM_ERROR, GLib.Error {

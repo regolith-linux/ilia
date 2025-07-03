@@ -60,8 +60,8 @@ namespace Ilia {
 
             settings = new GLib.Settings("org.regolith-linux.ilia");
 
-            entry = new Gtk.Entry ();
-            entry.get_style_context ().add_class("filter_entry");
+            entry = new Gtk.Entry();
+            entry.get_style_context().add_class("filter_entry");
             entry.hexpand = true;
             entry.button_press_event.connect((event) => {
                 // Disable context menu as causes de-focus event to exit execution
@@ -70,8 +70,8 @@ namespace Ilia {
 
             entry.changed.connect(on_entry_changed);
 
-            notebook = new Notebook ();
-            notebook.get_style_context ().add_class("notebook");
+            notebook = new Notebook();
+            notebook.get_style_context().add_class("notebook");
             notebook.set_tab_pos(PositionType.BOTTOM);
 
             var focus_page = arg_map.get("-p") ?? "Apps";
@@ -79,8 +79,8 @@ namespace Ilia {
 
             init_pages(arg_map, focus_page, all_page_mode);
 
-            grid = new Gtk.Grid ();
-            grid.get_style_context ().add_class("root_box");
+            grid = new Gtk.Grid();
+            grid.get_style_context().add_class("root_box");
             grid.attach(entry, 0, 0, 1, 1);
             grid.attach(notebook, 0, 1, 1, 1);
             add(grid);
@@ -93,7 +93,7 @@ namespace Ilia {
 
             // Exit if focus leaves us
             focus_out_event.connect(() => {
-                quit ();
+                quit();
                 return false;
             });
 
@@ -102,7 +102,7 @@ namespace Ilia {
                 if ((key.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK) { // ALT
                     // Enable page nav keybindings in all page mode.
                     for (int i = 0; i < total_pages; ++i) {
-                        if (dialog_pages[i].get_keybinding () == key.keyval || (dialog_pages[i].get_keybinding () - 32) == key.keyval) {
+                        if (dialog_pages[i].get_keybinding() == key.keyval || (dialog_pages[i].get_keybinding() - 32) == key.keyval) {
                             // Allow both upper/lower case match
                             notebook.set_current_page(i);
                             return true;
@@ -176,7 +176,7 @@ namespace Ilia {
                 switch (key.keyval) {
                         case KEY_CODE_ESCAPE:
                         case KEY_CODE_SUPER: // Explicit exit
-                            quit ();
+                            quit();
                             break;
                         case KEY_CODE_BRIGHT_UP:
                         case KEY_CODE_BRIGHT_DOWN:
@@ -185,24 +185,24 @@ namespace Ilia {
                         case KEY_CODE_VOLUME_DOWN:
                         case KEY_CODE_VOLUME_MUTE:
                         case KEY_CODE_PRINTSRC: // Implicit exit
-                            quit ();
+                            quit();
                             break;
                         case KEY_CODE_UP:
                         case KEY_CODE_DOWN:
                         case KEY_CODE_ENTER:
                         case KEY_CODE_PGDOWN:
                         case KEY_CODE_PGUP: // Let UI handle these nav keys
-                            dialog_pages[active_page].show ();
+                            dialog_pages[active_page].show();
                             break;
                         case KEY_CODE_RIGHT:
                         case KEY_CODE_LEFT: // Switch pages
-                            notebook.grab_focus ();
+                            notebook.grab_focus();
                             break;
                         default:            // Pass key event to active page for handling
                             // stdout.printf ("Keycode: %u\n", key.keyval);
                             key_handled = dialog_pages[active_page].key_event(key);
                             if (!key_handled)
-                                entry.grab_focus_without_selecting (); // causes entry to consume all unhandled key events
+                                entry.grab_focus_without_selecting();  // causes entry to consume all unhandled key events
                             break;
                 }
 
@@ -211,11 +211,11 @@ namespace Ilia {
 
             entry.activate.connect(on_entry_activated);
 
-            dialog_pages[active_page].show (); // Get page ready to use
+            dialog_pages[active_page].show();  // Get page ready to use
         }
 
         public override void show_all() {
-            base.show_all ();
+            base.show_all();
             notebook.set_current_page((int) active_page);
             notebook.switch_page.connect(on_page_switch);
         }
@@ -243,9 +243,9 @@ namespace Ilia {
             for (int i = 0; i < total_pages; ++i) {
                 Gtk.Box box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
                 var label = new Label(null);
-                label.set_markup(dialog_pages[i].get_name ());
-                var image = new Image.from_icon_name(dialog_pages[i].get_icon_name (), Gtk.IconSize.BUTTON);
-                var button = new Button ();
+                label.set_markup(dialog_pages[i].get_name());
+                var image = new Image.from_icon_name(dialog_pages[i].get_icon_name(), Gtk.IconSize.BUTTON);
+                var button = new Button();
                 button.set_can_focus(false);
                 button.relief = ReliefStyle.NONE;
                 button.add(image);
@@ -256,8 +256,8 @@ namespace Ilia {
 
                 box.pack_start(button, false, false, 0);
                 box.pack_start(label, false, false, 5);
-                box.show_all ();
-                notebook.append_page(dialog_pages[i].get_root (), box);
+                box.show_all();
+                notebook.append_page(dialog_pages[i].get_root(), box);
             }
 
             // FIXME - rework help UI to be consistent for both single and all page modes
@@ -266,20 +266,20 @@ namespace Ilia {
                 var help_label = new Label("Help");
                 var help_widget = new Gtk.Box(Gtk.Orientation.VERTICAL, 5);
 
-                var page_help_label = new Label(dialog_pages[0].get_help ());
+                var page_help_label = new Label(dialog_pages[0].get_help());
                 page_help_label.set_line_wrap(true);
                 help_widget.pack_start(page_help_label, false, false, 5);
 
                 var keybindings_title = new Label("Keybindings");
-                keybindings_title.get_style_context ().add_class("help_heading");
+                keybindings_title.get_style_context().add_class("help_heading");
                 help_widget.pack_start(keybindings_title, false, false, 5);
 
-                keybinding_view = new TreeView ();
-                setup_help_treeview(keybinding_view, dialog_pages[0].get_keybindings ());
+                keybinding_view = new TreeView();
+                setup_help_treeview(keybinding_view, dialog_pages[0].get_keybindings());
                 help_widget.pack_start(keybinding_view, false, false, 5);
                 notebook.append_page(help_widget, help_label);
                 keybinding_view.realize.connect(() => {
-                    keybinding_view.columns_autosize ();
+                    keybinding_view.columns_autosize();
                 });
             }
         }
@@ -287,33 +287,33 @@ namespace Ilia {
         private void create_page(string focus_page, HashTable<string, string ?> arg_map) {
             dialog_pages = new DialogPage[1];
 
-            switch (focus_page.down ()) {
+            switch (focus_page.down()) {
                 case "apps":
-                    dialog_pages[0] = new DesktopAppPage ();
+                    dialog_pages[0] = new DesktopAppPage();
                     dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "terminal":
-                    dialog_pages[0] = new CommandPage ();
+                    dialog_pages[0] = new CommandPage();
                     dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "notifications":
-                    dialog_pages[0] = new RoficationPage ();
+                    dialog_pages[0] = new RoficationPage();
                     dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "keybindings":
-                    dialog_pages[0] = new KeybingingsPage ();
+                    dialog_pages[0] = new KeybingingsPage();
                     dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "textlist":
-                    dialog_pages[0] = new TextListPage ();
+                    dialog_pages[0] = new TextListPage();
                     dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "windows":
-                    dialog_pages[0] = new WindowPage ();
+                    dialog_pages[0] = new WindowPage();
                     dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 case "tracker":
-                    dialog_pages[0] = new TrackerPage ();
+                    dialog_pages[0] = new TrackerPage();
                     dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 default:
@@ -329,21 +329,21 @@ namespace Ilia {
             int page_count = 6;
             dialog_pages = new DialogPage[page_count];
 
-            dialog_pages[0] = new DesktopAppPage ();
+            dialog_pages[0] = new DesktopAppPage();
             dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[1] = new CommandPage ();
+            dialog_pages[1] = new CommandPage();
             dialog_pages[1].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[2] = new RoficationPage ();
+            dialog_pages[2] = new RoficationPage();
             dialog_pages[2].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[3] = new KeybingingsPage ();
+            dialog_pages[3] = new KeybingingsPage();
             dialog_pages[3].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[4] = new WindowPage ();
+            dialog_pages[4] = new WindowPage();
             dialog_pages[4].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[5] = new TrackerPage ();
+            dialog_pages[5] = new TrackerPage();
             dialog_pages[5].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             // last page, help, will be initialized later in init
 
-            switch (focus_page.down ()) {
+            switch (focus_page.down()) {
                 case "apps":
                     start_page = 0;
                     break;
@@ -379,8 +379,8 @@ namespace Ilia {
             view.fixed_height_mode = true;
             view.enable_search = false;
 
-            view.insert_column_with_attributes(-1, "Key", new CellRendererText (), "text", 0);
-            view.insert_column_with_attributes(-1, "Function", new CellRendererText (), "text", 1);
+            view.insert_column_with_attributes(-1, "Key", new CellRendererText(), "text", 0);
+            view.insert_column_with_attributes(-1, "Function", new CellRendererText(), "text", 1);
 
             TreeIter iter;
 
@@ -422,9 +422,9 @@ namespace Ilia {
             // Ignore changes past min bounds
             if (width < MIN_WINDOW_WIDTH || height < MIN_WINDOW_HEIGHT)return;
 
-            var monitor = this.get_screen ().get_display ().get_monitor(0);  // Assume first monitor
+            var monitor = this.get_screen().get_display().get_monitor(0);    // Assume first monitor
             if (monitor != null) {
-                var geometry = monitor.get_geometry ();
+                var geometry = monitor.get_geometry();
 
                 if (width >= geometry.width || height >= geometry.height)return;
             }
@@ -441,23 +441,23 @@ namespace Ilia {
             } else if (dialog_pages[page_num] != null) {
                 active_page = page_num;
 
-                entry.secondary_icon_name = dialog_pages[active_page].get_icon_name ();
+                entry.secondary_icon_name = dialog_pages[active_page].get_icon_name();
                 entry.set_sensitive(true);
             }
-            dialog_pages[active_page].show ();
+            dialog_pages[active_page].show();
         }
 
         // filter selection based on contents of Entry
         void on_entry_changed() {
-            dialog_pages[active_page].on_entry_changed ();
+            dialog_pages[active_page].on_entry_changed();
         }
 
         void on_entry_activated() {
-            dialog_pages[active_page].on_entry_activated ();
+            dialog_pages[active_page].on_entry_activated();
         }
 
         void clipboard_copy() {
-            var display = this.get_screen ().get_display ();
+            var display = this.get_screen().get_display();
             var clipboard = Clipboard.get_for_display(display, Gdk.SELECTION_CLIPBOARD);
 
             int start, end;
@@ -473,39 +473,38 @@ namespace Ilia {
         void clipboard_cut() {
             var display = this.get_screen().get_display();
             var clipboard = Clipboard.get_for_display(display, Gdk.SELECTION_CLIPBOARD);
-            
+
             int start, end;
             if (entry.get_selection_bounds(out start, out end)) {
                 string selected_text = entry.get_text().substring(start, end - start);
                 clipboard.set_text(selected_text, selected_text.length);
                 clipboard.store();
-                
+
                 // Delete selected text
                 entry.get_buffer().delete_text(start, end - start);
             }
         }
 
         void clipboard_paste() {
-            var display = this.get_screen ().get_display ();
+            var display = this.get_screen().get_display();
             var clipboard = Clipboard.get_for_display(display, Gdk.SELECTION_CLIPBOARD);
 
-            string text = clipboard.wait_for_text ();
+            string text = clipboard.wait_for_text();
 
             if (text != null) {
                 int start, end;
-                
-                if (entry.get_selection_bounds(out start, out end)) {
+
+                if (entry.get_selection_bounds(out start, out end))
                     entry.get_buffer().delete_text(start, end - start);
-                }
                 entry.insert_at_cursor(text);
             }
         }
-        
+
         void move_forward_word() {
             string text = entry.get_text();
             int pos = entry.get_position();
             bool found_word_break = false;
-            
+
             for (int i = pos; i < text.length; i++) {
                 unichar c = text.get_char(text.index_of_nth_char(i));
                 if (c.isspace() || c.ispunct()) {
@@ -515,15 +514,15 @@ namespace Ilia {
                     return;
                 }
             }
-            
+
             entry.set_position(text.length);
         }
-        
+
         void move_backward_word() {
             string text = entry.get_text();
             int pos = entry.get_position();
             bool found_word = false;
-            
+
             for (int i = pos - 1; i >= 0; i--) {
                 unichar c = text.get_char(text.index_of_nth_char(i));
                 if (c.isspace() || c.ispunct()) {
@@ -532,14 +531,14 @@ namespace Ilia {
                 }
                 pos = text.index_of_nth_char(i);
             }
-        
+
             found_word = false;
             for (int i = pos - 1; i >= 0; i--) {
                 unichar c = text.get_char(text.index_of_nth_char(i));
                 if (!(c.isspace() || c.ispunct())) {
                     found_word = true;
                 } else if (found_word) {
-                    entry.set_position(text.index_of_nth_char(i+1));
+                    entry.set_position(text.index_of_nth_char(i + 1));
                     return;
                 }
             }
@@ -547,9 +546,9 @@ namespace Ilia {
         }
 
         public void quit() {
-            if (seat != null)seat.ungrab ();
-            hide ();
-            close ();
+            if (seat != null)seat.ungrab();
+            hide();
+            close();
         }
     }
 }

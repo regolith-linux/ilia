@@ -63,13 +63,13 @@ namespace Ilia {
             filter = new Gtk.TreeModelFilter(model, null);
             filter.set_visible_func(filter_func);
 
-            create_item_view ();
+            create_item_view();
 
             load_commands_from_path.begin((obj, res) => {
                 load_commands_from_path.end(res);
 
                 model.set_sort_column_id(0, SortType.ASCENDING);
-                set_selection ();
+                set_selection();
             });
 
             var scrolled = new Gtk.ScrolledWindow(null, null);
@@ -97,7 +97,7 @@ namespace Ilia {
             item_view.enable_search = false;
 
             // Create columns
-            item_view.insert_column_with_attributes(-1, "Name", new CellRendererText (), "text", ITEM_VIEW_COLUMN_NAME);
+            item_view.insert_column_with_attributes(-1, "Name", new CellRendererText(), "text", ITEM_VIEW_COLUMN_NAME);
 
             // Launch app on one click
             item_view.set_activate_on_single_click(true);
@@ -128,8 +128,8 @@ namespace Ilia {
 
         // filter selection based on contents of Entry
         void on_entry_changed() {
-            filter.refilter ();
-            set_selection ();
+            filter.refilter();
+            set_selection();
         }
 
         // called on enter when in text box
@@ -140,15 +140,15 @@ namespace Ilia {
 
         // traverse the model and show items with metadata that matches entry filter string
         private bool filter_func(Gtk.TreeModel m, Gtk.TreeIter iter) {
-            string queryString = entry.get_text ().down ().strip ();
+            string queryString = entry.get_text().down().strip();
 
             if (queryString.length > 0) {
                 GLib.Value app_info;
                 string strval;
                 model.get_value(iter, ITEM_VIEW_COLUMN_NAME, out app_info);
-                strval = app_info.get_string ();
+                strval = app_info.get_string();
 
-                return (strval != null && strval.down ().contains(queryString));
+                return (strval != null && strval.down().contains(queryString));
             } else {
                 return true;
             }
@@ -159,9 +159,8 @@ namespace Ilia {
 
             foreach (unowned string path in paths.split(":")) {
                 var path_dir = File.new_for_path(path);
-                if (path_dir.query_exists ())
+                if (path_dir.query_exists())
                     yield load_commands_from_dir(path_dir);
-
             }
         }
 
@@ -176,7 +175,7 @@ namespace Ilia {
                         break;
 
                     foreach (var info in app_files) {
-                        string file_path = app_dir.get_child(info.get_name ()).get_path ();
+                        string file_path = app_dir.get_child(info.get_name()).get_path();
 
                         model.append(out iter);
                         model.set(
@@ -192,24 +191,24 @@ namespace Ilia {
 
         // Automatically set the first item in the list as selected.
         private void set_selection() {
-            Gtk.TreeSelection selection = item_view.get_selection ();
+            Gtk.TreeSelection selection = item_view.get_selection();
 
-            if (selection.count_selected_rows () == 0) { // initial state, nothing explicitly selected by user
+            if (selection.count_selected_rows() == 0) {  // initial state, nothing explicitly selected by user
                 selection.set_mode(SelectionMode.SINGLE);
                 if (path == null)
-                    path = new Gtk.TreePath.first ();
+                    path = new Gtk.TreePath.first();
                 selection.select_path(path);
             } else { // an existing item has selection, ensure it's visible
                 var path_list = selection.get_selected_rows(null);
                 if (path_list != null) {
-                    unowned var element = path_list.first ();
+                    unowned var element = path_list.first();
                     item_view.scroll_to_cell(element.data, null, false, 0f, 0f);
                 }
             }
         }
 
         public void show() {
-            item_view.grab_focus ();
+            item_view.grab_focus();
         }
 
         // launch a desktop app
@@ -242,7 +241,7 @@ namespace Ilia {
                 if (!runner.launch(null, null))
                     stderr.printf("Error: execute_command failed\n");
 
-                session_controller.quit ();
+                session_controller.quit();
             } catch (GLib.Error err) {
                 stderr.printf("Error: execute_command failed: %s\n", err.message);
             }

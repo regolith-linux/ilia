@@ -3,6 +3,9 @@ using Gtk;
 namespace Ilia {
 
     public Gdk.Pixbuf ? load_icon_from_app_name(IconTheme icon_theme, string app_name, int size) {
+        // Skip icon loading if size is 0 (user preference to disable icons)
+        if (size == 0) return null;
+
         if (app_name != null) {
             string * *[] desktopApps = GLib.DesktopAppInfo.search(app_name);
 
@@ -17,7 +20,10 @@ namespace Ilia {
     }
 
     public Gdk.Pixbuf ? load_icon_from_info(IconTheme icon_theme, DesktopAppInfo ? app_info, int size) {
-        if (app_info == null)return null;
+        if (app_info == null) return null;
+
+        // Skip icon loading if size is 0 (user preference to disable icons)
+        if (size == 0) return null;
 
         try {
             var icon = app_info.get_icon ();
@@ -45,13 +51,16 @@ namespace Ilia {
     }
 
     public Gdk.Pixbuf ? load_icon_from_name(IconTheme icon_theme, string name, int size) {
+        // Skip icon loading if size is 0 (user preference to disable icons)
+        if (size == 0) return null;
+
         try {
             if (name != null && name.length > 0) {
                 if (GLib.File.new_for_path(name).query_exists ()) {
                     try {
                         return new Gdk.Pixbuf.from_file_at_size(name, size, size);
                     } catch (Error e) {
-                        stderr.printf("3Error loading icon: %s\n", e.message);
+                        stderr.printf("Error loading icon: %s\n", e.message);
                     }
                 }
 

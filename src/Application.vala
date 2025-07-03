@@ -40,8 +40,8 @@ namespace Ilia {
 
         protected override bool local_command_line(ref unowned string[] args, out int exit_status) {
             this.arg_map = parse_args(args);
-            if (arg_map.contains("-h") || arg_map.contains("--help"))print_help_and_exit ();
-            if (arg_map.contains("-v") || arg_map.contains("--version"))print_version_and_exit ();
+            if (arg_map.contains("-h") || arg_map.contains("--help"))print_help_and_exit();
+            if (arg_map.contains("-v") || arg_map.contains("--version"))print_version_and_exit();
             args[0] = null;
             return base.local_command_line(ref args, out exit_status);
         }
@@ -67,7 +67,7 @@ namespace Ilia {
 
             // Grab inputs from wayland backend before showing window
             if (is_wayland_session) {
-                bool is_layer_shell_supported = GtkLayerShell.is_supported ();
+                bool is_layer_shell_supported = GtkLayerShell.is_supported();
                 if (!is_layer_shell_supported) {
                     stderr.printf("The wayland compositor does not support the layer-shell protocol, aborting.");
                     Process.exit(1);
@@ -78,11 +78,11 @@ namespace Ilia {
             }
 
             initialize_style(window, arg_map);
-            window.show_all ();
+            window.show_all();
 
             // Grab inputs from X11 backend after showing window
             if (!is_wayland_session) {
-                Gdk.Window gdkwin = window.get_window ();
+                Gdk.Window gdkwin = window.get_window();
                 var seat = grab_inputs(gdkwin);
                 if (seat == null) {
                     stderr.printf("Failed to aquire access to input devices, aborting.");
@@ -103,7 +103,7 @@ namespace Ilia {
                 var click_out_bounds = ((mouse_x < 0 || mouse_y < 0) || (mouse_x > window_width || mouse_y > window_height));
 
                 if (click_out_bounds)
-                    window.quit ();
+                    window.quit();
 
                 return !click_out_bounds;
             });
@@ -114,19 +114,19 @@ namespace Ilia {
                 if (arg_map.contains("-t") && arg_map.get("-t") != null) {
                     var file = File.new_for_path(arg_map.get("-t"));
 
-                    if (!file.query_exists ()) {
-                        printerr("File '%s' does not exist.\n", file.get_path ());
+                    if (!file.query_exists()) {
+                        printerr("File '%s' does not exist.\n", file.get_path());
                         Process.exit(1);
                     }
-                    Gtk.CssProvider css_provider = new Gtk.CssProvider ();
+                    Gtk.CssProvider css_provider = new Gtk.CssProvider();
                     css_provider.load_from_file(file);
 
-                    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
+                    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
                 } else if (!arg_map.contains("-n")) {
-                    Gtk.CssProvider css_provider = new Gtk.CssProvider ();
+                    Gtk.CssProvider css_provider = new Gtk.CssProvider();
                     css_provider.load_from_data((string) default_css);
 
-                    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default (), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
+                    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER);
                 }
             } catch (GLib.Error ex) {
                 error("Failed to initalize style: " + ex.message);
@@ -139,13 +139,13 @@ namespace Ilia {
         // increasing time window and eventually give up and exit if ultimately unable to aquire
         // the keyboard and mouse resources.
         Gdk.Seat ? grab_inputs(Gdk.Window gdkwin) {
-            var display = gdkwin.get_display (); // Gdk.Display.get_default();
+            var display = gdkwin.get_display();  // Gdk.Display.get_default();
             if (display == null) {
                 stderr.printf("Failed to get Display\n");
                 return null;
             }
 
-            var seat = display.get_default_seat ();
+            var seat = display.get_default_seat();
             if (seat == null) {
                 stdout.printf("Failed to get Seat from Display\n");
                 return null;

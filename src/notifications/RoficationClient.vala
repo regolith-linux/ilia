@@ -39,33 +39,33 @@ namespace Ilia {
             var socket = open_socket(socket_addr);
 
             ssize_t sent = socket.send("list\n".data);
-            debug("Sent " + sent.to_string () + " bytes to notification backend.");
+            debug("Sent " + sent.to_string() + " bytes to notification backend.");
 
-            var str_builder = new StringBuilder ();
+            var str_builder = new StringBuilder();
             uint8[] buffer = new uint8[buffer_size];
             ssize_t len = 0;
 
             do {
                 len = socket.receive_with_blocking(buffer, true);
-                debug("Received  " + len.to_string () + " bytes from notification backend.");
+                debug("Received  " + len.to_string() + " bytes from notification backend.");
                 if (len > 0)str_builder.append_len((string) buffer, len);
             } while (len > 0);
 
             string payload = str_builder.str;
 
-            socket.close ();
+            socket.close();
 
             // stdout.printf("%s\n", payload);
 
-            Json.Parser parser = new Json.Parser ();
+            Json.Parser parser = new Json.Parser();
             parser.load_from_data(payload);
 
-            var doc = parser.get_root ().get_array ();
+            var doc = parser.get_root().get_array();
 
             var list = new List<NotificationDesc> ();
 
-            foreach (var notificationDoc in doc.get_elements ()) {
-                list.append(new NotificationDesc(notificationDoc.get_object ()));
+            foreach (var notificationDoc in doc.get_elements()) {
+                list.append(new NotificationDesc(notificationDoc.get_object()));
             }
 
             return list;
@@ -74,17 +74,17 @@ namespace Ilia {
         public void delete_notification_by_id(int64 id) throws GLib.Error {
             var socket = open_socket(socket_addr);
 
-            var message = "del:" + id.to_string () + "\n";
+            var message = "del:" + id.to_string() + "\n";
             debug(message);
 
             ssize_t sent = socket.send(message.data);
 
-            debug("Sent " + sent.to_string () + " bytes to notification backend.");
-            socket.close ();
+            debug("Sent " + sent.to_string() + " bytes to notification backend.");
+            socket.close();
         }
 
         public void delete_notifications_by_ids(string[] ids) throws GLib.Error {
-            var str_builder = new StringBuilder ();
+            var str_builder = new StringBuilder();
 
             bool first = true;
             foreach (string item in ids) {
@@ -100,16 +100,16 @@ namespace Ilia {
 
             ssize_t sent = socket.send(cmd.data);
 
-            debug("Sent " + sent.to_string () + " bytes to notification backend.");
-            socket.close ();
+            debug("Sent " + sent.to_string() + " bytes to notification backend.");
+            socket.close();
         }
 
         public void delete_notification_by_app(string app) throws GLib.Error {
             var socket = open_socket(socket_addr);
             ssize_t sent = socket.send(("dela:" + app + "\n").data);
 
-            debug("Sent " + sent.to_string () + " bytes to notification backend.");
-            socket.close ();
+            debug("Sent " + sent.to_string() + " bytes to notification backend.");
+            socket.close();
         }
 
         private Socket open_socket(UnixSocketAddress addr) throws GLib.Error {

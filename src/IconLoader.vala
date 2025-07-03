@@ -26,16 +26,16 @@ namespace Ilia {
         if (size == 0) return null;
 
         try {
-            var icon = app_info.get_icon ();
+            var icon = app_info.get_icon();
             string icon_name = null;
             if (icon != null) {
-                icon_name = icon.to_string ();
+                icon_name = icon.to_string();
 
                 var icon_info = icon_theme.lookup_icon(icon_name, size, Gtk.IconLookupFlags.FORCE_SIZE);  // from icon theme
                 if (icon_info != null)
-                    return icon_info.load_icon ();
+                    return icon_info.load_icon();
 
-                if (GLib.File.new_for_path(icon_name).query_exists ()) {
+                if (GLib.File.new_for_path(icon_name).query_exists()) {
                     try {
                         return new Gdk.Pixbuf.from_file_at_size(icon_name, size, size);
                     } catch (Error e) {
@@ -56,7 +56,7 @@ namespace Ilia {
 
         try {
             if (name != null && name.length > 0) {
-                if (GLib.File.new_for_path(name).query_exists ()) {
+                if (GLib.File.new_for_path(name).query_exists()) {
                     try {
                         return new Gdk.Pixbuf.from_file_at_size(name, size, size);
                     } catch (Error e) {
@@ -66,12 +66,12 @@ namespace Ilia {
 
                 var icon_info = icon_theme.lookup_icon(name, size, Gtk.IconLookupFlags.FORCE_SIZE);  // from icon theme
                 if (icon_info != null)
-                    return icon_info.load_icon ();
+                    return icon_info.load_icon();
             }
 
             var icon_info = icon_theme.lookup_icon("emblem-generic", size, Gtk.IconLookupFlags.FORCE_SIZE);
             if (icon_info != null)
-                return icon_info.load_icon ();
+                return icon_info.load_icon();
         } catch (GLib.Error err) {
             stderr.printf("Error: load_icon failed: %s\n", err.message);
         }

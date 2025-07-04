@@ -97,4 +97,85 @@ namespace Ilia {
 
         return escaped.str.replace("/", "-");
     }
+    
+    /**
+     * Fuzzy search algorithm to match strings with more flexibility
+     * Returns a score between 0-100 where 100 is a perfect match and 0 is no match
+     */
+    public static int fuzzy_match_score(string source, string pattern) {
+        if (pattern.length == 0) return 100;
+        if (source.length == 0) return 0;
+        
+        // Normalize strings for comparison
+        string s_lower = source.down();
+        string p_lower = pattern.down();
+        
+        // Check for exact substring match first (highest priority)
+        if (s_lower.contains(p_lower)) {
+            // Calculate score based on match position and completeness
+            // Give higher scores to matches at the beginning
+            int pos = s_lower.index_of(p_lower);
+            if (pos == 0) {
+                // Starting match is best
+                return 95 + int.min(5, 5 * pattern.length / source.length);
+            } else {
+                // Penalize matches later in the string
+                return 80 + int.min(15, 20 * pattern.length / source.length) - int.min(15, pos / 2);
+            }
+        }
+        
+        // Check for character matches in sequence
+        int matched_chars = 0;
+        int last_matched_pos = -1;
+        int consecutive_matches = 0;
+        int max_consecutive = 0;
+        
+        for (int i = 0; i < p_lower.length; i++) {
+            char pattern_char = p_lower[i];
+            bool found = false;
+            
+            // Start looking from the last matched position
+            for (int j = last_matched_pos + 1; j < s_lower.length; j++) {
+                if (s_lower[j] == pattern_char) {
+                    matched_chars++;
+                    
+                    // Check for consecutive matches
+                    if (last_matched_pos + 1 == j) {
+                        consecutive_matches++;
+                    } else {
+                        consecutive_matches = 1;
+                    }
+                    
+                    max_consecutive = int.max(max_consecutive, consecutive_matches);
+                    last_matched_pos = j;
+                    found = true;
+                    break;
+                }
+            }
+            
+            if (!found) {
+                // Character not found in the source string
+                return 0; // No match if not all characters are present
+            }
+        }
+        
+        // Calculate score based on matched characters, their consecutiveness,
+        // and ratio to total string length
+        double match_ratio = (double)matched_chars / (double)p_lower.length;
+        double length_ratio = (double)p_lower.length / (double)s_lower.length;
+        
+        // Bonus for consecutive character matches
+        double consecutive_bonus = (double)max_consecutive / (double)p_lower.length * 15.0;
+        
+        // Calculate final score (0-100)
+        int score = (int)(match_ratio * 60.0 + length_ratio * 25.0 + consecutive_bonus);
+        return int.min(75, score); // Cap at 75 to rank below exact substring matches
+    }
+    
+    /**
+     * Check if a string fuzzy matches a pattern with a minimum threshold
+     */
+    public static bool fuzzy_match(string source, string pattern, int threshold = 50) {
+        return fuzzy_match_score(source, pattern) >= threshold;
+    }
 }

@@ -27,6 +27,7 @@ ilia_deps += [gtk_3_0_dep]
 ilia_deps += [pango_dep]
 ilia_deps += [x11_dep]
 ilia_deps += [gtk_layer_shell_dep]
+
 ilia_sources = [cfgfile_1]
 ilia_sources += files([
     'ModuleApi.vala',
@@ -36,6 +37,7 @@ ilia_sources += files([
     'Util.vala',
     'apps/DesktopAppPage.vala',
     'commands/CommandPage.vala',
+    'clipboard/ClipboardPage.vala',
     'keybindings/ConfigParser.vala',
     'keybindings/I3Ipc.vala',
     'keybindings/KeybindingsPage.vala',

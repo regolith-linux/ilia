@@ -63,12 +63,17 @@ namespace Ilia {
             entry = new Gtk.Entry ();
             entry.get_style_context ().add_class("filter_entry");
             entry.hexpand = true;
+            entry.set_icon_from_icon_name(Gtk.EntryIconPosition.PRIMARY, "system-search-symbolic");
             entry.button_press_event.connect((event) => {
                 // Disable context menu as causes de-focus event to exit execution
                 return event.button == 3; // squelch right button click event
             });
 
             entry.changed.connect(on_entry_changed);
+            
+            // Create a box for the entry and header
+            var entry_box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+            entry_box.pack_start(entry, true, true, 0);
 
             notebook = new Notebook ();
             notebook.get_style_context ().add_class("notebook");
@@ -81,7 +86,7 @@ namespace Ilia {
 
             grid = new Gtk.Grid ();
             grid.get_style_context ().add_class("root_box");
-            grid.attach(entry, 0, 0, 1, 1);
+            grid.attach(entry_box, 0, 0, 1, 1);
             grid.attach(notebook, 0, 1, 1, 1);
             add(grid);
 
@@ -115,6 +120,11 @@ namespace Ilia {
                     if (key.keyval == '-') { // Contract dialog
                         change_size(-128);
                         return true;
+                    }
+                    // Pass Alt+D key event to active page for handling desktop app actions
+                    if (key.keyval == 'd' || key.keyval == 'D') {
+                        bool key_handled = dialog_pages[active_page].key_event(key);
+                        return key_handled;
                     }
                 } else if ((key.state & Gdk.ModifierType.CONTROL_MASK) == Gdk.ModifierType.CONTROL_MASK) {
                     // movement with vim commands and editing with Ctrl key
@@ -316,6 +326,10 @@ namespace Ilia {
                     dialog_pages[0] = new TrackerPage ();
                     dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
+                case "clipboard":
+                    dialog_pages[0] = new ClipboardPage ();
+                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+                    break;
                 default:
                     stderr.printf("Unknown page type: %s\n", focus_page);
                     break;
@@ -326,7 +340,7 @@ namespace Ilia {
          * Creates pages for all generally usable pages
          */
         private int create_all_pages(HashTable<string, string ?> arg_map, string focus_page, ref uint start_page) {
-            int page_count = 6;
+            int page_count = 7; // increased for clipboard page
             dialog_pages = new DialogPage[page_count];
 
             dialog_pages[0] = new DesktopAppPage ();
@@ -341,6 +355,8 @@ namespace Ilia {
             dialog_pages[4].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             dialog_pages[5] = new TrackerPage ();
             dialog_pages[5].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+            dialog_pages[6] = new ClipboardPage ();
+            dialog_pages[6].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             // last page, help, will be initialized later in init
 
             switch (focus_page.down ()) {
@@ -361,6 +377,9 @@ namespace Ilia {
                     break;
                 case "tracker":
                     start_page = 5;
+                    break;
+                case "clipboard":
+                    start_page = 6;
                     break;
                 default:
                     stderr.printf("Unknown page type: %s\n", focus_page);
@@ -550,6 +569,10 @@ namespace Ilia {
             if (seat != null)seat.ungrab ();
             hide ();
             close ();
+        }
+        
+        public string get_wm_name() {
+            return this.wm_name;
         }
     }
 }

@@ -303,12 +303,12 @@ namespace Ilia {
         private Json.Node ? wm_ipc(WM_COMMAND command) throws GLib.Error {
             ssize_t sent = socket.send(generate_request(command));
 
-            debug("Sent " + sent.to_string () + " bytes to " + wm_name + ".\n");
+            debug("Sent " + sent.to_string () + " bytes to " + wm_name);
             uint8[] buffer = new uint8[buffer_size];
 
             ssize_t len = socket.receive(buffer);
 
-            debug("Received  " + len.to_string () + " bytes from " + wm_name + ".\n");
+            debug("Received  " + len.to_string () + " bytes from " + wm_name);
 
             Bytes responseBytes = new Bytes.take(buffer[0 : len]);
 

@@ -39,7 +39,7 @@ namespace Ilia {
             var socket = open_socket(socket_addr);
 
             ssize_t sent = socket.send("list\n".data);
-            debug("Sent " + sent.to_string () + " bytes to notification backend.\n");
+            debug("Sent " + sent.to_string () + " bytes to notification backend.");
 
             var str_builder = new StringBuilder ();
             uint8[] buffer = new uint8[buffer_size];
@@ -47,7 +47,7 @@ namespace Ilia {
 
             do {
                 len = socket.receive_with_blocking(buffer, true);
-                debug("Received  " + len.to_string () + " bytes from notification backend.\n");
+                debug("Received  " + len.to_string () + " bytes from notification backend.");
                 if (len > 0)str_builder.append_len((string) buffer, len);
             } while (len > 0);
 
@@ -79,7 +79,7 @@ namespace Ilia {
 
             ssize_t sent = socket.send(message.data);
 
-            debug("Sent " + sent.to_string () + " bytes to notification backend.\n");
+            debug("Sent " + sent.to_string () + " bytes to notification backend.");
             socket.close ();
         }
 
@@ -100,7 +100,7 @@ namespace Ilia {
 
             ssize_t sent = socket.send(cmd.data);
 
-            debug("Sent " + sent.to_string () + " bytes to notification backend.\n");
+            debug("Sent " + sent.to_string () + " bytes to notification backend.");
             socket.close ();
         }
 
@@ -108,7 +108,7 @@ namespace Ilia {
             var socket = open_socket(socket_addr);
             ssize_t sent = socket.send(("dela:" + app + "\n").data);
 
-            debug("Sent " + sent.to_string () + " bytes to notification backend.\n");
+            debug("Sent " + sent.to_string () + " bytes to notification backend.");
             socket.close ();
         }
 

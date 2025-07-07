@@ -47,7 +47,7 @@ public class ConfigParser {
         var variableMap = new HashTable<string, string>(str_hash, str_equal);
 
         foreach (unowned string line in lines) {
-            string trimmedLine = line.strip ();
+            string trimmedLine = line.strip();
             if (lineMatch(trimmedLine, prefix)) {
                 if (line_prefix != "")
                     trimmedLine = trimmedLine.substring(line_prefix.length);
@@ -71,8 +71,8 @@ public class ConfigParser {
         var sp2 = line.index_of_char(' ', sp1 + 1);
         var sp3 = line.index_of_char(' ', sp2 + 1);
 
-        var key = line.substring(sp1, (sp2 - sp1)).strip ();
-        var val = line.substring(sp3 + 1).strip ().strip ();
+        var key = line.substring(sp1, (sp2 - sp1)).strip();
+        var val = line.substring(sp3 + 1).strip().strip();
 
         if (key.length > 0 && val.length > 0)
             varmap.insert(key, val);
@@ -93,7 +93,7 @@ public class ConfigParser {
         var sp1 = line.index_of_char(' ');
         var sp2 = line.index_of_char(' ', sp1 + 1);
 
-        var exec_expr = line.substring(sp2 + 1).strip ();
+        var exec_expr = line.substring(sp2 + 1).strip();
 
         string[] tokens = exec_expr.split(" ");
         string final_expr = "";
@@ -131,9 +131,9 @@ public class ConfigParser {
         if (values.length != PARAMETER_COUNT)
             throw new PARSE_ERROR.BAD_PARAM_MATCH("Invalid line: " + line + "\n");
 
-        string category = values[0].strip ();
-        string label = values[1].strip ();
-        string spec = values[2].strip ();
+        string category = values[0].strip();
+        string label = values[1].strip();
+        string spec = values[2].strip();
 
         if (!configMap.has_key(category))configMap.set(category, new ArrayList<Keybinding>());
 

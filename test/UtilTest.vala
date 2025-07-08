@@ -41,6 +41,18 @@ public void test_compare_desktop_apps() {
         "app4", "app5",
         "app4.desktop", "app5.desktop",
         "", new GLib.HashTable<string, int>(GLib.str_hash, GLib.str_equal)) == -1); // alphabetical order
+
+    // Test: One app has prefix, other doesn't
+    assert(Ilia.compare_desktop_apps(
+        "firefox", "chrome",
+        "app1.desktop", "app3.desktop",
+        "fi", launch_counts) == -1); // firefox has prefix "fi"
+
+    // Test: Equal launch counts, fall back to alphabetical
+    assert(Ilia.compare_desktop_apps(
+        "chrome", "firefox",
+        "app1.desktop", "app3.desktop",
+        "", launch_counts) == -1); // "chrome" comes before "firefox" alphabetically
 }
 
 public int main (string[] args) {

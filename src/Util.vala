@@ -128,12 +128,13 @@ namespace Ilia {
             var app_b_has_prefix = app_b_name.has_prefix(query_string);
 
             if (query_string.length > 1 && (app_a_has_prefix || app_b_has_prefix)) {
-                if (app_b_has_prefix && !app_b_has_prefix)
-                    // stdout.printf ("boosted %s for %s\n", app_a.get_name (), query_string);
-                    return -1;
-                else if (!app_a_has_prefix && app_b_has_prefix)
+                if (app_b_has_prefix && !app_a_has_prefix) {
                     // stdout.printf ("boosted %s for %s\n", app_b.get_name (), query_string);
                     return 1;
+                } else if (app_a_has_prefix && !app_b_has_prefix) {
+                    // stdout.printf ("boosted %s for %s\n", app_a.get_name (), query_string);
+                    return -1;
+                }
             }
         }
 
@@ -146,11 +147,16 @@ namespace Ilia {
                 return -1;
             else if (a_count < b_count)
                 return 1;
-            else
-                return 0;
+            // If launch counts are equal, fall through to alphabetical ordering
         }
 
         // Third priority: alphabetical order
-        return app_a_name.ascii_casecmp(app_b_name);
+        int compare_result = app_a_name.ascii_casecmp(app_b_name);
+        if (compare_result < 0)
+            return -1;
+        else if (compare_result > 0)
+            return 1;
+        else
+            return 0;
     }
 }

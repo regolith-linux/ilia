@@ -181,43 +181,34 @@ namespace Ilia {
                 execute_app(iter);
         }
 
+        /**
+         * Sort function for the application list
+         *
+         * This is a wrapper around the testable compare_desktop_apps utility function
+         * that extracts the necessary data from the TreeModel and TreeIter objects
+         */
         private int app_sort_func(TreeModel model, TreeIter a, TreeIter b) {
-            string query_string = entry.get_text ().down ();
+            string query_string = entry.get_text().down();
+
             DesktopAppInfo app_a;
             model.@get(a, ITEM_VIEW_COLUMN_APPINFO, out app_a);
             DesktopAppInfo app_b;
             model.@get(b, ITEM_VIEW_COLUMN_APPINFO, out app_b);
 
-            var app_a_name = app_a.get_name ().down ();
-            var app_b_name = app_b.get_name ().down ();
+            var app_a_name = app_a.get_name().down();
+            var app_b_name = app_b.get_name().down();
 
-            if (query_string.length > 0) {
-                var app_a_has_prefix = app_a_name.has_prefix(query_string);
-                var app_b_has_prefix = app_b_name.has_prefix(query_string);
+            var app_a_id = app_a.get_id();
+            var app_b_id = app_b.get_id();
 
-                if (query_string.length > 1 && (app_a_has_prefix || app_b_has_prefix)) {
-                    if (app_b_has_prefix && !app_b_has_prefix)
-                        // stdout.printf ("boosted %s for %s\n", app_a.get_name (), query_string);
-                        return -1;
-                    else if (!app_a_has_prefix && app_b_has_prefix)
-                        // stdout.printf ("boosted %s for %s\n", app_b.get_name (), query_string);
-                        return 1;
-                }
-            }
-
-            var a_count = launch_counts.get(app_a.get_id ());
-            var b_count = launch_counts.get(app_b.get_id ());
-
-            if (a_count > 0 || b_count > 0) {
-                if (a_count > b_count)
-                    return -1;
-                else if (a_count < b_count)
-                    return 1;
-                else
-                    return 0;
-            }
-
-            return app_a_name.ascii_casecmp(app_b_name);
+            return compare_desktop_apps(
+                app_a_name,
+                app_b_name,
+                app_a_id,
+                app_b_id,
+                query_string,
+                launch_counts
+            );
         }
 
         private HashTable<string, int> load_launch_counts(string[] history) {

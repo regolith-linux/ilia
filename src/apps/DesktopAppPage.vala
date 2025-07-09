@@ -2,6 +2,7 @@ using Gtk;
 
 namespace Ilia {
     class DesktopAppPage : DialogPage, GLib.Object {
+        private static GLib.Timer app_timer;
         private const int ITEM_VIEW_COLUMNS = 4;
         private const int ITEM_VIEW_COLUMN_ICON = 0;
         private const int ITEM_VIEW_COLUMN_NAME = 1;
@@ -71,6 +72,8 @@ namespace Ilia {
         }
 
         public async void initialize(GLib.Settings settings, HashTable<string, string ?> arg_map, Gtk.Entry entry, SessionContoller sessionController, string wm_name, bool is_wayland) throws GLib.Error {
+            app_timer = new GLib.Timer();
+            app_timer.start();
             this.settings = settings;
             this.entry = entry;
             this.session_controller = sessionController;
@@ -133,7 +136,7 @@ namespace Ilia {
 
         public void show() {
             item_view.grab_focus ();
-            debug("DesktopAppPage ready to accept keystrokes");
+            debug("DesktopAppPage ready to accept keystrokes (%.3f seconds since app start)", app_timer.elapsed());
         }
 
         // Initialize the view displaying selections
@@ -254,7 +257,6 @@ namespace Ilia {
         }
 
         private void load_apps() {
-            // var start_time = get_monotonic_time();
             // determine theme for icons
             icon_theme = Gtk.IconTheme.get_default ();
             // Set a blank icon to avoid visual jank as real icons are loaded
@@ -264,7 +266,7 @@ namespace Ilia {
             foreach (AppInfo appinfo in app_list) {
                 read_desktop_file(appinfo, blank_icon);
             }
-            // stdout.printf("time cost: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
+            debug("Finished loading all apps (%.3f seconds since app start)", app_timer.elapsed());
         }
 
         private void read_desktop_file(AppInfo appInfo, Gdk.Pixbuf ? icon_img) {
@@ -340,6 +342,7 @@ namespace Ilia {
                     });
                 }
             }
+            debug("Finished loading all icons (%.3f seconds since app start)", app_timer.elapsed());
         }
 
         // In the case that neither success or failure signals are received, exit after a timeout

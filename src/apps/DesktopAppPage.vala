@@ -133,6 +133,7 @@ namespace Ilia {
 
         public void show() {
             item_view.grab_focus ();
+            debug("DesktopAppPage ready to accept keystrokes");
         }
 
         // Initialize the view displaying selections
@@ -301,23 +302,53 @@ namespace Ilia {
             }
         }
 
-        // Iterate over model and load icons
         void loadAppIcons() {
-            // stdout.printf("loadAppIcons start: %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
+            load_icons_async.begin((obj, res) => {
+                try {
+                    load_icons_async.end(res);
+                } catch (Error e) {
+                    stderr.printf("Error loading icons: %s\n", e.message);
+                }
+            });
+        }
+        
+        // Asynchronously load icons with idle priority to avoid UI blocking
+        private async void load_icons_async() throws Error {
+            // Store iterators in a standard array
+            TreeIter[] iterators = {};
             TreeIter app_iter;
-            Value app_info_val;
-
+            
+            // First collect all iterators
             for (bool next = model.get_iter_first(out app_iter); next; next = model.iter_next(ref app_iter)) {
-                model.get_value(app_iter, ITEM_VIEW_COLUMN_APPINFO, out app_info_val);
-
-                Gdk.Pixbuf icon = Ilia.load_icon_from_info(icon_theme, (DesktopAppInfo) app_info_val, icon_size);
-
-                model.set(
-                    app_iter,
-                    ITEM_VIEW_COLUMN_ICON, icon
-                );
+                iterators += app_iter;
             }
-            // stdout.printf("loadAppIcons end  : %" + int64.FORMAT + "\n", (get_monotonic_time() - start_time));
+            
+            foreach (TreeIter iter in iterators) {
+                // Yield to main loop after each icon to keep UI maximally responsive
+                Idle.add(load_icons_async.callback);
+                yield;
+                
+                // Load the icon
+                Value app_info_val;
+                model.get_value(iter, ITEM_VIEW_COLUMN_APPINFO, out app_info_val);
+                
+                Gdk.Pixbuf? icon = Ilia.load_icon_from_info(
+                    icon_theme,
+                    (DesktopAppInfo) app_info_val,
+                    icon_size
+                );
+                
+                // Update the model with the loaded icon if successful
+                if (icon != null) {
+                    Idle.add(() => {
+                        model.set(
+                            iter,
+                            ITEM_VIEW_COLUMN_ICON, icon
+                        );
+                        return false;
+                    });
+                }
+            }
         }
 
         // In the case that neither success or failure signals are received, exit after a timeout

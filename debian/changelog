@@ -1,3 +1,14 @@
+ilia (0.17.0) jammy; urgency=medium
+
+  [ Kyle Anderson ]
+  * Removed newlines in debug() statements
+  * Respect icon size=0 harder
+  * Extract app sorting into a dedicated function for testing
+  * Fix prefix matching to sort correct
+  * Load icons async
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Wed, 09 Jul 2025 07:25:11 -0700
+
 ilia (0.16.0) jammy; urgency=medium
 
   [ PeterNaggschga ]

@@ -97,4 +97,66 @@ namespace Ilia {
 
         return escaped.str.replace("/", "-");
     }
+
+    /**
+     * Compare two desktop applications for sorting purposes
+     *
+     * This function implements the core logic for sorting desktop applications based on:
+     * 1. Prefix matching with a query string (if provided)
+     * 2. Launch counts (popularity)
+     * 3. Alphabetical order as a fallback
+     *
+     * @param app_a_name The lowercase name of the first application
+     * @param app_b_name The lowercase name of the second application
+     * @param app_a_id The ID of the first application
+     * @param app_b_id The ID of the second application
+     * @param query_string The lowercase query string to match against (can be empty)
+     * @param launch_counts A hash table mapping app IDs to launch counts
+     * @return -1 if app_a should come before app_b, 1 if app_b should come before app_a, 0 if equal
+     */
+    public static int compare_desktop_apps(
+        string app_a_name,
+        string app_b_name,
+        string app_a_id,
+        string app_b_id,
+        string query_string,
+        HashTable<string, int> launch_counts
+    ) {
+        // First priority: prefix matching with query string
+        if (query_string.length > 0) {
+            var app_a_has_prefix = app_a_name.has_prefix(query_string);
+            var app_b_has_prefix = app_b_name.has_prefix(query_string);
+
+            if (query_string.length > 1 && (app_a_has_prefix || app_b_has_prefix)) {
+                if (app_b_has_prefix && !app_a_has_prefix) {
+                    // stdout.printf ("boosted %s for %s\n", app_b.get_name (), query_string);
+                    return 1;
+                } else if (app_a_has_prefix && !app_b_has_prefix) {
+                    // stdout.printf ("boosted %s for %s\n", app_a.get_name (), query_string);
+                    return -1;
+                }
+            }
+        }
+
+        // Second priority: launch counts (popularity)
+        var a_count = launch_counts.get(app_a_id);
+        var b_count = launch_counts.get(app_b_id);
+
+        if (a_count > 0 || b_count > 0) {
+            if (a_count > b_count)
+                return -1;
+            else if (a_count < b_count)
+                return 1;
+            // If launch counts are equal, fall through to alphabetical ordering
+        }
+
+        // Third priority: alphabetical order
+        int compare_result = app_a_name.ascii_casecmp(app_b_name);
+        if (compare_result < 0)
+            return -1;
+        else if (compare_result > 0)
+            return 1;
+        else
+            return 0;
+    }
 }

@@ -170,6 +170,10 @@ namespace Ilia {
                         clipboard_cut();
                         return true;
                     }
+                    if (key.keyval == 65288) { // backspace
+                        delete_backward_word();
+                        return true;
+                    }
                 }
 
                 bool key_handled = false;
@@ -544,6 +548,29 @@ namespace Ilia {
                 }
             }
             entry.set_position(0);
+        }
+
+        void delete_backward_word() {
+            string text = entry.get_text();
+            int pos = entry.get_position();
+            int start_delete = 0;
+            bool found_word = false;
+
+            for (int i = pos - 1; i >= 0; i--) {
+                unichar c = text.get_char(text.index_of_nth_char(i));
+                if (c.isspace() || c.ispunct()) {
+                    if (found_word) {
+                        start_delete = text.index_of_nth_char(i + 1);
+                        break;
+                    }
+                } else {
+                    found_word = true;
+                }
+            }
+
+            if (start_delete < pos) {
+                entry.get_buffer().delete_text(start_delete, pos - start_delete);
+            }
         }
 
         public void quit() {

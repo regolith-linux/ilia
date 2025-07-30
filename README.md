@@ -83,6 +83,13 @@ ninja
 src/ilia
 ```
 
+By default, Ilia builds with release optimizations. For debug builds:
+
+```shell
+meson setup builddebug --buildtype=debug
+ninja -C builddebug
+```
+
 ## Lint
 
 ### Uncrustify

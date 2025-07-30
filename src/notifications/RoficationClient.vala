@@ -55,7 +55,6 @@ namespace Ilia {
 
             socket.close();
 
-            // stdout.printf("%s\n", payload);
 
             Json.Parser parser = new Json.Parser();
             parser.load_from_data(payload);

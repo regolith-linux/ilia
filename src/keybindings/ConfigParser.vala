@@ -54,7 +54,6 @@ public class ConfigParser {
                 last_keybinding = parseLine(trimmedLine, config_map);
             } else if (execMatch(trimmedLine) && last_keybinding != null) {
                 last_keybinding.exec = parseExecLine(trimmedLine, variableMap);
-                // stdout.printf("got %s\n", last_keybinding.exec);
                 last_keybinding = null;
             } else if (setFromResourceMatch(trimmedLine)) {
                 parseSetFromResourceLine(trimmedLine, variableMap);
@@ -142,15 +141,4 @@ public class ConfigParser {
 
         return binding;
     }
-
-    /*
-       private void debugConfigMap(Map<string, ArrayList<Keybinding>> configMap) {
-       foreach (var entry in config_map.entries) {
-        stdout.printf ("%s =>\n", entry.key);
-        foreach (Keybinding k in entry.value) {
-          stdout.printf ("      %s %s\n", k.label, k.spec);
-        }
-       }
-       }
-     */
 }

@@ -49,8 +49,6 @@ namespace Ilia {
         if (systemd_run_path == null)
             return app_info;
         string app_id = app_info.get_id();
-        stdout.printf("KG2: \nbefore: '%s'\nafter : '%s'\n", app_id, systemd_escape(app_id));
-        stdout.flush();
         string exec = app_info.get_commandline();
         string random_suffix = Uuid.string_random().slice(0, 8);
         string unit_name = "run_ilia_" + systemd_escape(app_id) + "_" + random_suffix + ".scope";
@@ -125,10 +123,8 @@ namespace Ilia {
 
             if (query_string.length > 1 && (app_a_has_prefix || app_b_has_prefix)) {
                 if (app_b_has_prefix && !app_a_has_prefix)
-                    // stdout.printf ("boosted %s for %s\n", app_b.get_name (), query_string);
                     return 1;
                 else if (app_a_has_prefix && !app_b_has_prefix)
-                    // stdout.printf ("boosted %s for %s\n", app_a.get_name (), query_string);
                     return -1;
             }
         }

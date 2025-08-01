@@ -420,13 +420,13 @@ namespace Ilia {
             height += delta;
 
             // Ignore changes past min bounds
-            if (width < MIN_WINDOW_WIDTH || height < MIN_WINDOW_HEIGHT)return;
+            if (width < MIN_WINDOW_WIDTH || height < MIN_WINDOW_HEIGHT) return;
 
             var monitor = this.get_screen().get_display().get_monitor(0);    // Assume first monitor
             if (monitor != null) {
                 var geometry = monitor.get_geometry();
 
-                if (width >= geometry.width || height >= geometry.height)return;
+                if (width >= geometry.width || height >= geometry.height) return;
             }
 
             resize(width, height);
@@ -546,7 +546,7 @@ namespace Ilia {
         }
 
         public void quit() {
-            if (seat != null)seat.ungrab();
+            if (seat != null) seat.ungrab();
             hide();
             close();
         }

@@ -36,7 +36,7 @@ public class ConfigParser {
     public Map<string, ArrayList<Keybinding> > parse() throws PARSE_ERROR, GLib.Error, Ilia.WM_ERROR {
         string[] lines = config.split("\n");
 
-        if (lines == null || lines.length == 0)return Map.empty<string, ArrayList<Keybinding> >(); ;
+        if (lines == null || lines.length == 0) return Map.empty<string, ArrayList<Keybinding> >(); ;
 
         var config_map = new TreeMap<string, ArrayList<Keybinding> >();
         var prefix = REMONTOIRE_LINE_WRAPPER;
@@ -135,7 +135,7 @@ public class ConfigParser {
         string label = values[1].strip();
         string spec = values[2].strip();
 
-        if (!configMap.has_key(category))configMap.set(category, new ArrayList<Keybinding>());
+        if (!configMap.has_key(category)) configMap.set(category, new ArrayList<Keybinding>());
 
         var binding = new Keybinding(label, spec);
         configMap.get(category).add(binding);

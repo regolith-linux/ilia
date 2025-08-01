@@ -179,11 +179,11 @@ namespace Ilia {
         public string title { get; private set; }
 
         internal WindowProperties (Json.Object responseJson) {
-            if (responseJson.has_member("class"))clazz = responseJson.get_string_member("class");
-            if (responseJson.has_member("instance"))instance = responseJson.get_string_member("instance");
-            if (responseJson.has_member("machine"))machine = responseJson.get_string_member("machine");
-            if (responseJson.has_member("title"))title = responseJson.get_string_member("title");
-            if (responseJson.has_member("window_role"))window_role = responseJson.get_string_member("window_role");
+            if (responseJson.has_member("class")) clazz = responseJson.get_string_member("class");
+            if (responseJson.has_member("instance")) instance = responseJson.get_string_member("instance");
+            if (responseJson.has_member("machine")) machine = responseJson.get_string_member("machine");
+            if (responseJson.has_member("title")) title = responseJson.get_string_member("title");
+            if (responseJson.has_member("window_role")) window_role = responseJson.get_string_member("window_role");
         }
     }
 

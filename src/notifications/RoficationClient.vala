@@ -48,7 +48,7 @@ namespace Ilia {
             do {
                 len = socket.receive_with_blocking(buffer, true);
                 debug("Received  " + len.to_string() + " bytes from notification backend.");
-                if (len > 0)str_builder.append_len((string) buffer, len);
+                if (len > 0) str_builder.append_len((string) buffer, len);
             } while (len > 0);
 
             string payload = str_builder.str;
@@ -89,7 +89,7 @@ namespace Ilia {
             bool first = true;
             foreach (string item in ids) {
                 if (item != null) {
-                    if (!first)str_builder.append(",");
+                    if (!first) str_builder.append(",");
                     str_builder.append(item);
                     first = false;
                 }

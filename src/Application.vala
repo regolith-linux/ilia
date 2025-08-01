@@ -40,8 +40,8 @@ namespace Ilia {
 
         protected override bool local_command_line(ref unowned string[] args, out int exit_status) {
             this.arg_map = parse_args(args);
-            if (arg_map.contains("-h") || arg_map.contains("--help"))print_help_and_exit();
-            if (arg_map.contains("-v") || arg_map.contains("--version"))print_version_and_exit();
+            if (arg_map.contains("-h") || arg_map.contains("--help")) print_help_and_exit();
+            if (arg_map.contains("-v") || arg_map.contains("--version")) print_version_and_exit();
             args[0] = null;
             return base.local_command_line(ref args, out exit_status);
         }

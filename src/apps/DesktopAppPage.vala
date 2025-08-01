@@ -245,7 +245,7 @@ namespace Ilia {
                 model.get_value(iter, ITEM_VIEW_COLUMN_NAME, out app_info);
                 strval = app_info.get_string();
 
-                if (strval != null && strval.down().contains(query_string))return true;
+                if (strval != null && strval.down().contains(query_string)) return true;
 
                 model.get_value(iter, ITEM_VIEW_COLUMN_KEYWORDS, out app_info);
                 strval = app_info.get_string();

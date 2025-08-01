@@ -224,7 +224,7 @@ namespace Ilia {
             string cmd_path;
             filter.@get(selection, ITEM_VIEW_COLUMN_EXEC, out cmd_path);
 
-            if (cmd_path != null)execute_keybinding(cmd_path);
+            if (cmd_path != null) execute_keybinding(cmd_path);
         }
 
         private void execute_keybinding(string exec) {

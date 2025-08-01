@@ -167,8 +167,8 @@ namespace Ilia {
                 model.get_value(iter, ITEM_VIEW_COLUMN_APP, out table_info);
                 string app = table_info.get_string();
 
-                if (body != null && body.down().contains(query_string))return true;
-                if (app != null && app.down().contains(query_string))return true;
+                if (body != null && body.down().contains(query_string)) return true;
+                if (app != null && app.down().contains(query_string)) return true;
 
                 return false;
             } else {
@@ -214,7 +214,7 @@ namespace Ilia {
         private DesktopAppInfo ? getDesktopAppInfo(string appName) {
             string * *[] desktopApps = GLib.DesktopAppInfo.search(appName);
 
-            if (desktopApps.length < 1)return null;
+            if (desktopApps.length < 1) return null;
 
             // Take top search result
             return new DesktopAppInfo(*desktopApps[0]);
@@ -280,7 +280,7 @@ namespace Ilia {
             }
 
             try {
-                if (ids.length > 0)rofi_client.delete_notifications_by_ids(ids);
+                if (ids.length > 0) rofi_client.delete_notifications_by_ids(ids);
 
                 load_notifications.begin();
                 set_selection();

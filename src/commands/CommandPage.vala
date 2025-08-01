@@ -216,7 +216,7 @@ namespace Ilia {
             string cmd_path;
             filter.@get(selection, ITEM_VIEW_COLUMN_NAME, out cmd_path);
 
-            if (cmd_path != null)execute_command(cmd_path);
+            if (cmd_path != null) execute_command(cmd_path);
         }
 
         private void execute_command(string cmd_path) {

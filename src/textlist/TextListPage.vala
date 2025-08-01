@@ -227,7 +227,7 @@ namespace Ilia {
             string cmd_path;
             filter.@get(selection, name_column_index, out cmd_path);
 
-            if (cmd_path != null)print(cmd_path);
+            if (cmd_path != null) print(cmd_path);
         }
 
         private void print(string selection) {

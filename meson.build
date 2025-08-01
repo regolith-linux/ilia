@@ -1,6 +1,10 @@
 project('ilia',
   ['c','vala'],
-  version: '0.12')
+  version: '0.12',
+  default_options: [
+    'buildtype=release',
+    'b_ndebug=if-release'
+  ])
 
 add_global_arguments('-DGETTEXT_PACKAGE="ilia"',language: 'c')
 

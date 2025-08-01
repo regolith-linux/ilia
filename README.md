@@ -85,11 +85,34 @@ src/ilia
 
 ## Lint
 
-### Uncrustify
+In a build dir run this to execute `uncrustify`:
 
-```shell
-ninja fixstyle
-```
+    ninja fixstyle
+
+## Test
+
+Run the unit tests in a build dir with:
+
+    ninja test
+
+For manual testing, it is useful to run with throttled CPU in debug mode, run ilia like this:
+
+    systemd-run --pipe --user --property=CPUQuota=10% --property=MemoryLimit=100M --property=MemorySwapMax=0 --property=RuntimeMaxSec=30 --collect --wait -E G_MESSAGES_DEBUG=all build/src/ilia -p apps
+
+Otherwise, you won't be able to see the effects of any async issues, which only reveal themselves under heavy load.
+
+You can always run `ilia` in debug mode by editing `~/.config/regolith3/Xresources`
+
+    # In ~/.config/regolith3/Xresources
+    # Make this file if it doesn't exist.
+    # Use MOD + shift + r to reload Regolith to pick up the change
+    wm.program.launcher.app: G_MESSAGES_DEBUG=all ilia -p apps
+
+And then use:
+
+    journalctl --user --follow | grep ilia
+
+To see any debug messages from your session.
 
 ## Package
 

@@ -186,7 +186,7 @@ namespace Ilia {
                             for (int i = 0; i < iconNames.length; ++i) {
                                 iconPixbuf = Ilia.load_icon_from_name(icon_theme, iconNames[i], icon_size);
 
-                                if (iconPixbuf != null)break;
+                                if (iconPixbuf != null) break;
                             }
                         }
 

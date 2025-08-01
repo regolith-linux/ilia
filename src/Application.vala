@@ -85,7 +85,7 @@ namespace Ilia {
                 Gdk.Window gdkwin = window.get_window();
                 var seat = grab_inputs(gdkwin);
                 if (seat == null) {
-                    stderr.printf("Failed to aquire access to input devices, aborting.");
+                    stderr.printf("Failed to acquire access to input devices, aborting.");
                     Process.exit(1);
                 }
                 window.set_seat(seat);

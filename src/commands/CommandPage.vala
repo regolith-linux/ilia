@@ -232,7 +232,6 @@ namespace Ilia {
                 // commandline = "x-terminal-emulator -e \"bash -c '" + cmd_path + "'\"";
                 commandline = "x-terminal-emulator -e '" + cmd_path + "'";
 
-            // stdout.printf("%s\n", commandline);
 
             try {
                 var app_info = AppInfo.create_from_commandline(commandline, null, GLib.AppInfoCreateFlags.NONE);

@@ -199,7 +199,6 @@ namespace Ilia {
                             notebook.grab_focus();
                             break;
                         default:            // Pass key event to active page for handling
-                            // stdout.printf ("Keycode: %u\n", key.keyval);
                             key_handled = dialog_pages[active_page].key_event(key);
                             if (!key_handled)
                                 entry.grab_focus_without_selecting();  // causes entry to consume all unhandled key events

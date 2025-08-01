@@ -256,7 +256,6 @@ namespace Ilia {
             }
 
             string commandline = cli_bin + exec;
-            // stdout.printf("running %s\n", commandline);
 
             try {
                 var app_info = AppInfo.create_from_commandline(commandline, null, AppInfoCreateFlags.NONE);

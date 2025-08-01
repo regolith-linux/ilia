@@ -226,11 +226,6 @@ namespace Ilia {
                     table.insert(app_name, 1);
             }
 
-            /*
-               table.foreach ((key, val) => {
-                print ("%s => %d\n", key, val);
-               });
-             */
 
             return table;
         }

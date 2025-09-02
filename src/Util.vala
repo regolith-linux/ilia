@@ -95,63 +95,85 @@ namespace Ilia {
 
         return escaped.str.replace("/", "-");
     }
-
+    
     /**
-     * Compare two desktop applications for sorting purposes
-     *
-     * This function implements the core logic for sorting desktop applications based on:
-     * 1. Prefix matching with a query string (if provided)
-     * 2. Launch counts (popularity)
-     * 3. Alphabetical order as a fallback
-     *
-     * @param app_a_name The lowercase name of the first application
-     * @param app_b_name The lowercase name of the second application
-     * @param app_a_id The ID of the first application
-     * @param app_b_id The ID of the second application
-     * @param query_string The lowercase query string to match against (can be empty)
-     * @param launch_counts A hash table mapping app IDs to launch counts
-     * @return -1 if app_a should come before app_b, 1 if app_b should come before app_a, 0 if equal
+     * Fuzzy search algorithm to match strings with more flexibility
+     * Returns a score between 0-100 where 100 is a perfect match and 0 is no match
      */
-    public static int compare_desktop_apps(string app_a_name,
-                                           string app_b_name,
-                                           string app_a_id,
-                                           string app_b_id,
-                                           string query_string,
-                                           HashTable<string, int> launch_counts) {
-        // First priority: prefix matching with query string
-        if (query_string.length > 0) {
-            var app_a_has_prefix = app_a_name.has_prefix(query_string);
-            var app_b_has_prefix = app_b_name.has_prefix(query_string);
-
-            if (query_string.length > 1 && (app_a_has_prefix || app_b_has_prefix)) {
-                if (app_b_has_prefix && !app_a_has_prefix)
-                    // stdout.printf ("boosted %s for %s\n", app_b.get_name (), query_string);
-                    return 1;
-                else if (app_a_has_prefix && !app_b_has_prefix)
-                    // stdout.printf ("boosted %s for %s\n", app_a.get_name (), query_string);
-                    return -1;
+    public static int fuzzy_match_score(string source, string pattern) {
+        if (pattern.length == 0) return 100;
+        if (source.length == 0) return 0;
+        
+        // Normalize strings for comparison
+        string s_lower = source.down();
+        string p_lower = pattern.down();
+        
+        // Check for exact substring match first (highest priority)
+        if (s_lower.contains(p_lower)) {
+            // Calculate score based on match position and completeness
+            // Give higher scores to matches at the beginning
+            int pos = s_lower.index_of(p_lower);
+            if (pos == 0) {
+                // Starting match is best
+                return 95 + int.min(5, 5 * pattern.length / source.length);
+            } else {
+                // Penalize matches later in the string
+                return 80 + int.min(15, 20 * pattern.length / source.length) - int.min(15, pos / 2);
             }
         }
-
-        // Second priority: launch counts (popularity)
-        var a_count = launch_counts.get(app_a_id);
-        var b_count = launch_counts.get(app_b_id);
-
-        if (a_count > 0 || b_count > 0) {
-            if (a_count > b_count)
-                return -1;
-            else if (a_count < b_count)
-                return 1;
-            // If launch counts are equal, fall through to alphabetical ordering
+        
+        // Check for character matches in sequence
+        int matched_chars = 0;
+        int last_matched_pos = -1;
+        int consecutive_matches = 0;
+        int max_consecutive = 0;
+        
+        for (int i = 0; i < p_lower.length; i++) {
+            char pattern_char = p_lower[i];
+            bool found = false;
+            
+            // Start looking from the last matched position
+            for (int j = last_matched_pos + 1; j < s_lower.length; j++) {
+                if (s_lower[j] == pattern_char) {
+                    matched_chars++;
+                    
+                    // Check for consecutive matches
+                    if (last_matched_pos + 1 == j) {
+                        consecutive_matches++;
+                    } else {
+                        consecutive_matches = 1;
+                    }
+                    
+                    max_consecutive = int.max(max_consecutive, consecutive_matches);
+                    last_matched_pos = j;
+                    found = true;
+                    break;
+                }
+            }
+            
+            if (!found) {
+                // Character not found in the source string
+                return 0; // No match if not all characters are present
+            }
         }
-
-        // Third priority: alphabetical order
-        int compare_result = app_a_name.ascii_casecmp(app_b_name);
-        if (compare_result < 0)
-            return -1;
-        else if (compare_result > 0)
-            return 1;
-        else
-            return 0;
+        
+        // Calculate score based on matched characters, their consecutiveness,
+        // and ratio to total string length
+        double match_ratio = (double)matched_chars / (double)p_lower.length;
+        double length_ratio = (double)p_lower.length / (double)s_lower.length;
+        
+        // Bonus for consecutive character matches
+        double consecutive_bonus = (double)max_consecutive / (double)p_lower.length * 15.0;
+        
+        // Calculate final score (0-100)
+        int score = (int)(match_ratio * 60.0 + length_ratio * 25.0 + consecutive_bonus);
+        return int.min(75, score); // Cap at 75 to rank below exact substring matches
+    }
+    
+    /**
+     * Check if a string fuzzy matches a pattern with a minimum threshold
+     */
+    public static bool fuzzy_match(string source, string pattern, int threshold = 50) {
+        return fuzzy_match_score(source, pattern) >= threshold;
     }
 }

@@ -5,8 +5,8 @@ namespace Ilia {
     public const int KEY_CODE_LEFT_ALT = 65513;
     public const int KEY_CODE_RIGHT_ALT = 65514;
     public const int KEY_CODE_SUPER = 65515;
-    public const int KEY_CODE_UP = 65364;
-    public const int KEY_CODE_DOWN = 65362;
+    public const int KEY_CODE_UP = 65362;
+    public const int KEY_CODE_DOWN = 65364;
     public const int KEY_CODE_ENTER = 65293;
     public const int KEY_CODE_PGDOWN = 65366;
     public const int KEY_CODE_PGUP = 65365;
@@ -63,15 +63,16 @@ namespace Ilia {
             entry = new Gtk.Entry();
             entry.get_style_context().add_class("filter_entry");
             entry.hexpand = true;
+            entry.set_icon_from_icon_name(Gtk.EntryIconPosition.PRIMARY, "system-search-symbolic");
             entry.button_press_event.connect((event) => {
                 // Disable context menu as causes de-focus event to exit execution
                 return event.button == 3; // squelch right button click event
             });
 
             entry.changed.connect(on_entry_changed);
-
-            notebook = new Notebook();
-            notebook.get_style_context().add_class("notebook");
+            
+            notebook = new Notebook ();
+            notebook.get_style_context ().add_class("notebook");
             notebook.set_tab_pos(PositionType.BOTTOM);
 
             var focus_page = arg_map.get("-p") ?? "Apps";
@@ -108,13 +109,18 @@ namespace Ilia {
                             return true;
                         }
                     }
-                    if (key.keyval == '+') { // Expand dialog
+                    if (key.keyval == KEY_CODE_PLUS || key.keyval == '+') { // Expand dialog
                         change_size(128);
                         return true;
                     }
-                    if (key.keyval == '-') { // Contract dialog
+                    if (key.keyval == KEY_CODE_MINUS || key.keyval == '-') { // Contract dialog
                         change_size(-128);
                         return true;
+                    }
+                    // Pass Alt+D key event to active page for handling desktop app actions
+                    if (key.keyval == 'd' || key.keyval == 'D') {
+                        bool key_handled = dialog_pages[active_page].key_event(key);
+                        return key_handled;
                     }
                 } else if ((key.state & Gdk.ModifierType.CONTROL_MASK) == Gdk.ModifierType.CONTROL_MASK) {
                     // movement with vim commands and editing with Ctrl key
@@ -188,11 +194,19 @@ namespace Ilia {
                             quit();
                             break;
                         case KEY_CODE_UP:
+                            dialog_pages[active_page].show ();
+                            break;
                         case KEY_CODE_DOWN:
+                            dialog_pages[active_page].show ();
+                            break;
                         case KEY_CODE_ENTER:
+                            dialog_pages[active_page].show ();
+                            break;
                         case KEY_CODE_PGDOWN:
-                        case KEY_CODE_PGUP: // Let UI handle these nav keys
-                            dialog_pages[active_page].show();
+                            dialog_pages[active_page].show ();
+                            break;
+                        case KEY_CODE_PGUP:
+                            dialog_pages[active_page].show ();
                             break;
                         case KEY_CODE_RIGHT:
                         case KEY_CODE_LEFT: // Switch pages
@@ -228,7 +242,7 @@ namespace Ilia {
             if (all_page_mode) {
                 total_pages = create_all_pages(arg_map, focus_page, ref active_page);
             } else {
-                total_pages = 1;
+                total_pages = 2; // Main page + help page
                 active_page = 0;
                 create_page(focus_page, arg_map);
             }
@@ -262,30 +276,15 @@ namespace Ilia {
 
             // FIXME - rework help UI to be consistent for both single and all page modes
             if (!all_page_mode) {
-                // Create help page
-                var help_label = new Label("Help");
-                var help_widget = new Gtk.Box(Gtk.Orientation.VERTICAL, 5);
-
-                var page_help_label = new Label(dialog_pages[0].get_help());
-                page_help_label.set_line_wrap(true);
-                help_widget.pack_start(page_help_label, false, false, 5);
-
-                var keybindings_title = new Label("Keybindings");
-                keybindings_title.get_style_context().add_class("help_heading");
-                help_widget.pack_start(keybindings_title, false, false, 5);
-
-                keybinding_view = new TreeView();
-                setup_help_treeview(keybinding_view, dialog_pages[0].get_keybindings());
-                help_widget.pack_start(keybinding_view, false, false, 5);
-                notebook.append_page(help_widget, help_label);
-                keybinding_view.realize.connect(() => {
-                    keybinding_view.columns_autosize();
-                });
+                var help_page = dialog_pages[1] as HelpPage;
+                if (help_page != null) {
+                    help_page.set_active_page(dialog_pages[0]);
+                }
             }
         }
 
         private void create_page(string focus_page, HashTable<string, string ?> arg_map) {
-            dialog_pages = new DialogPage[1];
+            dialog_pages = new DialogPage[2]; // Main page + help page
 
             switch (focus_page.down()) {
                 case "apps":
@@ -320,13 +319,17 @@ namespace Ilia {
                     stderr.printf("Unknown page type: %s\n", focus_page);
                     break;
             }
+
+            // Create help page
+            dialog_pages[1] = new HelpPage ();
+            dialog_pages[1].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
         }
 
         /**
          * Creates pages for all generally usable pages
          */
         private int create_all_pages(HashTable<string, string ?> arg_map, string focus_page, ref uint start_page) {
-            int page_count = 6;
+            int page_count = 6; // Total number of pages, including help
             dialog_pages = new DialogPage[page_count];
 
             dialog_pages[0] = new DesktopAppPage();
@@ -362,6 +365,9 @@ namespace Ilia {
                 case "tracker":
                     start_page = 5;
                     break;
+                case "clipboard":
+                    start_page = 6;
+                    break;
                 default:
                     stderr.printf("Unknown page type: %s\n", focus_page);
                     start_page = 0;
@@ -369,46 +375,6 @@ namespace Ilia {
             }
 
             return page_count;
-        }
-
-        private void setup_help_treeview(TreeView view, HashTable<string, string> ? keybindings) {
-            var listmodel = new Gtk.ListStore(2, typeof (string), typeof (string));
-            view.set_model(listmodel);
-
-            view.headers_visible = false;
-            view.fixed_height_mode = true;
-            view.enable_search = false;
-
-            view.insert_column_with_attributes(-1, "Key", new CellRendererText(), "text", 0);
-            view.insert_column_with_attributes(-1, "Function", new CellRendererText(), "text", 1);
-
-            TreeIter iter;
-
-            if (keybindings != null)
-                keybindings.foreach((key, val) => {
-                    TreeIter iter2;
-
-                    listmodel.append(out iter2);
-                    listmodel.set(iter2, 0, key, 1, val);
-                });
-
-            listmodel.append(out iter);
-            listmodel.set(iter, 0, "Alt -", 1, "Decrease Dialog Size");
-
-            listmodel.append(out iter);
-            listmodel.set(iter, 0, "Alt +", 1, "Increase Dialog Size");
-
-            listmodel.append(out iter);
-            listmodel.set(iter, 0, "↑ ↓", 1, "Change Selected Item");
-
-            listmodel.append(out iter);
-            listmodel.set(iter, 0, "Ctrl+p Ctrl+n", 1, "Change Selected Item (emacs style)");
-
-            listmodel.append(out iter);
-            listmodel.set(iter, 0, "Ctrl+k Ctrl+j", 1, "Change Selected Item (vim style)");
-
-            listmodel.append(out iter);
-            listmodel.set(iter, 0, "Esc", 1, "Exit");
         }
 
         // Resize the dialog, bigger or smaller
@@ -429,22 +395,46 @@ namespace Ilia {
                 if (width >= geometry.width || height >= geometry.height) return;
             }
 
-            resize(width, height);
+            // Handle resize differently based on wm
+            if (is_wayland) {
+                set_size_request(width, height);
+            } else {
+                resize(width, height);
+            }
 
             settings.set_int("window-width", width);
             settings.set_int("window-height", height);
+            
+            // ui refresh
+            queue_resize();
+            
+            // ui adjustment
+            if (notebook != null) {
+                notebook.queue_resize();
+            }
+            
+            // ui adjustment
+            queue_draw();
         }
 
         void on_page_switch(Widget ? page, uint page_num) {
-            if (page_num == total_pages) { // On help page
+            if (page_num >= dialog_pages.length) { // Safety check
+                return;
+            }
+            
+            if (dialog_pages[page_num] is HelpPage) { // On help page
                 entry.set_sensitive(false);
+                var help_page = dialog_pages[page_num] as HelpPage;
+                if (help_page != null && active_page < dialog_pages.length) {
+                    help_page.set_active_page(dialog_pages[active_page]);
+                }
+                active_page = page_num;
             } else if (dialog_pages[page_num] != null) {
                 active_page = page_num;
-
-                entry.secondary_icon_name = dialog_pages[active_page].get_icon_name();
+                entry.secondary_icon_name = dialog_pages[active_page].get_icon_name ();
                 entry.set_sensitive(true);
             }
-            dialog_pages[active_page].show();
+            dialog_pages[page_num].show ();
         }
 
         // filter selection based on contents of Entry
@@ -494,9 +484,15 @@ namespace Ilia {
             if (text != null) {
                 int start, end;
 
-                if (entry.get_selection_bounds(out start, out end))
+                if (entry.get_selection_bounds(out start, out end)) {
                     entry.get_buffer().delete_text(start, end - start);
-                entry.insert_at_cursor(text);
+                    entry.get_buffer().insert_text(start, text.data);
+                    entry.set_position(start + text.length); // if there's a selection, paste after it
+                } else {
+                    int pos = entry.cursor_position;
+                    entry.get_buffer().insert_text(pos, text.data);
+                    entry.set_position(pos + text.length); // if there's no selection, paste at cursor
+                }
             }
         }
 
@@ -549,6 +545,10 @@ namespace Ilia {
             if (seat != null) seat.ungrab();
             hide();
             close();
+        }
+        
+        public string get_wm_name() {
+            return this.wm_name;
         }
     }
 }

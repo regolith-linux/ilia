@@ -9,6 +9,9 @@ namespace Ilia {
 
         // Exit the app
         public abstract void quit();
+        
+        // Get the window manager name
+        public abstract string get_wm_name();
     }
 
     /**

@@ -14,7 +14,7 @@ cfgfile_1 = configure_file(
 
 ilia_deps = [gio_unix_2_0_dep]
 ilia_deps += [json_glib_1_0_dep]
-ilia_deps += [tracker_sparql_3_0_dep]
+ilia_deps += [tinysparql_3_0_dep]
 ilia_deps += [atk_dep]
 ilia_deps += [cairo_gobject_dep]
 ilia_deps += [gdk_3_0_dep]

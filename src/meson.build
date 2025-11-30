@@ -27,6 +27,7 @@ ilia_deps += [gtk_3_0_dep]
 ilia_deps += [pango_dep]
 ilia_deps += [x11_dep]
 ilia_deps += [gtk_layer_shell_dep]
+ilia_deps += [libm]
 ilia_sources = [cfgfile_1]
 ilia_sources += files([
     'ModuleApi.vala',
@@ -44,6 +45,8 @@ ilia_sources += files([
     'textlist/TextListPage.vala',
     'tracker/TrackerPage.vala',
     'windows/WindowPage.vala',
+    'calculator/CalculatorPage.vala',
+    'calculator/Parser.vala'
     ])
     
 ilia_link_args = ['-rdynamic']

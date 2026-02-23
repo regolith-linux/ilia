@@ -47,6 +47,10 @@ namespace Ilia {
 
         private Thread<void> iconLoadThread;
 
+        // Stored during load_apps() for safe background icon loading
+        private Gtk.TreeRowReference[] icon_load_refs;
+        private DesktopAppInfo[] icon_load_infos;
+
         public string get_name() {
             return "<u>A</u>pplications";
         }
@@ -105,7 +109,8 @@ namespace Ilia {
             root_widget = scrolled;
 
             // Load app icons in background thread
-            iconLoadThread = new Thread<void>("iconLoadThread", loadAppIcons);
+            if (icon_size > 0)
+                iconLoadThread = new Thread<void>("iconLoadThread", loadAppIcons);
         }
 
         public Gtk.Widget get_root() {
@@ -135,7 +140,7 @@ namespace Ilia {
         }
 
         public void show() {
-            item_view.grab_focus ();
+            item_view.grab_focus();
             debug("DesktopAppPage ready to accept keystrokes (%.3f seconds since app start)", app_timer.elapsed());
         }
 
@@ -254,8 +259,14 @@ namespace Ilia {
         private void load_apps() {
             // determine theme for icons
             icon_theme = Gtk.IconTheme.get_default();
+
+            icon_load_refs = {};
+            icon_load_infos = {};
+
             // Set a blank icon to avoid visual jank as real icons are loaded
-            Gdk.Pixbuf blank_icon = new Gdk.Pixbuf(Gdk.Colorspace.RGB, false, 8, icon_size, icon_size);
+            Gdk.Pixbuf ? blank_icon = null;
+            if (icon_size > 0)
+                blank_icon = new Gdk.Pixbuf(Gdk.Colorspace.RGB, false, 8, icon_size, icon_size);
 
             var app_list = AppInfo.get_all();
             foreach (AppInfo appinfo in app_list) {
@@ -287,55 +298,60 @@ namespace Ilia {
                         ITEM_VIEW_COLUMN_KEYWORDS, keywords,
                         ITEM_VIEW_COLUMN_APPINFO, app_info
                     );
+
+                // Store row reference for background icon loading
+                if (icon_size > 0) {
+                    var row_path = model.get_path(iter);
+                    if (row_path != null) {
+                        var row_ref = new Gtk.TreeRowReference(model, row_path);
+                        if (row_ref != null) {
+                            icon_load_refs += row_ref;
+                            icon_load_infos += app_info;
+                        }
+                    }
+                }
             }
         }
 
         void loadAppIcons() {
-            load_icons_async.begin((obj, res) => {
-                try {
-                    load_icons_async.end(res);
-                } catch (Error e) {
-                    stderr.printf("Error loading icons: %s\n", e.message);
-                }
-            });
+            load_icons_async.begin();
         }
 
-        // Asynchronously load icons with idle priority to avoid UI blocking
-        private async void load_icons_async() throws Error {
-            // Store iterators in a standard array
-            TreeIter[] iterators = {};
-            TreeIter app_iter;
-
-            // First collect all iterators
-            for (bool next = model.get_iter_first(out app_iter); next; next = model.iter_next(ref app_iter)) {
-                iterators += app_iter;
-            }
-
-            foreach (TreeIter iter in iterators) {
-                // Yield to main loop after each icon to keep UI maximally responsive
+        // Load icons on the main thread via idle callbacks.
+        // Uses TreeRowReferences (stable across model sort/filter changes)
+        // instead of TreeIters (which become invalid after re-sorting).
+        private async void load_icons_async() {
+            for (int i = 0; i < icon_load_infos.length; i++) {
+                // Yield to main loop after each icon to keep UI responsive
                 Idle.add(load_icons_async.callback);
                 yield;
 
-                // Load the icon
-                Value app_info_val;
-                model.get_value(iter, ITEM_VIEW_COLUMN_APPINFO, out app_info_val);
+                var row_ref = icon_load_refs[i];
+                if (row_ref == null) continue;
 
                 Gdk.Pixbuf ? icon = Ilia.load_icon_from_info(
                     icon_theme,
-                    (DesktopAppInfo) app_info_val,
+                    icon_load_infos[i],
                     icon_size
                 );
 
-                // Update the model with the loaded icon if successful
-                if (icon != null)
-                    Idle.add(() => {
-                        model.set(
-                            iter,
-                            ITEM_VIEW_COLUMN_ICON, icon
-                        );
-                        return false;
-                    });
+                if (icon != null) {
+                    var row_path = row_ref.get_path();
+                    if (row_path != null) {
+                        TreeIter row_iter;
+                        if (model.get_iter(out row_iter, row_path))
+                            model.set(
+                                row_iter,
+                                ITEM_VIEW_COLUMN_ICON, icon
+                            );
+                    }
+                }
             }
+
+            // Free the loading arrays
+            icon_load_refs = {};
+            icon_load_infos = {};
+
             debug("Finished loading all icons (%.3f seconds since app start)", app_timer.elapsed());
         }
 

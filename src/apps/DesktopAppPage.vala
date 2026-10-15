@@ -45,8 +45,6 @@ namespace Ilia {
 
         private Gtk.TreePath path;
 
-        private Thread<void> iconLoadThread;
-
         public string get_name() {
             return "<u>A</u>pplications";
         }
@@ -104,8 +102,11 @@ namespace Ilia {
 
             root_widget = scrolled;
 
-            // Load app icons in background thread
-            iconLoadThread = new Thread<void>("iconLoadThread", loadAppIcons);
+            // Load app icons incrementally from the main loop. The model must only be
+            // accessed from the GTK main thread: walking it from another thread races
+            // with the re-sort done on every keystroke (ilia#78, ilia#90).
+            if (icon_size > 0)
+                loadAppIcons();
         }
 
         public Gtk.Widget get_root() {
@@ -255,7 +256,9 @@ namespace Ilia {
             // determine theme for icons
             icon_theme = Gtk.IconTheme.get_default();
             // Set a blank icon to avoid visual jank as real icons are loaded
-            Gdk.Pixbuf blank_icon = new Gdk.Pixbuf(Gdk.Colorspace.RGB, false, 8, icon_size, icon_size);
+            Gdk.Pixbuf ? blank_icon = null;
+            if (icon_size > 0)
+                blank_icon = new Gdk.Pixbuf(Gdk.Colorspace.RGB, false, 8, icon_size, icon_size);
 
             var app_list = AppInfo.get_all();
             foreach (AppInfo appinfo in app_list) {
@@ -302,11 +305,12 @@ namespace Ilia {
 
         // Asynchronously load icons with idle priority to avoid UI blocking
         private async void load_icons_async() throws Error {
-            // Store iterators in a standard array
+            // Collect all iterators up front. This runs on the main thread, before the
+            // first yield. GtkListStore iterators persist across re-sorting and rows are
+            // never removed, so they stay valid while the user types.
             TreeIter[] iterators = {};
             TreeIter app_iter;
 
-            // First collect all iterators
             for (bool next = model.get_iter_first(out app_iter); next; next = model.iter_next(ref app_iter)) {
                 iterators += app_iter;
             }
@@ -328,13 +332,7 @@ namespace Ilia {
 
                 // Update the model with the loaded icon if successful
                 if (icon != null)
-                    Idle.add(() => {
-                        model.set(
-                            iter,
-                            ITEM_VIEW_COLUMN_ICON, icon
-                        );
-                        return false;
-                    });
+                    model.set(iter, ITEM_VIEW_COLUMN_ICON, icon);
             }
             debug("Finished loading all icons (%.3f seconds since app start)", app_timer.elapsed());
         }

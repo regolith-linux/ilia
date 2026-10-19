@@ -150,4 +150,36 @@ namespace Ilia {
         else
             return 0;
     }
+
+    /**
+     * Match a filter query against the searchable text of a row
+     *
+     * The query is split into words at whitespace. A row matches when every
+     * word occurs in at least one of its fields, in any order, ignoring case.
+     * An empty or blank query matches every row.
+     *
+     * @param query The text typed in the filter box
+     * @param fields The searchable text of the row; null fields are skipped
+     * @return true if every word of the query occurs in the fields
+     */
+    public static bool matches_all_words(string query, string ?[] fields) {
+        var lowered = new string ?[fields.length];
+        for (int i = 0; i < fields.length; ++i)
+            lowered[i] = fields[i] != null ? fields[i].down() : null;
+
+        foreach (unowned string word in query.down().split_set(" \t\r\n")) {
+            if (word.length == 0) continue;
+
+            bool found = false;
+            foreach (unowned string ? field in lowered) {
+                if (field != null && field.contains(word)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) return false;
+        }
+
+        return true;
+    }
 }

@@ -148,6 +148,7 @@ namespace Ilia {
                 model.get_value(iter, ITEM_VIEW_COLUMN_NAME, out app_info);
                 strval = app_info.get_string();
 
+                // Match the whole query, not each word: here a space starts the command's arguments
                 return (strval != null && strval.down().contains(queryString));
             } else {
                 return true;

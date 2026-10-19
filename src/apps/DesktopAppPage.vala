@@ -237,16 +237,14 @@ namespace Ilia {
 
             if (query_string.length > 0) {
                 GLib.Value app_info;
-                string strval;
                 model.get_value(iter, ITEM_VIEW_COLUMN_NAME, out app_info);
-                strval = app_info.get_string();
-
-                if (strval != null && strval.down().contains(query_string)) return true;
+                string name = app_info.get_string();
 
                 model.get_value(iter, ITEM_VIEW_COLUMN_KEYWORDS, out app_info);
-                strval = app_info.get_string();
+                string keywords = app_info.get_string();
 
-                return strval != null && strval.down().contains(query_string);
+                // Each word may match either the name or the keywords
+                return matches_all_words(query_string, { name, keywords });
             } else {
                 return true;
             }

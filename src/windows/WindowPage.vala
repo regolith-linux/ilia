@@ -119,13 +119,7 @@ namespace Ilia {
             if (handle_emacs_vim_nav(item_view, path, event_key))
                 return true;
 
-            var keycode = event_key.keyval;
-
-            if (keycode == Ilia.KEY_CODE_ENTER && !filter.get_iter_first(out iter) && entry.text.length > 0) {
-                _from_selection(iter);
-                return true;
-            }
-
+            // Typed text that matches no item is not something this page can act on, so Enter does nothing then
             return false;
         }
 

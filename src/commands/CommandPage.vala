@@ -36,7 +36,7 @@ namespace Ilia {
         }
 
         public string get_help() {
-            return "This dialog allows for the executing commands on the user path. Initially all commands are presented. The user may filter the list in the top text box. The arrow keys may be used to select from the list, and enter or clicking on an item will launch it.";
+            return "This dialog allows for the executing commands on the user path. Initially all commands are presented. The user may filter the list in the top text box. The arrow keys may be used to select from the list, and enter or clicking on an item will launch it. If no item matches, enter runs the typed command line, including any arguments.";
         }
 
         public char get_keybinding() {
@@ -216,21 +216,16 @@ namespace Ilia {
             string cmd_path;
             filter.@get(selection, ITEM_VIEW_COLUMN_NAME, out cmd_path);
 
-            if (cmd_path != null) execute_command(cmd_path);
+            if (cmd_path != null) execute_command(Shell.quote(cmd_path));
         }
 
-        private void execute_command(string cmd_path) {
+        // command is in shell syntax: a quoted path, or a typed command line with arguments
+        private void execute_command(string command) {
             // TODO ~ Enable two launch modes with some modifier.  By default terminal exits when program exits.
             // todo is to add another mode in which the terminal does not exit after program completes.
 
-            string commandline;
-            if (this.quiet)
-                // if -q is given, call cmd_path without opening a terminal emulator
-                commandline = cmd_path;
-            else
-                // commandline = "/usr/bin/x-terminal-emulator -e \"bash -c '" + cmd_path + "; exec bash'\"";
-                // commandline = "x-terminal-emulator -e \"bash -c '" + cmd_path + "'\"";
-                commandline = "x-terminal-emulator -e '" + cmd_path + "'";
+            // if -q is given, run the command without opening a terminal emulator
+            string commandline = build_command_line(command, this.quiet);
 
 
             try {

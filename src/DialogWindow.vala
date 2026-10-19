@@ -189,10 +189,14 @@ namespace Ilia {
                             break;
                         case KEY_CODE_UP:
                         case KEY_CODE_DOWN:
-                        case KEY_CODE_ENTER:
                         case KEY_CODE_PGDOWN:
                         case KEY_CODE_PGUP: // Let UI handle these nav keys
                             dialog_pages[active_page].show();
+                            break;
+                        case KEY_CODE_ENTER: // Let the page accept typed text that matches no item, else activate the selected item
+                            key_handled = dialog_pages[active_page].key_event(key);
+                            if (!key_handled)
+                                dialog_pages[active_page].show();
                             break;
                         case KEY_CODE_RIGHT:
                         case KEY_CODE_LEFT: // Switch pages

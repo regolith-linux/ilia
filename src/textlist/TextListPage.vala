@@ -164,7 +164,7 @@ namespace Ilia {
                 model.get_value(iter, name_column_index, out item_value);
                 strval = item_value.get_string();
 
-                return (strval != null && strval.down().contains(queryString));
+                return matches_all_words(queryString, { strval });
             } else {
                 return true;
             }

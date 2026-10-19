@@ -145,12 +145,11 @@ namespace Ilia {
             if (queryString.length > 0) {
                 GLib.Value gval;
                 model.get_value(iter, ITEM_VIEW_COLUMN_SUMMARY, out gval);
-                string summary = gval.get_string().down();
+                string summary = gval.get_string();
                 model.get_value(iter, ITEM_VIEW_COLUMN_KEYBINDING, out gval);
-                string keybinding = gval.get_string().down();
+                string keybinding = gval.get_string();
 
-                return (summary != null && (summary.contains(queryString))) ||
-                       (keybinding != null && (keybinding.contains(queryString)));
+                return matches_all_words(queryString, { summary, keybinding });
             } else {
                 return true;
             }

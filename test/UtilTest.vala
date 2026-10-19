@@ -15,6 +15,41 @@ public void test_systemd_escape () {
      assert (Ilia.systemd_escape(".@/foo$bAR§qux/ab.çd-êf_gh=ij") == "\\x2e\\x40-foo\\x24bAR\\xc2\\xa7qux-ab.\\xc3\\xa7d\\x2d\\xc3\\xaaf_gh\\x3dij");
 }
 
+public void test_matches_all_words() {
+    // Single word: substring, case-insensitive, as before
+    assert (Ilia.matches_all_words("foo", { "foo bar baz" }));
+    assert (Ilia.matches_all_words("BAR", { "foo bar baz" }));
+    assert (!Ilia.matches_all_words("qux", { "foo bar baz" }));
+
+    // Every word must match, in any order (ilia#77)
+    assert (Ilia.matches_all_words("foo baz", { "foo bar baz" }));
+    assert (Ilia.matches_all_words("baz foo", { "foo bar baz" }));
+    assert (Ilia.matches_all_words("foo baz", { "foo --baz" }));
+    assert (Ilia.matches_all_words("foo baz", { "foo-baz" }));
+    assert (!Ilia.matches_all_words("foo baz", { "foo bar" }));
+    assert (!Ilia.matches_all_words("foo baz", { "foo" }));
+
+    // A contiguous query still matches as before
+    assert (Ilia.matches_all_words("foo bar", { "foo bar baz" }));
+
+    // Extra whitespace is ignored; a blank query matches everything
+    assert (Ilia.matches_all_words("  foo \t  baz  ", { "foo bar baz" }));
+    assert (Ilia.matches_all_words("", { "foo" }));
+    assert (Ilia.matches_all_words("   ", { null }));
+
+    // Non-ASCII text is matched case-insensitively
+    assert (Ilia.matches_all_words("ÉCRAN capture", { "Capture d'écran" }));
+
+    // Words may match different fields (e.g. app name and keywords); null fields are skipped
+    assert (Ilia.matches_all_words("web firefox", { "Firefox", "Internet;WWW;Web;" }));
+    assert (Ilia.matches_all_words("firefox", { null, "Firefox" }));
+    assert (!Ilia.matches_all_words("firefox mail", { "Firefox", "Internet;WWW;Web;" }));
+    assert (!Ilia.matches_all_words("foo", { null }));
+
+    // A word does not match across the boundary of two fields
+    assert (!Ilia.matches_all_words("foxinternet", { "Firefox", "Internet" }));
+}
+
 public void test_compare_desktop_apps() {
     // Create a mock launch counts table
     var launch_counts = new GLib.HashTable<string, int>(GLib.str_hash, GLib.str_equal);
@@ -81,6 +116,7 @@ public int main (string[] args) {
     Test.init (ref args);
 
     Test.add_func ("/test_systemd_escape", test_systemd_escape);
+    Test.add_func ("/test_matches_all_words", test_matches_all_words);
     Test.add_func ("/test_compare_desktop_apps", test_compare_desktop_apps);
     Test.add_func ("/test_build_command_line", test_build_command_line);
 

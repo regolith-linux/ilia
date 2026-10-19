@@ -246,9 +246,8 @@ namespace Ilia {
     public class IPCClient {
         private Socket socket;
         private uint8[] magic_number = "i3-ipc".data;
-        private uint8[] terminator = { '\0' };
-        private int bytes_to_payload = 14;
-        private int buffer_size = 1024 * 128;
+        // "i3-ipc" + payload length (uint32) + message type (uint32), native byte order
+        private const int HEADER_SIZE = 14;
         private string wm_name;
 
         public IPCClient (string wm_name) throws GLib.Error {
@@ -280,14 +279,6 @@ namespace Ilia {
             return val.get_data_as_bytes().get_data();
         }
 
-        private string terminate_string(uint8[] rawString) {
-            ByteArray b = new ByteArray();
-            b.append(rawString);
-            b.append(terminator);
-
-            return (string) b.data;
-        }
-
         private uint8[] generate_request(WM_COMMAND cmd) {
             ByteArray np = new ByteArray();
 
@@ -300,22 +291,44 @@ namespace Ilia {
             return message.get_data();
         }
 
+        // Read exactly count bytes; large replies arrive in several chunks.
+        private uint8[] receive_exactly(size_t count) throws GLib.Error {
+            var data = new uint8[count];
+            size_t received = 0;
+
+            while (received < count) {
+                ssize_t len = socket.receive(data[received: count]);
+
+                if (len <= 0)
+                    throw new WM_ERROR.RPC_ERROR("%s closed the connection after %zu of %zu bytes".printf(wm_name, received, count));
+                received += len;
+            }
+
+            return data;
+        }
+
         private Json.Node ? wm_ipc(WM_COMMAND command) throws GLib.Error {
             ssize_t sent = socket.send(generate_request(command));
 
             debug("Sent " + sent.to_string() + " bytes to " + wm_name);
-            uint8[] buffer = new uint8[buffer_size];
 
-            ssize_t len = socket.receive(buffer);
+            uint8[] header = receive_exactly(HEADER_SIZE);
 
-            debug("Received  " + len.to_string() + " bytes from " + wm_name);
+            if (Memory.cmp(header, magic_number, magic_number.length) != 0)
+                throw new WM_ERROR.RPC_ERROR("Invalid reply header from %s".printf(wm_name));
 
-            Bytes responseBytes = new Bytes.take(buffer[0 : len]);
+            uint32 payload_length = 0;
+            Memory.copy(&payload_length, &header[magic_number.length], sizeof (uint32));
 
-            string payload = terminate_string(responseBytes.slice(bytes_to_payload, responseBytes.length).get_data());
+            debug("Receiving " + payload_length.to_string() + " bytes from " + wm_name);
+
+            if (payload_length == 0)
+                return null;
+
+            uint8[] payload = receive_exactly(payload_length);
 
             Json.Parser parser = new Json.Parser();
-            parser.load_from_data(payload);
+            parser.load_from_data((string) payload, payload_length);
 
             return parser.get_root();
         }

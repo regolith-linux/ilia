@@ -55,11 +55,34 @@ public void test_compare_desktop_apps() {
         "", launch_counts) == -1); // "chrome" comes before "firefox" alphabetically
 }
 
+public void test_build_command_line() {
+    // A path selected from the list, quoted as one argument: same command line as before
+    assert (Ilia.build_command_line(Shell.quote("/usr/bin/flameshot"), false) == "x-terminal-emulator -e '/usr/bin/flameshot'");
+    assert (Ilia.build_command_line(Shell.quote("/usr/bin/flameshot"), true) == "'/usr/bin/flameshot'");
+
+    // Typed text keeps its arguments, which follow the program after -e (ilia#3)
+    assert (Ilia.build_command_line("flameshot gui", false) == "x-terminal-emulator -e flameshot gui");
+    assert (Ilia.build_command_line("xdg-open .", true) == "xdg-open .");
+
+    // Literal % signs survive AppInfo's field code expansion
+    assert (Ilia.build_command_line("date +%F", true) == "date +%%F");
+
+    // The result parses into the expected arguments
+    string[] argv;
+    try {
+        Shell.parse_argv(Ilia.build_command_line("npm docs 'some library'", false), out argv);
+    } catch (ShellError e) {
+        assert_not_reached ();
+    }
+    assert (string.joinv("|", argv) == "x-terminal-emulator|-e|npm|docs|some library");
+}
+
 public int main (string[] args) {
     Test.init (ref args);
 
     Test.add_func ("/test_systemd_escape", test_systemd_escape);
     Test.add_func ("/test_compare_desktop_apps", test_compare_desktop_apps);
+    Test.add_func ("/test_build_command_line", test_build_command_line);
 
     return Test.run ();
 }

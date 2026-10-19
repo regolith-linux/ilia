@@ -40,7 +40,7 @@ namespace Ilia {
         }
 
         public string get_help() {
-            return "This dialog presents a filterable list of items to select from.";
+            return "This dialog presents a filterable list of items to select from. If no item matches, enter returns the typed text.";
         }
 
         public char get_keybinding() {

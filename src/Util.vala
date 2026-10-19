@@ -56,6 +56,21 @@ namespace Ilia {
         return AppInfo.create_from_commandline(systemd_launch, app_id, AppInfoCreateFlags.NONE);
     }
 
+    /**
+     * Build the command line that the commands page launches
+     *
+     * @param command A command line in shell syntax: a quoted path from the list, or the text typed by the user
+     * @param quiet If true run the command directly, otherwise in x-terminal-emulator
+     * @return A command line for AppInfo.create_from_commandline()
+     */
+    public static string build_command_line(string command, bool quiet) {
+        // x-terminal-emulator takes the program and its arguments after -e
+        string commandline = quiet ? command : "x-terminal-emulator -e " + command;
+
+        // AppInfo expands % field codes as in a desktop file Exec key; keep literal % signs
+        return commandline.replace("%", "%%");
+    }
+
     /*
      * The escaping algorithm operates as follows:
      * given a string, any "/" character is replaced by "-", and all other characters which

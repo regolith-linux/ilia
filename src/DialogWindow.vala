@@ -10,6 +10,10 @@ namespace Ilia {
     public const int KEY_CODE_ENTER = 65293;
     public const int KEY_CODE_PGDOWN = 65366;
     public const int KEY_CODE_PGUP = 65365;
+    public const int KEY_CODE_HOME = 65360;
+    public const int KEY_CODE_END = 65367;
+    public const int KEY_CODE_KP_HOME = 65429;
+    public const int KEY_CODE_KP_END = 65436;
     public const int KEY_CODE_RIGHT = 65363;
     public const int KEY_CODE_LEFT = 65361;
     public const int KEY_CODE_PLUS = 43;
@@ -191,6 +195,10 @@ namespace Ilia {
                         case KEY_CODE_DOWN:
                         case KEY_CODE_ENTER:
                         case KEY_CODE_PGDOWN:
+                        case KEY_CODE_HOME:
+                        case KEY_CODE_END:
+                        case KEY_CODE_KP_HOME:
+                        case KEY_CODE_KP_END:
                         case KEY_CODE_PGUP: // Let UI handle these nav keys
                             dialog_pages[active_page].show();
                             break;
@@ -399,6 +407,9 @@ namespace Ilia {
 
             listmodel.append(out iter);
             listmodel.set(iter, 0, "↑ ↓", 1, "Change Selected Item");
+
+            listmodel.append(out iter);
+            listmodel.set(iter, 0, "Home End", 1, "Select First or Last Item");
 
             listmodel.append(out iter);
             listmodel.set(iter, 0, "Ctrl+p Ctrl+n", 1, "Change Selected Item (emacs style)");

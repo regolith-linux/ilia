@@ -43,17 +43,39 @@ namespace Ilia {
         return null;
     }
 
-    /* Get AppInfo object used to run a command */
+    /*
+     * Get AppInfo object used to run a command
+     *
+     * The app is started in its own systemd scope. The command line is rebuilt from
+     * the Exec key, so keys that GLib would otherwise act on are lost. For Terminal=true
+     * the terminal is started inside the scope, as x-terminal-emulator -e <Exec>, so the
+     * terminal and the program running in it share the scope.
+     */
     public static AppInfo get_runner_app_info(AppInfo app_info) throws GLib.Error {
         string systemd_run_path = GLib.Environment.find_program_in_path("systemd-run");
         if (systemd_run_path == null)
-            return app_info;
+            return app_info; // GLib launches the entry itself and honours Terminal=true
         string app_id = app_info.get_id();
         string exec = app_info.get_commandline();
+        var flags = AppInfoCreateFlags.NONE;
+
+        if (needs_terminal(app_info)) {
+            if (GLib.Environment.find_program_in_path("x-terminal-emulator") != null)
+                exec = "x-terminal-emulator -e " + exec;
+            else
+                flags = AppInfoCreateFlags.NEEDS_TERMINAL; // GLib picks a terminal, outside the scope
+        }
+
         string random_suffix = Uuid.string_random().slice(0, 8);
         string unit_name = "run_ilia_" + systemd_escape(app_id) + "_" + random_suffix + ".scope";
         string systemd_launch = "systemd-run --user --scope --unit \"" + unit_name + "\" " + exec;
-        return AppInfo.create_from_commandline(systemd_launch, app_id, AppInfoCreateFlags.NONE);
+        return AppInfo.create_from_commandline(systemd_launch, app_id, flags);
+    }
+
+    /* True if the desktop file asks to be run in a terminal (Terminal=true) */
+    public static bool needs_terminal(AppInfo app_info) {
+        var desktop_app_info = app_info as DesktopAppInfo;
+        return desktop_app_info != null && desktop_app_info.get_filename() != null && desktop_app_info.get_boolean("Terminal");
     }
 
     /**

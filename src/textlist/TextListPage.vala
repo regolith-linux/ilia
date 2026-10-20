@@ -6,14 +6,23 @@ namespace Ilia {
         private const int ITEM_VIEW_COLUMN_ICON = 0;
         private const int ITEM_VIEW_COLUMN_NAME = 1;
 
+        // Rows checked per idle callback while filtering
+        private const int FILTER_SLICE = 2048;
+
         // The widget to display list of available options
         private Gtk.TreeView item_view;
-        // Model for selections
-        private Gtk.ListStore model;
+        // The lines read so far, and the ones matching the entry text
+        private TextFilter text_filter;
+        // View on the matching lines
+        private FilteredLinesModel model;
         // Access state from model
         private Gtk.TreeIter iter;
-        // View on model of filtered elements
-        private Gtk.TreeModelFilter filter;
+        // Reads stdin without blocking, so the window shows at once
+        private LineReader reader;
+        // Idle handler doing filter work, or 0
+        private uint filter_work_id = 0;
+        // Enter was pressed with no match while input was still being read
+        private bool enter_pending = false;
 
         private Gtk.Entry entry;
 
@@ -73,18 +82,22 @@ namespace Ilia {
                 name_column_index = 0;
             }
 
-            if (render_icon_flag)
-                model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string));
-            else
-                model = new Gtk.ListStore(ITEM_VIEW_COLUMNS - 1, typeof (string), typeof (string));
-
-            filter = new Gtk.TreeModelFilter(model, null);
-            filter.set_visible_func(filter_func);
+            text_filter = new TextFilter();
+            text_filter.reset.connect(on_filter_reset);
+            text_filter.appended.connect(on_filter_appended);
+            model = new FilteredLinesModel(text_filter, render_icon_flag, load_item_icon(settings.get_int("icon-size")));
 
             create_item_view();
-
-            load_items(settings.get_int("icon-size"));
             set_selection();
+
+            // Read stdin in the background; lines show up as they arrive
+            reader = new LineReader(new UnixInputStream(0, false));
+            reader.lines_read.connect((lines) => {
+                text_filter.add_lines(lines);
+                schedule_filter_work();
+            });
+            reader.finished.connect(resolve_pending_enter);
+            reader.read_all.begin();
 
             var scrolled = new Gtk.ScrolledWindow(null, null);
             scrolled.add(item_view);
@@ -99,7 +112,7 @@ namespace Ilia {
 
         // Initialize the view displaying selections
         private void create_item_view() {
-            item_view = new Gtk.TreeView.with_model(filter);
+            item_view = new Gtk.TreeView.with_model(model);
 
             // Do not show column headers
             item_view.headers_visible = false;
@@ -128,9 +141,17 @@ namespace Ilia {
 
             var keycode = event_key.keyval;
 
-            if (keycode == Ilia.KEY_CODE_ENTER && !filter.get_iter_first(out iter) && entry.text.length > 0) {
-                print(entry.text);
-                return true;
+            if (keycode == Ilia.KEY_CODE_ENTER) {
+                // Act on the matches for the text as typed, among all lines read so far
+                text_filter.finish();
+                if (text_filter.visible_count == 0 && entry.text.length > 0) {
+                    // While input is still being read a later line may match: decide once one does or input ends
+                    if (reader.done)
+                        print(entry.text);
+                    else
+                        enter_pending = true;
+                    return true;
+                }
             }
 
             return false;
@@ -138,70 +159,84 @@ namespace Ilia {
 
         // called on enter from TreeView
         private void on_row_activated(Gtk.TreeView treeview, Gtk.TreePath row_path, Gtk.TreeViewColumn column) {
-            filter.get_iter(out iter, row_path);
-            print_selection(iter);
+            if (model.get_iter(out iter, row_path))
+                print_selection(iter);
         }
 
-        // filter selection based on contents of Entry
+        // filter selection based on contents of Entry; the work is done in slices from idle
         void on_entry_changed() {
-            filter.refilter();
-            set_selection();
+            enter_pending = false;
+            text_filter.set_query(entry.get_text());
+            schedule_filter_work();
         }
 
         // called on enter when in text box
         void on_entry_activated() {
-            if (filter.get_iter(out iter, path))
+            text_filter.finish();
+            if (model.get_iter(out iter, path))
                 print_selection(iter);
         }
 
-        // traverse the model and show items with metadata that matches entry filter string
-        private bool filter_func(Gtk.TreeModel m, Gtk.TreeIter iter) {
-            string queryString = entry.get_text().down().strip();
+        private void schedule_filter_work() {
+            if (filter_work_id != 0) return;
 
-            if (queryString.length > 0) {
-                GLib.Value item_value;
-                string strval;
-                model.get_value(iter, name_column_index, out item_value);
-                strval = item_value.get_string();
+            filter_work_id = Idle.add(() => {
+                if (text_filter.step(FILTER_SLICE))
+                    return true;
+                filter_work_id = 0;
+                resolve_pending_enter();
+                return false;
+            }, Priority.DEFAULT_IDLE);
+        }
 
-                return matches_all_words(queryString, { strval });
-            } else {
-                return true;
+        // Filtering for new text completed: give the view the new rows in one go
+        private void on_filter_reset() {
+            item_view.set_model(null);
+            model.invalidate_iters();
+            item_view.set_model(model);
+            select_first();
+            resolve_pending_enter();
+        }
+
+        // Lines read later match the text: add them at the end
+        private void on_filter_appended(int first, int count) {
+            model.rows_appended(first, count);
+            if (first == 0)
+                select_first();
+            resolve_pending_enter();
+        }
+
+        // Enter was pressed with no match while reading: print the first match once there is one, or the text once input ends
+        private void resolve_pending_enter() {
+            if (!enter_pending) return;
+
+            if (text_filter.visible_count > 0) {
+                enter_pending = false;
+                print(text_filter.get_visible_line(0));
+            } else if (reader.done && !text_filter.busy) {
+                enter_pending = false;
+                print(entry.text);
             }
         }
 
-        private void load_items(int icon_size) {
-            string ? name = null;
+        private void select_first() {
+            if (text_filter.visible_count > 0)
+                item_view.set_cursor(new Gtk.TreePath.first(), null, false);
+        }
+
+        private Gdk.Pixbuf ? load_item_icon(int icon_size) {
+            if (!this.render_icon_flag) return null;
+
             Gdk.Pixbuf ? pixbuf = null;
+            var icon_theme = Gtk.IconTheme.get_default();
 
-            if (this.render_icon_flag) {
-                var icon_theme = Gtk.IconTheme.get_default();
+            if (icon != null && icon.length > 0)
+                pixbuf = Ilia.load_icon_from_name(icon_theme, icon, icon_size);
 
-                if (icon != null && icon.length > 0)
-                    pixbuf = Ilia.load_icon_from_name(icon_theme, icon, icon_size);
+            if (pixbuf == null)
+                pixbuf = Ilia.load_icon_from_name(icon_theme, "applications-other", icon_size);
 
-                if (pixbuf == null)
-                    pixbuf = Ilia.load_icon_from_name(icon_theme, "applications-other", icon_size);
-            }
-
-            do {
-                name = stdin.read_line();
-                if (name != null) {
-                    model.append(out iter);
-
-                    if (this.render_icon_flag)
-                        model.set(
-                            iter,
-                            ITEM_VIEW_COLUMN_ICON, pixbuf,
-                            name_column_index, name
-                        );
-                    else
-                        model.set(
-                            iter,
-                            name_column_index, name
-                        );
-                }
-            } while (name != null);
+            return pixbuf;
         }
 
         // Automatically set the first item in the list as selected.
@@ -225,7 +260,7 @@ namespace Ilia {
         // launch a desktop app
         public void print_selection(Gtk.TreeIter selection) {
             string cmd_path;
-            filter.@get(selection, name_column_index, out cmd_path);
+            model.@get(selection, name_column_index, out cmd_path);
 
             if (cmd_path != null) print(cmd_path);
         }

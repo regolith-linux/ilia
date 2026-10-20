@@ -219,4 +219,26 @@ namespace Ilia {
 
         return true;
     }
+
+    /**
+     * The words of a filter query, lowered and split as matches_all_words() does
+     */
+    public static string[] query_words(string query) {
+        string[] words = {};
+        foreach (unowned string word in query.down().split_set(" \t\r\n")) {
+            if (word.length > 0) words += word;
+        }
+        return words;
+    }
+
+    /**
+     * matches_all_words() for a single field that is already lowered,
+     * with the query split by query_words(); for filtering many rows
+     */
+    public static bool contains_all_words(string lowered_field, string[] words) {
+        foreach (unowned string word in words) {
+            if (!lowered_field.contains(word)) return false;
+        }
+        return true;
+    }
 }

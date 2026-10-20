@@ -14,7 +14,18 @@ add_project_arguments(['--pkg', 'posix'], language: 'vala')
 find_program ('glib-compile-schemas')
 gio_unix_2_0_dep = dependency('gio-unix-2.0')
 json_glib_1_0_dep = dependency('json-glib-1.0')
-tracker_sparql_3_0_dep = dependency('tracker-sparql-3.0')
+gmodule_2_0_dep = dependency('gmodule-2.0')
+# The SPARQL library (tinysparql, formerly tracker-sparql) is loaded at run time, see
+# src/tracker/SparqlLibrary.vala. If its pkg-config file is present, the library directory
+# is used as the first place to look (needed where libraries are not on the default path).
+sparql_dep = dependency('tinysparql-3.0', required: false)
+if not sparql_dep.found()
+    sparql_dep = dependency('tracker-sparql-3.0', required: false)
+endif
+sparql_libdir = ''
+if sparql_dep.found()
+    sparql_libdir = sparql_dep.get_variable(pkgconfig: 'libdir', default_value: '')
+endif
 atk_dep = dependency('atk')
 cairo_gobject_dep = dependency('cairo-gobject')
 gdk_3_0_dep = dependency('gdk-3.0')

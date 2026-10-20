@@ -1,4 +1,5 @@
 unit_test_files = [
+    'InputSource',
     'Util',
     'I3Ipc',
     'Launch',

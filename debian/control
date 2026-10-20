@@ -10,7 +10,6 @@ Build-Depends: debhelper (>= 10),
                libglib2.0-dev,
                libgtk-3-dev (>= 3.22),
                libjsonrpc-glib-1.0-dev,
-               libtracker-sparql-3.0-dev,
                libgtk-layer-shell0,
                gir1.2-gtklayershell-0.1,
                libgtk-layer-shell-dev,
@@ -28,7 +27,8 @@ Architecture: any
 Depends: 
   ${shlibs:Depends}, 
   ${misc:Depends},
-  libgee-0.8-2
+  libgee-0.8-2,
+  libtinysparql-3.0-0 | libtracker-sparql-3.0-0
 Description: General purpose desktop executor
  Invoke actions upon apps, commands, notifications, 
  and keybindings via a simple filterable menu.

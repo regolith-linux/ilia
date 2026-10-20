@@ -1,3 +1,14 @@
+ilia (0.19.0) jammy; urgency=medium
+
+  [ Carlos Fernandez Sanz ]
+  * fix(apps): load icons on the main thread to stop model race
+  * fix(ipc): read the whole i3/sway IPC reply
+  * fix(keys): let Enter accept typed text that matches no item
+  * feat(filter): match every word of the query, in any order
+  * feat(keys): Home and End select the first and last row
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Tue, 20 Oct 2026 13:59:06 +0000
+
 ilia (0.18.0) jammy; urgency=medium
 
   [ Jesse Hallett ]

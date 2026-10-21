@@ -195,6 +195,139 @@ void test_appended_lines() {
     assert (visible_lines(filter) == "needle 4x");
 }
 
+// Matching rows read later reach the view a bounded number at a time, and the model reports only
+// rows the view was told about. With an AT-SPI client connected each row-inserted signal is costly:
+// telling the view about 2048 rows per idle callback blocked the main loop for 45 ms at a time on
+// a 400k-line input, and a key event handled in such a backlog together with an AT-SPI client
+// leaving crashed ilia in GTK's accessibility key snooper (SIGSEGV, nothing printed).
+void test_view_announcements_bounded() {
+    const int N = 400000;
+    const int SLICE = 128;
+    var filter = new Ilia.TextFilter();
+    var model = new Ilia.FilteredLinesModel(filter, true, null);
+    int signals = 0;
+    bool consistent = true;
+    model.row_inserted.connect((path, iter) => {
+        signals++;
+        int position = path.get_indices()[0];
+        // The inserted row is the last one the model reports, and it is the filter's row
+        Value value;
+        model.get_value(iter, 1, out value);
+        if (model.iter_n_children(null) != position + 1 || (string) value != filter.get_visible_line(position))
+            consistent = false;
+    });
+
+    var lines = generate(N, 5);
+    for (int i = 0; i < N; i += 1000)
+        filter.add_lines(lines[i : i + 1000]);
+    while (filter.step(2048)) {
+    }
+    // Filtering told the view nothing: the rows are pending
+    assert (signals == 0 && model.iter_n_children(null) == 0 && model.pending == N);
+
+    int calls = 0;
+    while (model.pending > 0) {
+        int before = signals;
+        int announced = model.announce(SLICE);
+        assert (announced > 0 && announced <= SLICE && signals - before == announced);
+        calls++;
+    }
+    assert (consistent && signals == N && calls == (N + SLICE - 1) / SLICE);
+    assert (model.row_count == N && model.iter_n_children(null) == N);
+
+    // A completed query replaces the rows: sync() takes them without signals, old iters are invalid
+    Gtk.TreeIter old_iter;
+    assert (model.get_iter(out old_iter, new Gtk.TreePath.from_indices(N - 1)));
+    filter.set_query("alpha");
+    filter.finish();
+    int before = signals;
+    model.sync();
+    assert (signals == before && model.row_count == filter.visible_count && model.pending == 0);
+    assert (model.get_path(old_iter) == null);
+    assert (model.row_count > 0 && model.row_count < N);
+}
+
+// One idle callback of the work checks at most 2048 rows and gives the view at most 128, and the
+// work run from the main loop ends with every row in the view
+void test_work_bounded_per_callback() {
+    const int N = 400000;
+    var filter = new Ilia.TextFilter();
+    var model = new Ilia.FilteredLinesModel(filter, false, null);
+    var work = new Ilia.FilterWork(filter, model);
+    int signals = 0, first_rows = 0, done = 0;
+    model.row_inserted.connect(() => signals++);
+    work.first_rows.connect(() => first_rows++);
+    work.done.connect(() => done++);
+
+    var lines = generate(N, 9);
+    for (int i = 0; i < N; i += 1000)
+        filter.add_lines(lines[i : i + 1000]);
+    int callbacks = 0;
+    while (true) {
+        var checked = filter.rows_checked;
+        int before = signals;
+        bool more = work.run_slice();
+        callbacks++;
+        assert (filter.rows_checked - checked <= 2048 && signals - before <= 128);
+        if (!more) break;
+    }
+    assert (signals == N && model.pending == 0 && !filter.busy && first_rows == 1);
+    assert (callbacks == (N + 127) / 128);
+
+    // From the main loop: a new query's rows replace the view's (the page syncs on reset), then done
+    filter.reset.connect(() => model.sync());
+    filter.set_query("alpha");
+    work.schedule();
+    assert (work.scheduled);
+    var context = MainContext.default();
+    while (work.scheduled)
+        context.iteration(false);
+    assert (done == 1 && !filter.busy && model.row_count == filter.visible_count);
+
+    // While a new query is filtered, the rows its result will replace are not announced
+    filter.add_lines(generate(20000, 21));
+    filter.step(20000);
+    assert (model.pending > 0);
+    filter.set_query("bravo");
+    int before = signals;
+    while (filter.replacing)
+        work.run_slice();
+    assert (signals == before && model.pending == 0);
+}
+
+// After stop() no work is done, also when it was scheduled and input keeps arriving: the page
+// stops when its view is destroyed. Before, a query's result completing after Escape closed the
+// window was given to the destroyed tree view (SIGSEGV in gtk_tree_view_set_cursor()).
+void test_work_stops() {
+    var filter = new Ilia.TextFilter();
+    var model = new Ilia.FilteredLinesModel(filter, true, null);
+    var work = new Ilia.FilterWork(filter, model);
+    int events = 0;
+    filter.reset.connect(() => events++);
+    filter.appended.connect(() => events++);
+    model.row_inserted.connect(() => events++);
+    work.first_rows.connect(() => events++);
+    work.done.connect(() => events++);
+
+    filter.add_lines(generate(50000, 13));
+    filter.set_query("al");
+    work.schedule();
+    assert (work.scheduled);
+    work.stop();
+    assert (work.stopped && !work.scheduled);
+
+    // More input and a new query arrive after the window closed
+    filter.add_lines(generate(5000, 17));
+    filter.set_query("alpha");
+    work.schedule();
+    assert (!work.scheduled);
+    var context = MainContext.default();
+    for (int i = 0; i < 1000 && context.pending(); ++i)
+        context.iteration(false);
+    assert (!work.run_slice());
+    assert (events == 0 && filter.busy && filter.rows_checked == 0);
+}
+
 public int main(string[] args) {
     Test.init(ref args);
 
@@ -205,6 +338,9 @@ public int main(string[] args) {
     Test.add_func("/textlist/new_query_drops_unfinished_work", test_new_query_drops_unfinished_work);
     Test.add_func("/textlist/narrowing_checks_fewer_rows", test_narrowing_checks_fewer_rows);
     Test.add_func("/textlist/appended_lines", test_appended_lines);
+    Test.add_func("/textlist/view_announcements_bounded", test_view_announcements_bounded);
+    Test.add_func("/textlist/work_bounded_per_callback", test_work_bounded_per_callback);
+    Test.add_func("/textlist/work_stops", test_work_stops);
 
     return Test.run();
 }

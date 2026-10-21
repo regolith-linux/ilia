@@ -6,9 +6,6 @@ namespace Ilia {
         private const int ITEM_VIEW_COLUMN_ICON = 0;
         private const int ITEM_VIEW_COLUMN_NAME = 1;
 
-        // Rows checked per idle callback while filtering
-        private const int FILTER_SLICE = 2048;
-
         // The widget to display list of available options
         private Gtk.TreeView item_view;
         // The lines read so far, and the ones matching the entry text
@@ -19,8 +16,8 @@ namespace Ilia {
         private Gtk.TreeIter iter;
         // Reads stdin without blocking, so the window shows at once
         private LineReader reader;
-        // Idle handler doing filter work, or 0
-        private uint filter_work_id = 0;
+        // Filters and fills the view from idle
+        private FilterWork work;
         // Enter was pressed with no match while input was still being read
         private bool enter_pending = false;
 
@@ -86,6 +83,9 @@ namespace Ilia {
             text_filter.reset.connect(on_filter_reset);
             text_filter.appended.connect(on_filter_appended);
             model = new FilteredLinesModel(text_filter, render_icon_flag, load_item_icon(settings.get_int("icon-size")));
+            work = new FilterWork(text_filter, model);
+            work.first_rows.connect(select_first);
+            work.done.connect(resolve_pending_enter);
 
             create_item_view();
             set_selection();
@@ -94,7 +94,7 @@ namespace Ilia {
             reader = new LineReader(new UnixInputStream(0, false));
             reader.lines_read.connect((lines) => {
                 text_filter.add_lines(lines);
-                schedule_filter_work();
+                work.schedule();
             });
             reader.finished.connect(resolve_pending_enter);
             reader.read_all.begin();
@@ -133,6 +133,9 @@ namespace Ilia {
 
             // Launch app on row selection
             item_view.row_activated.connect(on_row_activated);
+
+            // Input may still be read and filtered when the window closes: leave the view alone
+            item_view.destroy.connect(stop_work);
         }
 
         public bool key_event(Gdk.EventKey event_key) {
@@ -144,6 +147,11 @@ namespace Ilia {
             if (keycode == Ilia.KEY_CODE_ENTER) {
                 // Act on the matches for the text as typed, among all lines read so far
                 text_filter.finish();
+                // The view activates the selected row: make sure the first match is in it
+                if (model.row_count == 0 && model.pending > 0) {
+                    model.announce(1);
+                    select_first();
+                }
                 if (text_filter.visible_count == 0 && entry.text.length > 0) {
                     // While input is still being read a later line may match: decide once one does or input ends
                     if (reader.done)
@@ -167,42 +175,28 @@ namespace Ilia {
         void on_entry_changed() {
             enter_pending = false;
             text_filter.set_query(entry.get_text());
-            schedule_filter_work();
+            work.schedule();
         }
 
         // called on enter when in text box
         void on_entry_activated() {
             text_filter.finish();
-            if (model.get_iter(out iter, path))
-                print_selection(iter);
-        }
-
-        private void schedule_filter_work() {
-            if (filter_work_id != 0) return;
-
-            filter_work_id = Idle.add(() => {
-                if (text_filter.step(FILTER_SLICE))
-                    return true;
-                filter_work_id = 0;
-                resolve_pending_enter();
-                return false;
-            }, Priority.DEFAULT_IDLE);
+            int position = path.get_indices()[0];
+            if (position < text_filter.visible_count)
+                print(text_filter.get_visible_line(position));
         }
 
         // Filtering for new text completed: give the view the new rows in one go
         private void on_filter_reset() {
             item_view.set_model(null);
-            model.invalidate_iters();
+            model.sync();
             item_view.set_model(model);
             select_first();
             resolve_pending_enter();
         }
 
-        // Lines read later match the text: add them at the end
+        // Lines read later match the text: the view gets them from idle, a slice at a time
         private void on_filter_appended(int first, int count) {
-            model.rows_appended(first, count);
-            if (first == 0)
-                select_first();
             resolve_pending_enter();
         }
 
@@ -220,7 +214,7 @@ namespace Ilia {
         }
 
         private void select_first() {
-            if (text_filter.visible_count > 0)
+            if (model.row_count > 0)
                 item_view.set_cursor(new Gtk.TreePath.first(), null, false);
         }
 
@@ -265,7 +259,13 @@ namespace Ilia {
             if (cmd_path != null) print(cmd_path);
         }
 
+        private void stop_work() {
+            work.stop();
+            enter_pending = false;
+        }
+
         private void print(string selection) {
+            stop_work();
             stdout.printf("%s\n", selection);
 
             session_controller.quit();

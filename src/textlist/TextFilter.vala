@@ -101,6 +101,7 @@ namespace Ilia {
         private int job_n_visible = 0;
 
         // Rows checked against a query since creation; lets tests bound the work per step
+        [CCode (notify = false)]
         public uint64 rows_checked { get; private set; default = 0; }
 
         public int line_count {
@@ -125,6 +126,15 @@ namespace Ilia {
         public bool busy {
             get {
                 return job_active || filtered_upto < n_lines;
+            }
+        }
+
+        /**
+         * True while filtering for a new query, whose result will replace the visible rows
+         */
+        public bool replacing {
+            get {
+                return job_active;
             }
         }
 
@@ -245,12 +255,20 @@ namespace Ilia {
      *
      * Unlike a Gtk.TreeModelFilter it does not re-check every row on a new query: the
      * filter works in slices, and the view is given the finished result in one go.
+     *
+     * Rows the filter appends are not shown at once: announce() tells the view about a
+     * bounded number of them per call, because each row-inserted signal costs the view,
+     * and its accessibility peer when an AT-SPI client is connected, far more than checking
+     * the row (2048 signals took 45 ms with a client). The model only reports rows it has
+     * announced, so the view and the model always agree.
      */
     public class FilteredLinesModel : GLib.Object, Gtk.TreeModel {
         private TextFilter filter;
         private Gdk.Pixbuf ? icon;
         private bool with_icon;
         private int stamp = (int) Random.next_int();
+        // Rows the view knows about: the first n_rows visible rows of the filter
+        private int n_rows = 0;
 
         /**
          * @param with_icon If true column 0 is the icon and column 1 the line, else column 0 is the line
@@ -261,9 +279,49 @@ namespace Ilia {
             this.icon = icon;
         }
 
-        // Call after the filter's visible rows were replaced, while no view uses this model
-        public void invalidate_iters() {
+        /**
+         * Number of rows the view knows about
+         */
+        public int row_count {
+            get {
+                return n_rows;
+            }
+        }
+
+        /**
+         * Rows the filter shows that the view was not told about yet
+         */
+        public int pending {
+            get {
+                return filter.visible_count - n_rows;
+            }
+        }
+
+        /**
+         * Take all visible rows of the filter, after they were replaced
+         *
+         * Call while no view uses this model: no signals are emitted.
+         */
+        public void sync() {
             stamp++;
+            n_rows = filter.visible_count;
+        }
+
+        /**
+         * Tell the view about at most max_rows of the pending rows
+         *
+         * @return the number of rows announced
+         */
+        public int announce(int max_rows) {
+            int count = 0;
+            while (count < max_rows && n_rows < filter.visible_count) {
+                Gtk.TreeIter iter;
+                int position = n_rows++;
+                make_iter(out iter, position);
+                row_inserted(new Gtk.TreePath.from_indices(position), iter);
+                count++;
+            }
+            return count;
         }
 
         public Gtk.TreeModelFlags get_flags() {
@@ -280,7 +338,7 @@ namespace Ilia {
 
         private bool make_iter(out Gtk.TreeIter iter, int position) {
             iter = Gtk.TreeIter();
-            if (position < 0 || position >= filter.visible_count) return false;
+            if (position < 0 || position >= n_rows) return false;
             iter.stamp = stamp;
             iter.user_data = (void *) (long) position;
             return true;
@@ -301,7 +359,7 @@ namespace Ilia {
 
         public Gtk.TreePath ? get_path(Gtk.TreeIter iter) {
             int position = position_of(iter);
-            if (position < 0 || position >= filter.visible_count) return null;
+            if (position < 0 || position >= n_rows) return null;
             return new Gtk.TreePath.from_indices(position);
         }
 
@@ -312,7 +370,7 @@ namespace Ilia {
                 value.set_object(icon);
             } else {
                 value = Value(typeof (string));
-                if (position >= 0 && position < filter.visible_count)
+                if (position >= 0 && position < n_rows)
                     value.set_string(filter.get_visible_line(position));
             }
         }
@@ -342,7 +400,7 @@ namespace Ilia {
         }
 
         public int iter_n_children(Gtk.TreeIter ? iter) {
-            return iter == null ? filter.visible_count : 0;
+            return iter == null ? n_rows : 0;
         }
 
         public bool iter_nth_child(out Gtk.TreeIter iter, Gtk.TreeIter ? parent, int n) {
@@ -358,12 +416,89 @@ namespace Ilia {
             return false;
         }
 
-        // Tell the view about rows the filter appended at the end
-        public void rows_appended(int first, int count) {
-            for (int position = first; position < first + count; ++position) {
-                Gtk.TreeIter iter;
-                make_iter(out iter, position);
-                row_inserted(new Gtk.TreePath.from_indices(position), iter);
+    }
+
+    /**
+     * Does a TextFilter's work and gives its new rows to the view, from idle
+     *
+     * Each callback checks at most filter_slice rows and announces at most announce_slice
+     * rows, so key events and D-Bus messages are handled between callbacks. A long
+     * callback leaves them queued together; GTK then handles the key first, the AT-SPI
+     * key listener runs a nested main loop, and an AT-SPI client leaving in it frees the
+     * GTK key listener list being walked (SIGSEGV on a 400k-line input).
+     *
+     * After stop() nothing is done any more, so the view may be destroyed while input is
+     * still read and filtered.
+     */
+    public class FilterWork : GLib.Object {
+        // The view got its first rows
+        public signal void first_rows();
+        // No work is left
+        public signal void done();
+
+        private TextFilter filter;
+        private FilteredLinesModel model;
+        private int filter_slice;
+        private int announce_slice;
+        private uint source_id = 0;
+
+        public bool stopped { get; private set; default = false; }
+
+        public bool scheduled {
+            get {
+                return source_id != 0;
+            }
+        }
+
+        public FilterWork (TextFilter filter, FilteredLinesModel model, int filter_slice = 2048, int announce_slice = 128) {
+            this.filter = filter;
+            this.model = model;
+            this.filter_slice = filter_slice;
+            this.announce_slice = announce_slice;
+        }
+
+        /**
+         * Make sure the work is done from idle; call when lines were added or the query changed
+         */
+        public void schedule() {
+            if (stopped || source_id != 0) return;
+
+            source_id = Idle.add(() => {
+                if (run_slice())
+                    return true;
+                source_id = 0;
+                done();
+                return false;
+            }, Priority.DEFAULT_IDLE);
+        }
+
+        /**
+         * The work of one idle callback
+         *
+         * @return true if work is left
+         */
+        public bool run_slice() {
+            if (stopped) return false;
+
+            filter.step(filter_slice);
+            // Rows about to be replaced by a new query's result are not worth announcing
+            if (model.pending > 0 && !filter.replacing) {
+                bool was_empty = model.row_count == 0;
+                model.announce(announce_slice);
+                if (was_empty)
+                    first_rows();
+            }
+            return !stopped && (filter.busy || model.pending > 0);
+        }
+
+        /**
+         * Do nothing any more, also if already scheduled
+         */
+        public void stop() {
+            stopped = true;
+            if (source_id != 0) {
+                Source.remove(source_id);
+                source_id = 0;
             }
         }
     }

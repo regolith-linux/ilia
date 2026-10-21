@@ -45,6 +45,7 @@ ilia_sources += files([
     'notifications/RoficationPage.vala',
     'textlist/TextFilter.vala',
     'textlist/TextListPage.vala',
+    'tracker/FileSearch.vala',
     'tracker/SparqlLibrary.vala',
     'tracker/TrackerPage.vala',
     'windows/WindowPage.vala',

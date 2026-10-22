@@ -125,9 +125,11 @@ namespace Ilia {
             item_view.get_selection().changed.connect(on_selection);
         }
 
+        // Delete acts on the highlighted notification, or on none
         private void on_selection(Gtk.TreeSelection selection) {
             Gtk.TreeModel model;
             Gtk.TreeIter iter;
+            selected_notification_id = -1;
             if (selection.get_selected(out model, out iter)) {
                 string notification_id;
                 filter.@get(iter, ITEM_VIEW_COLUMN_ID, out notification_id);
@@ -226,12 +228,8 @@ namespace Ilia {
             selection.set_mode(SelectionMode.SINGLE);
             selection.select_path(path);
 
-            if (filter.get_iter_first(out iter)) {
-                string notification_id;
-                filter.@get(iter, ITEM_VIEW_COLUMN_ID, out notification_id);
-
-                selected_notification_id = int.parse(notification_id);
-            }
+            // The selection may not have changed, so the changed signal may not come
+            on_selection(selection);
         }
 
         public void show() {

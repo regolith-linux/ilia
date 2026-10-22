@@ -52,6 +52,9 @@ namespace Ilia {
     }
 
     public class RoficationClient {
+        // Seconds to wait on the daemon: one that accepts the connection but never answers must not hang ilia
+        private const uint SOCKET_TIMEOUT = 2;
+
         private UnixSocketAddress socket_addr;
         private int buffer_size = 1024 * 8;
 
@@ -139,6 +142,7 @@ namespace Ilia {
             var socket = new Socket(SocketFamily.UNIX, SocketType.STREAM, SocketProtocol.DEFAULT);
             assert(socket != null);
 
+            socket.timeout = SOCKET_TIMEOUT;
             socket.connect(addr);
             socket.set_blocking(true);
 

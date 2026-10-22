@@ -81,6 +81,7 @@ namespace Ilia {
                     set_selection();
                 } catch (GLib.Error err) {
                     stderr.printf("Error: load_notifications failed: %s\n", err.message);
+                    show_load_error(err);
                 }
             });
 
@@ -208,6 +209,19 @@ namespace Ilia {
                     ITEM_VIEW_COLUMN_APP_INFO, desktopAppInfo
                 );
             }
+        }
+
+        // Say in the list why it is empty; the row is no notification, so Delete ignores it
+        private void show_load_error(GLib.Error err) {
+            model.clear();
+            model.append(out iter);
+            model.set(
+                iter,
+                ITEM_VIEW_COLUMN_ICON, Ilia.load_icon_from_name(Gtk.IconTheme.get_default(), "dialog-error", icon_size),
+                ITEM_VIEW_COLUMN_DETAIL, "Could not load notifications\n" + err.message,
+                ITEM_VIEW_COLUMN_ID, "-1"
+            );
+            set_selection();
         }
 
         private DesktopAppInfo ? getDesktopAppInfo(string appName) {

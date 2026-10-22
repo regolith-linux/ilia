@@ -15,6 +15,8 @@ namespace Ilia {
         public string application { get; private set; }
         public string icon { get; private set; }
         public int64 urgency { get; private set; }
+        // Time the notification arrived, in seconds since the epoch; 0 if unknown
+        public double timestamp { get; private set; }
         // TODO add 'actions' (list of string)
 
         internal NotificationDesc (Json.Object responseJson) {
@@ -24,7 +26,29 @@ namespace Ilia {
             application = responseJson.get_string_member("application");
             icon = responseJson.get_string_member("icon");
             urgency = responseJson.get_int_member("urgency");
+
+            // A float from the daemon; notifications saved by older daemons have none or ""
+            var ts = responseJson.get_member("timestamp");
+            if (ts != null && ts.get_node_type() == Json.NodeType.VALUE &&
+                (ts.get_value_type() == typeof (double) || ts.get_value_type() == typeof (int64)))
+                timestamp = ts.get_double();
         }
+    }
+
+    /**
+     * Order notifications newest first
+     *
+     * The daemon lists notifications in the order they were first added; a notification
+     * that is replaced keeps its id and its place but gets a new timestamp. So order by
+     * timestamp, newest first, then by id, highest first. Notifications without a
+     * timestamp come after those with one.
+     */
+    public static int compare_notifications_newest_first(NotificationDesc a, NotificationDesc b) {
+        if (a.timestamp != b.timestamp)
+            return a.timestamp > b.timestamp ? -1 : 1;
+        if (a.id != b.id)
+            return a.id > b.id ? -1 : 1;
+        return 0;
     }
 
     public class RoficationClient {

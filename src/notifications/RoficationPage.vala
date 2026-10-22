@@ -78,7 +78,6 @@ namespace Ilia {
                 try {
                     load_notifications.end(res);
 
-                    model.set_sort_column_id(1, SortType.ASCENDING);
                     set_selection();
                 } catch (GLib.Error err) {
                     stderr.printf("Error: load_notifications failed: %s\n", err.message);
@@ -175,6 +174,7 @@ namespace Ilia {
 
         private async void load_notifications() throws GLib.Error {
             var notifications = rofi_client.get_notifications();
+            notifications.sort(compare_notifications_newest_first);
             var icon_theme = Gtk.IconTheme.get_default();
             model.clear();
 

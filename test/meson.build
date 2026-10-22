@@ -1,7 +1,8 @@
 unit_test_files = [
     'Util',
     'I3Ipc',
-    'Launch'
+    'Launch',
+    'Rofication'
 ]
 
 foreach name : unit_test_files

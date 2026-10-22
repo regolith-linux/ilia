@@ -15,6 +15,13 @@ public void test_systemd_escape () {
      assert (Ilia.systemd_escape(".@/foo$bAR§qux/ab.çd-êf_gh=ij") == "\\x2e\\x40-foo\\x24bAR\\xc2\\xa7qux-ab.\\xc3\\xa7d\\x2d\\xc3\\xaaf_gh\\x3dij");
 }
 
+public void test_is_enter_key() {
+    assert (Ilia.is_enter_key(Ilia.KEY_CODE_ENTER));
+    assert (Ilia.is_enter_key(Ilia.KEY_CODE_KP_ENTER));
+    assert (!Ilia.is_enter_key(Ilia.KEY_CODE_ESCAPE));
+    assert (!Ilia.is_enter_key('\n'));
+}
+
 public void test_matches_all_words() {
     // Single word: substring, case-insensitive, as before
     assert (Ilia.matches_all_words("foo", { "foo bar baz" }));
@@ -132,6 +139,7 @@ public int main (string[] args) {
     Test.init (ref args);
 
     Test.add_func ("/test_systemd_escape", test_systemd_escape);
+    Test.add_func ("/test_is_enter_key", test_is_enter_key);
     Test.add_func ("/test_matches_all_words", test_matches_all_words);
     Test.add_func ("/test_compare_desktop_apps", test_compare_desktop_apps);
     Test.add_func ("/test_build_command_line", test_build_command_line);

@@ -112,7 +112,7 @@ namespace Ilia {
 
             var keycode = event_key.keyval;
 
-            if (keycode == Ilia.KEY_CODE_ENTER && !filter.get_iter_first(out iter) && entry.text.length > 0) {
+            if (is_enter_key(keycode) && !filter.get_iter_first(out iter) && entry.text.length > 0) {
                 execute_command(entry.text);
                 return true;
             }

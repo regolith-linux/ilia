@@ -49,6 +49,13 @@ namespace Ilia {
         return false;
     }
 
+    /**
+     * True for the keys that act on the selection: Return and the keypad Enter
+     */
+    public static bool is_enter_key(uint keyval) {
+        return keyval == KEY_CODE_ENTER || keyval == KEY_CODE_KP_ENTER;
+    }
+
     /*
      * Get the location for swaymsg or i3-msg as per the current session type
      */

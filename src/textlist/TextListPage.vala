@@ -144,7 +144,7 @@ namespace Ilia {
 
             var keycode = event_key.keyval;
 
-            if (keycode == Ilia.KEY_CODE_ENTER) {
+            if (is_enter_key(keycode)) {
                 // Act on the matches for the text as typed, among all lines read so far
                 text_filter.finish();
                 // The view activates the selected row: make sure the first match is in it

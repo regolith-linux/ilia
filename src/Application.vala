@@ -47,10 +47,9 @@ namespace Ilia {
         }
 
         protected override void activate() {
-            // Get session type (wayland or x11) and set the flag
-            string session_type = Environment.get_variable("XDG_SESSION_TYPE");
-            string gdk_backend = Environment.get_variable("GDK_BACKEND");
-            var is_wayland_session = session_type == "wayland" && gdk_backend != "x11";
+            // Use the backend GDK connected with: XDG_SESSION_TYPE is not set in every Wayland session
+            // (sway started from a TTY), and GDK_BACKEND or a missing compositor can mean X11
+            var is_wayland_session = Gdk.Display.get_default().get_type().name() == "GdkWaylandDisplay";
 
             // Set window manager
             string sway_sock = Environment.get_variable("SWAYSOCK");

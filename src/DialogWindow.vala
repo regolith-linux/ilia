@@ -488,6 +488,9 @@ namespace Ilia {
                 if (width >= geometry.width || height >= geometry.height) return;
             }
 
+            // On Wayland the window is sized by its size request, which is also its minimum size
+            if (is_wayland)
+                set_size_request(width, height);
             resize(width, height);
 
             settings.set_int("window-width", width);

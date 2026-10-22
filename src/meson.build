@@ -41,6 +41,7 @@ ilia_sources += files([
     'keybindings/KeybindingsPage.vala',
     'notifications/RoficationClient.vala',
     'notifications/RoficationPage.vala',
+    'textlist/TextFilter.vala',
     'textlist/TextListPage.vala',
     'tracker/TrackerPage.vala',
     'windows/WindowPage.vala',

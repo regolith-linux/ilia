@@ -252,7 +252,10 @@ namespace Ilia {
 
         public IPCClient (string wm_name) throws GLib.Error {
             this.wm_name = wm_name;
-            var socket_path = Environment.get_variable("I3SOCK");
+            // sway is detected from SWAYSOCK; it sets I3SOCK too, but only for the programs it starts
+            var socket_path = Environment.get_variable(wm_name == "sway" ? "SWAYSOCK" : "I3SOCK");
+            if (socket_path == null)
+                throw new IOError.NOT_FOUND("No IPC socket for window manager %s", wm_name);
 
             var socketAddress = new UnixSocketAddress(socket_path);
 

@@ -121,11 +121,43 @@ public void test_consecutive_replies() {
     }
 }
 
+// Under sway the socket is read from SWAYSOCK, which may be the only one set
+public void test_sway_socket() {
+    var config = make_config(2);
+
+    try {
+        var wm = new FakeWm({ config_reply(config) });
+        Environment.unset_variable("I3SOCK");
+        Environment.set_variable("SWAYSOCK", wm.socket_path, true);
+        var reply = new Ilia.IPCClient("sway").getConfig();
+        wm.join();
+        // followed by the included files, none here
+        assert(reply.config.has_prefix(config));
+    } catch (GLib.Error e) {
+        error("getConfig failed: %s", e.message);
+    }
+}
+
+// No socket for the window manager is an error, not a crash
+public void test_missing_socket() {
+    Environment.unset_variable("I3SOCK");
+    Environment.unset_variable("SWAYSOCK");
+
+    try {
+        new Ilia.IPCClient("i3");
+        assert_not_reached();
+    } catch (GLib.Error e) {
+        assert(e is IOError.NOT_FOUND);
+    }
+}
+
 public int main(string[] args) {
     Test.init(ref args);
 
     Test.add_func("/i3ipc/large_config_reply", test_large_config_reply);
     Test.add_func("/i3ipc/consecutive_replies", test_consecutive_replies);
+    Test.add_func("/i3ipc/sway_socket", test_sway_socket);
+    Test.add_func("/i3ipc/missing_socket", test_missing_socket);
 
     return Test.run();
 }

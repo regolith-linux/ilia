@@ -8,14 +8,6 @@ namespace Ilia {
         private const int ITEM_VIEW_COLUMN_TITLE = 1;
         private const int ITEM_VIEW_COLUMN_FILE = 2;
 
-        // TODO: look into these flags, copied from
-        // https://github.com/paysonwallach/tracker-web-bridge/blob/f9b6d99ebf7506e698713684f9d999a6a6d4e5dd/src/Application.vala
-        private const Tracker.Sparql.ConnectionFlags connection_flags =
-            Tracker.Sparql.ConnectionFlags.FTS_ENABLE_STEMMER |
-            Tracker.Sparql.ConnectionFlags.FTS_ENABLE_UNACCENT |
-            Tracker.Sparql.ConnectionFlags.FTS_ENABLE_STOP_WORDS |
-            Tracker.Sparql.ConnectionFlags.FTS_IGNORE_NUMBERS;
-
         // The widget to display list of available options
         private Gtk.TreeView item_view;
         // Model for selections
@@ -153,22 +145,23 @@ namespace Ilia {
         private void full_text_search() {
             try {
                 var queryterm = entry.get_text();
-                var connection = Tracker.Sparql.Connection.bus_new("org.freedesktop.Tracker3.Miner.Files", null, null);
+                unowned var sparql = SparqlLibrary.get_default();
+                var connection = sparql.connection_bus_new("org.freedesktop.Tracker3.Miner.Files", null, null);
                 var query = "SELECT DISTINCT nie:url(?f) nie:title(?f) nie:mimeType(?f) WHERE { ?f fts:match '" + queryterm + "' }";
 
-                var cursor = connection.query(query);
+                var cursor = sparql.connection_query(connection, query, null);
                 long length = 0;
 
-                while (cursor.next()) {
-                    var uri_encoded = cursor.get_string(0, out length);
+                while (sparql.cursor_next(cursor, null)) {
+                    var uri_encoded = sparql.cursor_get_string(cursor, 0, out length);
                     if (uri_encoded != null) {
                         var uri = GLib.Filename.from_uri(uri_encoded);
 
-                        var title = cursor.get_string(1, out length);
+                        var title = sparql.cursor_get_string(cursor, 1, out length);
                         if (title == null)
                             title = Path.get_basename(uri);
 
-                        var mimeType = cursor.get_string(2, out length);
+                        var mimeType = sparql.cursor_get_string(cursor, 2, out length);
                         if (mimeType == null)
                             mimeType = "application/octet-stream";
 

@@ -8,6 +8,7 @@ namespace Ilia {
     public const int KEY_CODE_UP = 65364;
     public const int KEY_CODE_DOWN = 65362;
     public const int KEY_CODE_ENTER = 65293;
+    public const int KEY_CODE_KP_ENTER = 65421;
     public const int KEY_CODE_PGDOWN = 65366;
     public const int KEY_CODE_PGUP = 65365;
     public const int KEY_CODE_HOME = 65360;
@@ -201,7 +202,8 @@ namespace Ilia {
                         case KEY_CODE_PGUP: // Let UI handle these nav keys
                             dialog_pages[active_page].show();
                             break;
-                        case KEY_CODE_ENTER: // Let the page accept typed text that matches no item, else activate the selected item
+                        case KEY_CODE_ENTER:
+                        case KEY_CODE_KP_ENTER: // Let the page accept typed text that matches no item, else activate the selected item
                             key_handled = dialog_pages[active_page].key_event(key);
                             if (!key_handled)
                                 dialog_pages[active_page].show();

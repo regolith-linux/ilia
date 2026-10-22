@@ -6,6 +6,12 @@ namespace Ilia {
      */
     public static bool handle_emacs_vim_nav(Gtk.TreeView item_view, Gtk.TreePath path, Gdk.EventKey key) {
         if ((key.state & Gdk.ModifierType.CONTROL_MASK) == Gdk.ModifierType.CONTROL_MASK) { // CTRL
+            // The arrow keys and the mouse move the selection without updating path: start from the selected row
+            Gtk.TreeModel model;
+            Gtk.TreeIter iter;
+            if (item_view.get_selection().get_selected(out model, out iter))
+                move_path_to(path, model.get_path(iter));
+
             bool is_last = selection_is_last(item_view.get_selection());
 
             if (key.keyval == 'p' || key.keyval == 'k') {
@@ -22,6 +28,17 @@ namespace Ilia {
         }
 
         return false;
+    }
+
+    /**
+     * Move path, in place, to the row at target among the same siblings
+     *
+     * The pages keep their path between key events, so it is updated rather than replaced.
+     */
+    public static void move_path_to(Gtk.TreePath path, Gtk.TreePath target) {
+        while (path.compare(target) < 0)
+            path.next();
+        while (path.compare(target) > 0 && path.prev()) {}
     }
 
     public static bool selection_is_last(Gtk.TreeSelection selection) {

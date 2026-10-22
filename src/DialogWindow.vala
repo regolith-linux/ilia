@@ -55,6 +55,11 @@ namespace Ilia {
         private string wm_name;
         private bool is_wayland;
 
+        // The desktop's layout-switch shortcuts; on X11 ilia switches the layout itself, as its keyboard grab keeps them from the desktop
+        private InputSourceSwitcher ? layout_switcher = null;
+        // Super was pressed as part of a layout-switch shortcut; exit if it is released on its own
+        private bool exit_on_super_release = false;
+
         public DialogWindow (HashTable<string, string ?> arg_map, bool is_wayland_session, string wm_name) {
             Object(type: Gtk.WindowType.POPUP); // Window is unmanaged
             window_position = WindowPosition.CENTER_ALWAYS;
@@ -101,8 +106,23 @@ namespace Ilia {
                 return false;
             });
 
+            layout_switcher = InputSourceSwitcher.from_settings(Gdk.Keymap.get_for_display(get_display()));
+
             // Route keys based on function
             key_press_event.connect((key) => {
+                if (layout_switcher != null && !is_wayland) {
+                    int direction = layout_switcher.match(key.keyval, keyval_in_first_layout(key), key.state);
+                    if (direction != 0) {
+                        exit_on_super_release = false;
+                        layout_switcher.switch_source.begin(direction);
+                        return true;
+                    }
+                    if (exit_on_super_release && key.is_modifier == 0) { // Super did not start a layout switch after all
+                        quit();
+                        return true;
+                    }
+                }
+
                 if ((key.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK) { // ALT
                     // Enable page nav keybindings in all page mode.
                     for (int i = 0; i < total_pages; ++i) {
@@ -178,8 +198,15 @@ namespace Ilia {
 
                 bool key_handled = false;
                 switch (key.keyval) {
-                        case KEY_CODE_ESCAPE:
-                        case KEY_CODE_SUPER: // Explicit exit
+                        case KEY_CODE_ESCAPE: // Explicit exit
+                            quit();
+                            break;
+                        case KEY_CODE_SUPER: // Explicit exit, unless Super is pressed to complete a held layout-switch shortcut
+                            if (layout_switcher != null && layout_switcher.super_starts_shortcut(key.state)) {
+                                // On Wayland the compositor takes the rest of the shortcut, so ilia never sees it
+                                exit_on_super_release = !is_wayland;
+                                break;
+                            }
                             quit();
                             break;
                         case KEY_CODE_BRIGHT_UP:
@@ -220,6 +247,12 @@ namespace Ilia {
                 return key_handled;
             });
 
+            key_release_event.connect((key) => {
+                if (exit_on_super_release && key.keyval == KEY_CODE_SUPER)
+                    quit();
+                return false;
+            });
+
             entry.activate.connect(on_entry_activated);
 
             dialog_pages[active_page].show();  // Get page ready to use
@@ -229,6 +262,18 @@ namespace Ilia {
             base.show_all();
             notebook.set_current_page((int) active_page);
             notebook.switch_page.connect(on_page_switch);
+        }
+
+        // The key of a key event as it is in the first layout
+        private uint keyval_in_first_layout(Gdk.EventKey key) {
+            uint keyval;
+            int effective_group, level;
+            Gdk.ModifierType consumed;
+
+            var keymap = Gdk.Keymap.get_for_display(get_display());
+            if (keymap.translate_keyboard_state(key.hardware_keycode, key.state, 0, out keyval, out effective_group, out level, out consumed))
+                return keyval;
+            return key.keyval;
         }
 
         public void set_seat(Gdk.Seat seat) {

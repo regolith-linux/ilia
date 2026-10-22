@@ -34,6 +34,7 @@ ilia_sources += files([
     'DialogWindow.vala',
     'Application.vala',
     'IconLoader.vala',
+    'InputSourceSwitcher.vala',
     'Util.vala',
     'apps/DesktopAppPage.vala',
     'commands/CommandPage.vala',

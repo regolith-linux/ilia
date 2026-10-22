@@ -112,6 +112,22 @@ public void test_build_command_line() {
     assert (string.joinv("|", argv) == "x-terminal-emulator|-e|npm|docs|some library");
 }
 
+public void test_move_path_to() {
+    var path = new Gtk.TreePath.first();
+
+    // Forward and back among the rows of a list
+    Ilia.move_path_to(path, new Gtk.TreePath.from_string("2"));
+    assert (path.to_string() == "2");
+    Ilia.move_path_to(path, new Gtk.TreePath.from_string("1"));
+    assert (path.to_string() == "1");
+    Ilia.move_path_to(path, new Gtk.TreePath.first());
+    assert (path.to_string() == "0");
+
+    // Already there
+    Ilia.move_path_to(path, new Gtk.TreePath.first());
+    assert (path.to_string() == "0");
+}
+
 public int main (string[] args) {
     Test.init (ref args);
 
@@ -119,6 +135,7 @@ public int main (string[] args) {
     Test.add_func ("/test_matches_all_words", test_matches_all_words);
     Test.add_func ("/test_compare_desktop_apps", test_compare_desktop_apps);
     Test.add_func ("/test_build_command_line", test_build_command_line);
+    Test.add_func ("/test_move_path_to", test_move_path_to);
 
     return Test.run ();
 }

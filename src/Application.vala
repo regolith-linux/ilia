@@ -30,6 +30,8 @@ char * default_css = """
 namespace Ilia {
     class Application : Gtk.Application {
         private GLib.HashTable<string, string ?> arg_map;
+        private Ilia.DialogWindow window;
+        private DBusConnection ? system_bus = null;
 
         public Application () {
             Object(
@@ -78,6 +80,7 @@ namespace Ilia {
             }
 
             initialize_style(window, arg_map);
+            close_on_sleep_or_lock(window);
             window.show_all();
 
             // Grab inputs from X11 backend after showing window
@@ -107,6 +110,34 @@ namespace Ilia {
 
                 return !click_out_bounds;
             });
+        }
+
+        // Close when the system is about to suspend or the screen gets locked. On X11 ilia
+        // grabs the keyboard and pointer, and while it does the screen locker cannot lock.
+        private void close_on_sleep_or_lock(Ilia.DialogWindow window) {
+            this.window = window;
+
+            var session_bus = get_dbus_connection();
+            if (session_bus != null)
+                session_bus.signal_subscribe("org.gnome.ScreenSaver", "org.gnome.ScreenSaver", "ActiveChanged",
+                                             "/org/gnome/ScreenSaver", null, DBusSignalFlags.NONE, on_sleep_or_lock_signal);
+
+            Bus.get.begin(BusType.SYSTEM, null, (obj, res) => {
+                try {
+                    // Keep a reference: the subscription ends when the connection is freed
+                    system_bus = Bus.get.end(res);
+                    system_bus.signal_subscribe("org.freedesktop.login1", "org.freedesktop.login1.Manager", "PrepareForSleep",
+                                                "/org/freedesktop/login1", null, DBusSignalFlags.NONE, on_sleep_or_lock_signal);
+                } catch (GLib.Error e) {
+                    stderr.printf("Cannot watch for suspend: %s\n", e.message);
+                }
+            });
+        }
+
+        private void on_sleep_or_lock_signal(DBusConnection connection, string ? sender, string path,
+                                             string interface_name, string signal_name, Variant parameters) {
+            if (is_sleep_or_lock_signal(interface_name, signal_name, parameters))
+                window.quit();
         }
 
         private void initialize_style(Gtk.Window window, HashTable<string, string ?> arg_map) {

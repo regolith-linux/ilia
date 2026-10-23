@@ -56,6 +56,21 @@ namespace Ilia {
         return keyval == KEY_CODE_ENTER || keyval == KEY_CODE_KP_ENTER;
     }
 
+    /**
+     * True for the D-Bus signals that announce a suspend or a screen lock: logind's
+     * PrepareForSleep(true) and the screensaver's ActiveChanged(true)
+     */
+    public static bool is_sleep_or_lock_signal(string interface_name, string signal_name, Variant parameters) {
+        bool is_sleep = interface_name == "org.freedesktop.login1.Manager" && signal_name == "PrepareForSleep";
+        bool is_lock = interface_name == "org.gnome.ScreenSaver" && signal_name == "ActiveChanged";
+        if (!(is_sleep || is_lock) || !parameters.is_of_type(new VariantType("(b)")))
+            return false;
+
+        bool starting;
+        parameters.get("(b)", out starting);
+        return starting;
+    }
+
     /*
      * Get the location for swaymsg or i3-msg as per the current session type
      */

@@ -22,6 +22,21 @@ public void test_is_enter_key() {
     assert (!Ilia.is_enter_key('\n'));
 }
 
+public void test_is_sleep_or_lock_signal() {
+    assert (Ilia.is_sleep_or_lock_signal("org.freedesktop.login1.Manager", "PrepareForSleep", new Variant("(b)", true)));
+    assert (Ilia.is_sleep_or_lock_signal("org.gnome.ScreenSaver", "ActiveChanged", new Variant("(b)", true)));
+
+    // Resume and unlock
+    assert (!Ilia.is_sleep_or_lock_signal("org.freedesktop.login1.Manager", "PrepareForSleep", new Variant("(b)", false)));
+    assert (!Ilia.is_sleep_or_lock_signal("org.gnome.ScreenSaver", "ActiveChanged", new Variant("(b)", false)));
+
+    // Other signals, and unexpected arguments
+    assert (!Ilia.is_sleep_or_lock_signal("org.freedesktop.login1.Manager", "PrepareForShutdown", new Variant("(b)", true)));
+    assert (!Ilia.is_sleep_or_lock_signal("org.gnome.ScreenSaver", "WakeUpScreen", new Variant("()")));
+    assert (!Ilia.is_sleep_or_lock_signal("org.freedesktop.login1.Manager", "PrepareForSleep", new Variant("(s)", "true")));
+    assert (!Ilia.is_sleep_or_lock_signal("org.freedesktop.login1.Manager", "PrepareForSleep", new Variant("()")));
+}
+
 public void test_matches_all_words() {
     // Single word: substring, case-insensitive, as before
     assert (Ilia.matches_all_words("foo", { "foo bar baz" }));
@@ -140,6 +155,7 @@ public int main (string[] args) {
 
     Test.add_func ("/test_systemd_escape", test_systemd_escape);
     Test.add_func ("/test_is_enter_key", test_is_enter_key);
+    Test.add_func ("/test_is_sleep_or_lock_signal", test_is_sleep_or_lock_signal);
     Test.add_func ("/test_matches_all_words", test_matches_all_words);
     Test.add_func ("/test_compare_desktop_apps", test_compare_desktop_apps);
     Test.add_func ("/test_build_command_line", test_build_command_line);

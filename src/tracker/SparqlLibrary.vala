@@ -15,26 +15,101 @@ namespace Ilia {
             "libtracker-sparql-3.0.so.0"
         };
 
-        // TrackerSparqlConnection *tracker_sparql_connection_bus_new (const gchar *service_name, const gchar *object_path, GDBusConnection *dbus_connection, GError **error)
+        // void tracker_sparql_connection_bus_new_async (const gchar *service_name, const gchar *object_path, GDBusConnection *dbus_connection, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
         [CCode(has_target = false)]
-        public delegate GLib.Object ? ConnectionBusNewFunc(string service_name, string ? object_path, GLib.DBusConnection ? dbus_connection) throws GLib.Error;
+        private delegate void ConnectionBusNewAsyncFunc(string service_name, string ? object_path, GLib.DBusConnection ? dbus_connection, GLib.Cancellable ? cancellable, GLib.AsyncReadyCallback callback);
 
-        // TrackerSparqlCursor *tracker_sparql_connection_query (TrackerSparqlConnection *connection, const gchar *sparql, GCancellable *cancellable, GError **error)
+        // TrackerSparqlConnection *tracker_sparql_connection_bus_new_finish (GAsyncResult *result, GError **error)
         [CCode(has_target = false)]
-        public delegate GLib.Object ? ConnectionQueryFunc(GLib.Object connection, string sparql, GLib.Cancellable ? cancellable) throws GLib.Error;
+        private delegate GLib.Object ? ConnectionBusNewFinishFunc(GLib.AsyncResult result) throws GLib.Error;
 
-        // gboolean tracker_sparql_cursor_next (TrackerSparqlCursor *cursor, GCancellable *cancellable, GError **error)
+        // TrackerSparqlStatement *tracker_sparql_connection_query_statement (TrackerSparqlConnection *connection, const gchar *sparql, GCancellable *cancellable, GError **error)
         [CCode(has_target = false)]
-        public delegate bool CursorNextFunc(GLib.Object cursor, GLib.Cancellable ? cancellable) throws GLib.Error;
+        public delegate GLib.Object ? ConnectionQueryStatementFunc(GLib.Object connection, string sparql, GLib.Cancellable ? cancellable) throws GLib.Error;
+
+        // void tracker_sparql_statement_bind_string (TrackerSparqlStatement *stmt, const gchar *name, const gchar *value)
+        [CCode(has_target = false)]
+        public delegate void StatementBindStringFunc(GLib.Object statement, string name, string value);
+
+        // void tracker_sparql_statement_execute_async (TrackerSparqlStatement *stmt, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+        [CCode(has_target = false)]
+        private delegate void StatementExecuteAsyncFunc(GLib.Object statement, GLib.Cancellable ? cancellable, GLib.AsyncReadyCallback callback);
+
+        // TrackerSparqlCursor *tracker_sparql_statement_execute_finish (TrackerSparqlStatement *stmt, GAsyncResult *res, GError **error)
+        [CCode(has_target = false)]
+        private delegate GLib.Object ? StatementExecuteFinishFunc(GLib.Object statement, GLib.AsyncResult result) throws GLib.Error;
+
+        // void tracker_sparql_cursor_next_async (TrackerSparqlCursor *cursor, GCancellable *cancellable, GAsyncReadyCallback callback, gpointer user_data)
+        [CCode(has_target = false)]
+        private delegate void CursorNextAsyncFunc(GLib.Object cursor, GLib.Cancellable ? cancellable, GLib.AsyncReadyCallback callback);
+
+        // gboolean tracker_sparql_cursor_next_finish (TrackerSparqlCursor *cursor, GAsyncResult *res, GError **error)
+        [CCode(has_target = false)]
+        private delegate bool CursorNextFinishFunc(GLib.Object cursor, GLib.AsyncResult result) throws GLib.Error;
 
         // const gchar *tracker_sparql_cursor_get_string (TrackerSparqlCursor *cursor, gint column, glong *length)
         [CCode(has_target = false)]
         public delegate unowned string ? CursorGetStringFunc(GLib.Object cursor, int column, out long length);
 
-        public ConnectionBusNewFunc connection_bus_new;
-        public ConnectionQueryFunc connection_query;
-        public CursorNextFunc cursor_next;
+        // void tracker_sparql_cursor_close (TrackerSparqlCursor *cursor)
+        [CCode(has_target = false)]
+        public delegate void CursorCloseFunc(GLib.Object cursor);
+
+        private ConnectionBusNewAsyncFunc connection_bus_new_async_func;
+        private ConnectionBusNewFinishFunc connection_bus_new_finish_func;
+        public ConnectionQueryStatementFunc connection_query_statement;
+        public StatementBindStringFunc statement_bind_string;
+        private StatementExecuteAsyncFunc statement_execute_async_func;
+        private StatementExecuteFinishFunc statement_execute_finish_func;
+        private CursorNextAsyncFunc cursor_next_async_func;
+        private CursorNextFinishFunc cursor_next_finish_func;
         public CursorGetStringFunc cursor_get_string;
+        public CursorCloseFunc cursor_close;
+
+        /**
+         * tracker_sparql_connection_bus_new_async() and _finish()
+         */
+        public async GLib.Object connection_bus_new_async(string service_name, GLib.Cancellable ? cancellable) throws GLib.Error {
+            GLib.AsyncResult ? result = null;
+            connection_bus_new_async_func(service_name, null, null, cancellable, (source, res) => {
+                result = res;
+                connection_bus_new_async.callback();
+            });
+            yield;
+            var connection = connection_bus_new_finish_func(result);
+            if (connection == null)
+                throw new IOError.FAILED("No connection to %s", service_name);
+            return connection;
+        }
+
+        /**
+         * tracker_sparql_statement_execute_async() and _finish()
+         */
+        public async GLib.Object statement_execute_async(GLib.Object statement, GLib.Cancellable ? cancellable) throws GLib.Error {
+            GLib.AsyncResult ? result = null;
+            statement_execute_async_func(statement, cancellable, (source, res) => {
+                result = res;
+                statement_execute_async.callback();
+            });
+            yield;
+            var cursor = statement_execute_finish_func(statement, result);
+            if (cursor == null)
+                throw new IOError.FAILED("The query returned no cursor");
+            return cursor;
+        }
+
+        /**
+         * tracker_sparql_cursor_next_async() and _finish()
+         */
+        public async bool cursor_next_async(GLib.Object cursor, GLib.Cancellable ? cancellable) throws GLib.Error {
+            GLib.AsyncResult ? result = null;
+            cursor_next_async_func(cursor, cancellable, (source, res) => {
+                result = res;
+                cursor_next_async.callback();
+            });
+            yield;
+            return cursor_next_finish_func(cursor, result);
+        }
 
         private static SparqlLibrary ? instance = null;
         private static string ? load_error = null;
@@ -75,18 +150,32 @@ namespace Ilia {
                         continue;
                     }
 
-                    void * bus_new = lookup(module, "tracker_sparql_connection_bus_new", errors);
-                    void * query = lookup(module, "tracker_sparql_connection_query", errors);
-                    void * next = lookup(module, "tracker_sparql_cursor_next", errors);
+                    void * bus_new_async = lookup(module, "tracker_sparql_connection_bus_new_async", errors);
+                    void * bus_new_finish = lookup(module, "tracker_sparql_connection_bus_new_finish", errors);
+                    void * query_statement = lookup(module, "tracker_sparql_connection_query_statement", errors);
+                    void * bind_string = lookup(module, "tracker_sparql_statement_bind_string", errors);
+                    void * execute_async = lookup(module, "tracker_sparql_statement_execute_async", errors);
+                    void * execute_finish = lookup(module, "tracker_sparql_statement_execute_finish", errors);
+                    void * next_async = lookup(module, "tracker_sparql_cursor_next_async", errors);
+                    void * next_finish = lookup(module, "tracker_sparql_cursor_next_finish", errors);
                     void * get_string = lookup(module, "tracker_sparql_cursor_get_string", errors);
-                    if (bus_new == null || query == null || next == null || get_string == null)
+                    void * close = lookup(module, "tracker_sparql_cursor_close", errors);
+                    if (bus_new_async == null || bus_new_finish == null || query_statement == null || bind_string == null ||
+                        execute_async == null || execute_finish == null || next_async == null || next_finish == null ||
+                        get_string == null || close == null)
                         continue;
 
                     var library = new SparqlLibrary();
-                    library.connection_bus_new = (ConnectionBusNewFunc) bus_new;
-                    library.connection_query = (ConnectionQueryFunc) query;
-                    library.cursor_next = (CursorNextFunc) next;
+                    library.connection_bus_new_async_func = (ConnectionBusNewAsyncFunc) bus_new_async;
+                    library.connection_bus_new_finish_func = (ConnectionBusNewFinishFunc) bus_new_finish;
+                    library.connection_query_statement = (ConnectionQueryStatementFunc) query_statement;
+                    library.statement_bind_string = (StatementBindStringFunc) bind_string;
+                    library.statement_execute_async_func = (StatementExecuteAsyncFunc) execute_async;
+                    library.statement_execute_finish_func = (StatementExecuteFinishFunc) execute_finish;
+                    library.cursor_next_async_func = (CursorNextAsyncFunc) next_async;
+                    library.cursor_next_finish_func = (CursorNextFinishFunc) next_finish;
                     library.cursor_get_string = (CursorGetStringFunc) get_string;
+                    library.cursor_close = (CursorCloseFunc) close;
 
                     // The function pointers must stay valid for the life of the process.
                     module.make_resident();

@@ -30,6 +30,11 @@ namespace Ilia {
 
         private Gtk.TreePath path;
 
+        // Debounced, asynchronous search; the GTK main thread never waits for Tracker
+        private SearchController search;
+        // Icons by MIME type, so each type is looked up once
+        private HashTable<string, Gdk.Pixbuf ?> icon_cache = new HashTable<string, Gdk.Pixbuf ?>(str_hash, str_equal);
+
         public string get_name() {
             return "<u>F</u>iles";
         }
@@ -76,6 +81,9 @@ namespace Ilia {
 
             set_selection();
 
+            search = new SearchController(new TrackerFileSearch(), new MainLoopScheduler());
+            search.results.connect(on_search_results);
+
             var scrolled = new Gtk.ScrolledWindow(null, null);
             scrolled.add(item_view);
             scrolled.expand = true;
@@ -116,6 +124,10 @@ namespace Ilia {
             if (handle_emacs_vim_nav(item_view, path, event_key))
                 return true;
 
+            // Enter before the results for the typed text are in: open the first of them when they arrive
+            if (event_key.keyval == Ilia.KEY_CODE_ENTER && search.activate())
+                return true;
+
             // Typed text that matches no item is not something this page can act on, so Enter does nothing then
             return false;
         }
@@ -126,73 +138,55 @@ namespace Ilia {
             execute_app_from_selection(iter);
         }
 
-        // filter selection based on contents of Entry
+        // Search for the contents of Entry once typing pauses
         void on_entry_changed() {
-            if (entry.get_text().length > 2) {
-                model.clear();
-                full_text_search();
-                set_selection();
-            }
+            search.text_changed(entry.get_text());
         }
 
         // called on enter when in text box
         void on_entry_activated() {
+            if (search.activate())
+                return;
             if (model.get_iter(out iter, path))
                 execute_app_from_selection(iter);
         }
 
-        // tracker sparql -q "SELECT DISTINCT nie:url(?f) nie:title(?f) WHERE { ?f fts:match 'regolith' }"
-        private void full_text_search() {
-            try {
-                var queryterm = entry.get_text();
-                unowned var sparql = SparqlLibrary.get_default();
-                var connection = sparql.connection_bus_new("org.freedesktop.Tracker3.Miner.Files", null, null);
-                var query = "SELECT DISTINCT nie:url(?f) nie:title(?f) nie:mimeType(?f) WHERE { ?f fts:match '" + queryterm + "' }";
-
-                var cursor = sparql.connection_query(connection, query, null);
-                long length = 0;
-
-                while (sparql.cursor_next(cursor, null)) {
-                    var uri_encoded = sparql.cursor_get_string(cursor, 0, out length);
-                    if (uri_encoded != null) {
-                        var uri = GLib.Filename.from_uri(uri_encoded);
-
-                        var title = sparql.cursor_get_string(cursor, 1, out length);
-                        if (title == null)
-                            title = Path.get_basename(uri);
-
-                        var mimeType = sparql.cursor_get_string(cursor, 2, out length);
-                        if (mimeType == null)
-                            mimeType = "application/octet-stream";
-
-                        var icon = ContentType.get_icon(mimeType);
-                        var iconNames = ((ThemedIcon) icon).get_names();
-                        Gdk.Pixbuf ? iconPixbuf = null;
-
-                        if (iconNames != null) {
-                            for (int i = 0; i < iconNames.length; ++i) {
-                                iconPixbuf = Ilia.load_icon_from_name(icon_theme, iconNames[i], icon_size);
-
-                                if (iconPixbuf != null) break;
-                            }
-                        }
-
-                        if (iconPixbuf == null)
-                            iconPixbuf = Ilia.load_icon_from_name(icon_theme, "text-x-generic", icon_size);
-
-                        model.append(out iter);
-                        model.set(
-                            iter,
-                            ITEM_VIEW_COLUMN_ICON, iconPixbuf,
-                            ITEM_VIEW_COLUMN_TITLE, title,
-                            ITEM_VIEW_COLUMN_FILE, uri
-                        );
-                    }
-                }
-                ;
-            } catch (Error e) {
-                stderr.printf("%s\n", e.message);
+        // Show the results for the current text; open the first if Enter was pressed while searching
+        private void on_search_results(string text, GenericArray<FileHit> hits, bool activate) {
+            model.clear();
+            foreach (var hit in hits) {
+                model.append(out iter);
+                model.set(
+                    iter,
+                    ITEM_VIEW_COLUMN_ICON, icon_for_mime_type(hit.mime_type),
+                    ITEM_VIEW_COLUMN_TITLE, hit.title,
+                    ITEM_VIEW_COLUMN_FILE, hit.path
+                );
             }
+            set_selection();
+
+            if (activate && model.get_iter(out iter, path))
+                execute_app_from_selection(iter);
+        }
+
+        private Gdk.Pixbuf ? icon_for_mime_type(string mime_type) {
+            if (icon_cache.contains(mime_type))
+                return icon_cache.get(mime_type);
+
+            Gdk.Pixbuf ? icon_pixbuf = null;
+            var icon = ContentType.get_icon(mime_type) as ThemedIcon;
+            if (icon != null) {
+                foreach (unowned string icon_name in icon.get_names()) {
+                    icon_pixbuf = Ilia.load_icon_from_name(icon_theme, icon_name, icon_size);
+                    if (icon_pixbuf != null) break;
+                }
+            }
+
+            if (icon_pixbuf == null)
+                icon_pixbuf = Ilia.load_icon_from_name(icon_theme, "text-x-generic", icon_size);
+
+            icon_cache.set(mime_type, icon_pixbuf);
+            return icon_pixbuf;
         }
 
         // Automatically set the first item in the list as selected.

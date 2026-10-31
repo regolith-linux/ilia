@@ -1,6 +1,6 @@
 project('ilia',
   ['c','vala'],
-  version: '0.12',
+  version: '0.19',
   default_options: [
     'buildtype=release',
     'b_ndebug=if-release'

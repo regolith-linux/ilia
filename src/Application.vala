@@ -223,7 +223,7 @@ namespace Ilia {
         }
 
         void print_version_and_exit() {
-            stdout.printf("ilia version 0.12\n");
+            stdout.printf("ilia version 0.19\n");
             Process.exit(0);
         }
 

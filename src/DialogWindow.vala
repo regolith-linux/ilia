@@ -507,6 +507,7 @@ namespace Ilia {
 
                 entry.secondary_icon_name = dialog_pages[active_page].get_icon_name();
                 entry.set_sensitive(true);
+                dialog_pages[active_page].on_entry_changed();
             }
             dialog_pages[active_page].show();
         }

@@ -5,6 +5,7 @@ namespace Ilia {
     public const int KEY_CODE_LEFT_ALT = 65513;
     public const int KEY_CODE_RIGHT_ALT = 65514;
     public const int KEY_CODE_SUPER = 65515;
+    public const int KEY_CODE_SUPER_R = 65516;
     public const int KEY_CODE_UP = 65364;
     public const int KEY_CODE_DOWN = 65362;
     public const int KEY_CODE_ENTER = 65293;
@@ -202,7 +203,8 @@ namespace Ilia {
                         case KEY_CODE_ESCAPE: // Explicit exit
                             quit();
                             break;
-                        case KEY_CODE_SUPER: // Explicit exit, unless Super is pressed to complete a held layout-switch shortcut
+                        case KEY_CODE_SUPER:
+                        case KEY_CODE_SUPER_R: // Explicit exit, unless Super is pressed to complete a held layout-switch shortcut
                             if (layout_switcher != null && layout_switcher.super_starts_shortcut(key.state)) {
                                 // On Wayland the compositor takes the rest of the shortcut, so ilia never sees it
                                 exit_on_super_release = !is_wayland;
@@ -250,7 +252,7 @@ namespace Ilia {
             });
 
             key_release_event.connect((key) => {
-                if (exit_on_super_release && key.keyval == KEY_CODE_SUPER)
+                if (exit_on_super_release && is_super_key(key.keyval))
                     quit();
                 return false;
             });

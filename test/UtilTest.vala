@@ -22,6 +22,13 @@ public void test_is_enter_key() {
     assert (!Ilia.is_enter_key('\n'));
 }
 
+public void test_is_super_key() {
+    assert (Ilia.is_super_key(Gdk.Key.Super_L));
+    assert (Ilia.is_super_key(Gdk.Key.Super_R));
+    assert (!Ilia.is_super_key(Gdk.Key.Alt_L));
+    assert (!Ilia.is_super_key(Gdk.Key.Hyper_L));
+}
+
 public void test_is_sleep_or_lock_signal() {
     assert (Ilia.is_sleep_or_lock_signal("org.freedesktop.login1.Manager", "PrepareForSleep", new Variant("(b)", true)));
     assert (Ilia.is_sleep_or_lock_signal("org.gnome.ScreenSaver", "ActiveChanged", new Variant("(b)", true)));
@@ -251,6 +258,7 @@ public int main (string[] args) {
 
     Test.add_func ("/test_systemd_escape", test_systemd_escape);
     Test.add_func ("/test_is_enter_key", test_is_enter_key);
+    Test.add_func ("/test_is_super_key", test_is_super_key);
     Test.add_func ("/test_is_sleep_or_lock_signal", test_is_sleep_or_lock_signal);
     Test.add_func ("/test_matches_all_words", test_matches_all_words);
     Test.add_func ("/test_word_motion", test_word_motion);

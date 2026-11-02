@@ -5,7 +5,8 @@ unit_test_files = [
     'Launch',
     'Rofication',
     'TextFilter',
-    'FileSearch'
+    'FileSearch',
+    'WindowPage'
 ]
 
 foreach name : unit_test_files

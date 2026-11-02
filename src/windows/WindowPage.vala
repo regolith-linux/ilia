@@ -173,7 +173,7 @@ namespace Ilia {
         }
 
         private void traverse_nodes(TreeReply node) {
-            if (navigable_window(node)) {
+            if (navigable_window(node, is_wayland)) {
                 Gdk.Pixbuf pixbuf;
                 if (node.windowProperties.instance != null)
                     pixbuf = load_icon_from_app_name(icon_theme, node.windowProperties.instance, icon_size);
@@ -202,15 +202,19 @@ namespace Ilia {
             }
         }
 
-        // Filter controls which TreeReply instances should be shown in window view
-        private bool navigable_window(TreeReply node) {
-            bool rv = (node.ntype == "con" || node.ntype == "floating_con")                                 // specifies actual windows
-                      && (node.window_type == "normal"
-                          || node.window_type == "unknown"
-                          || is_wayland && node.layout == "none") // window type
-                      && node.windowProperties.clazz != "i3bar";          // ignore i3bar
+        /**
+         * Filter controls which TreeReply instances should be shown in window view
+         *
+         * Every window the window manager manages is listed, dialogs included, as sway does.
+         * i3 reports the type of each window; dock windows (bars) are left out.
+         */
+        public static bool navigable_window(TreeReply node, bool is_wayland) {
+            bool is_window = node.ntype == "con" || node.ntype == "floating_con";         // specifies actual windows
+            bool is_listed_type = (node.window_type != null && node.window_type != "dock") // X11 window, not a bar
+                                  || is_wayland && node.layout == "none";                  // leaf container in sway
+            bool is_i3bar = node.windowProperties != null && node.windowProperties.clazz == "i3bar";
 
-            return rv;
+            return is_window && is_listed_type && !is_i3bar;
         }
 
         // Automatically set the first item in the list as selected.

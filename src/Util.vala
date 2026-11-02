@@ -57,6 +57,13 @@ namespace Ilia {
     }
 
     /**
+     * True for the Super keys, left and right
+     */
+    public static bool is_super_key(uint keyval) {
+        return keyval == KEY_CODE_SUPER || keyval == KEY_CODE_SUPER_R;
+    }
+
+    /**
      * True for the D-Bus signals that announce a suspend or a screen lock: logind's
      * PrepareForSleep(true) and the screensaver's ActiveChanged(true)
      */

@@ -237,6 +237,8 @@ namespace Ilia {
         private void set_selection() {
             if (path == null)
                 path = new Gtk.TreePath.first();
+            // After deleting the last row, highlight the new last one
+            clamp_path_to_rows(path, filter);
             Gtk.TreeSelection selection = item_view.get_selection();
 
             selection.set_mode(SelectionMode.SINGLE);

@@ -150,6 +150,31 @@ public void test_move_path_to() {
     assert (path.to_string() == "0");
 }
 
+// After the last row is removed, the path moves to the new last row
+public void test_clamp_path_to_rows() {
+    var model = new Gtk.ListStore(1, typeof (string));
+    Gtk.TreeIter iter;
+    var path = new Gtk.TreePath.first();
+
+    // Empty model: nothing to move to
+    Ilia.clamp_path_to_rows(path, model);
+    assert (path.to_string() == "0");
+
+    model.insert_with_values(null, -1, 0, "first");
+    model.insert_with_values(null, -1, 0, "second");
+    model.insert_with_values(out iter, -1, 0, "last");
+
+    // Inside the model: unchanged
+    Ilia.move_path_to(path, new Gtk.TreePath.from_string("2"));
+    Ilia.clamp_path_to_rows(path, model);
+    assert (path.to_string() == "2");
+
+    // The last row was removed
+    model.remove(ref iter);
+    Ilia.clamp_path_to_rows(path, model);
+    assert (path.to_string() == "1");
+}
+
 public int main (string[] args) {
     Test.init (ref args);
 
@@ -160,6 +185,7 @@ public int main (string[] args) {
     Test.add_func ("/test_compare_desktop_apps", test_compare_desktop_apps);
     Test.add_func ("/test_build_command_line", test_build_command_line);
     Test.add_func ("/test_move_path_to", test_move_path_to);
+    Test.add_func ("/test_clamp_path_to_rows", test_clamp_path_to_rows);
 
     return Test.run ();
 }

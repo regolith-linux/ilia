@@ -175,8 +175,15 @@ namespace Ilia {
      */
     public class TrackerFileSearch : GLib.Object, FileSearchBackend {
         private const string BUS_NAME = "org.freedesktop.Tracker3.Miner.Files";
-        // The search text is bound as a parameter, so quotes in it cannot break the query
-        private const string QUERY = "SELECT DISTINCT nie:url(?f) nie:title(?f) nie:mimeType(?f) WHERE { ?f fts:match ~text } ORDER BY DESC(fts:rank(?f)) LIMIT %d";
+        // The search text is bound as a parameter, so quotes in it cannot break the query.
+        // A match on the file name is the file (nfo:FileDataObject, which has the URL); a match on
+        // the content is its document (nie:InformationElement, stored as the file, which has the
+        // title and MIME type). Each column is read from whichever of the two has it.
+        private const string QUERY = "SELECT DISTINCT"
+            + " COALESCE(nie:url(?f), nie:url(nie:isStoredAs(?f)))"
+            + " COALESCE(nie:title(?f), nie:title(nie:interpretedAs(?f)))"
+            + " COALESCE(nie:mimeType(?f), nie:mimeType(nie:interpretedAs(?f)))"
+            + " WHERE { ?f fts:match ~text } ORDER BY DESC(fts:rank(?f)) LIMIT %d";
         // Most hits shown for one search
         public const int MAX_HITS = 100;
 

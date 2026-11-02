@@ -15,6 +15,61 @@ public void test_systemd_escape () {
      assert (Ilia.systemd_escape(".@/foo$bAR§qux/ab.çd-êf_gh=ij") == "\\x2e\\x40-foo\\x24bAR\\xc2\\xa7qux-ab.\\xc3\\xa7d\\x2d\\xc3\\xaaf_gh\\x3dij");
 }
 
+// The commands page lists each PATH directory once, and only commands in it
+public void test_command_dirs() {
+    string dir;
+    try {
+        dir = DirUtils.make_tmp("ilia-commands-test-XXXXXX");
+    } catch (FileError e) {
+        error("%s", e.message);
+    }
+    var usr_bin = Path.build_filename(dir, "usr-bin");
+    var bin = Path.build_filename(dir, "bin");  // a link to usr-bin, as with merged /usr
+    var local = Path.build_filename(dir, "local");
+    DirUtils.create(usr_bin, 0755);
+    DirUtils.create(local, 0755);
+    FileUtils.symlink("usr-bin", bin);
+
+    // The same directory once, at its first entry; missing directories and empty entries skipped
+    var path = string.joinv(":", { local, bin, Path.build_filename(dir, "missing"), "", usr_bin, local });
+    assert (string.joinv(":", Ilia.command_dirs(path)) == local + ":" + bin);
+    assert (Ilia.command_dirs(null).length == 0);
+
+    // Executable files are commands, also through links; other entries are not
+    var tool = Path.build_filename(usr_bin, "tool");
+    try {
+        FileUtils.set_contents(tool, "#!/bin/sh\n");
+        FileUtils.set_contents(Path.build_filename(usr_bin, "README"), "not a command\n");
+    } catch (FileError e) {
+        error("%s", e.message);
+    }
+    FileUtils.chmod(tool, 0755);
+    FileUtils.symlink("tool", Path.build_filename(usr_bin, "tool-alias"));
+    FileUtils.symlink("gone", Path.build_filename(usr_bin, "dangling"));
+    DirUtils.create(Path.build_filename(usr_bin, "subdir"), 0755);
+
+    var attributes = FileAttribute.STANDARD_TYPE + "," + FileAttribute.ACCESS_CAN_EXECUTE;
+    string[] commands = {};
+    try {
+        foreach (var name in new string[] { "README", "dangling", "subdir", "tool", "tool-alias" }) {
+            var info = File.new_for_path(Path.build_filename(usr_bin, name)).query_info(attributes, FileQueryInfoFlags.NONE);
+            if (Ilia.is_command(info))
+                commands += name;
+        }
+    } catch (GLib.Error e) {
+        error("%s", e.message);
+    }
+    assert (string.joinv(" ", commands) == "tool tool-alias");
+
+    foreach (var name in new string[] { "README", "dangling", "tool", "tool-alias" })
+        FileUtils.unlink(Path.build_filename(usr_bin, name));
+    DirUtils.remove(Path.build_filename(usr_bin, "subdir"));
+    FileUtils.unlink(bin);
+    DirUtils.remove(usr_bin);
+    DirUtils.remove(local);
+    DirUtils.remove(dir);
+}
+
 public void test_is_enter_key() {
     assert (Ilia.is_enter_key(Ilia.KEY_CODE_ENTER));
     assert (Ilia.is_enter_key(Ilia.KEY_CODE_KP_ENTER));
@@ -159,6 +214,7 @@ public int main (string[] args) {
     Test.add_func ("/test_matches_all_words", test_matches_all_words);
     Test.add_func ("/test_compare_desktop_apps", test_compare_desktop_apps);
     Test.add_func ("/test_build_command_line", test_build_command_line);
+    Test.add_func ("/test_command_dirs", test_command_dirs);
     Test.add_func ("/test_move_path_to", test_move_path_to);
 
     return Test.run ();

@@ -132,6 +132,41 @@ namespace Ilia {
         return commandline.replace("%", "%%");
     }
 
+    /**
+     * The directories of a PATH value that the commands page lists, each once
+     *
+     * Entries that name the same directory are listed once, at the first: with merged /usr,
+     * /bin and /sbin are links to /usr/bin and /usr/sbin, and PATH may repeat an entry.
+     * Directories that do not exist are skipped.
+     */
+    public static string[] command_dirs(string ? path_var) {
+        string[] dirs = {};
+        if (path_var == null)
+            return dirs;
+
+        var seen = new GenericSet<string>(str_hash, str_equal);
+        foreach (unowned string dir in path_var.split(":")) {
+            if (dir.length == 0)
+                continue;
+            string ? canonical = Posix.realpath(dir);
+            if (canonical == null || seen.contains(canonical) || !FileUtils.test(canonical, FileTest.IS_DIR))
+                continue;
+            seen.add(canonical);
+            dirs += dir;
+        }
+        return dirs;
+    }
+
+    /**
+     * True for the entries of a PATH directory that are commands: executable files, also
+     * through symbolic links. The info must be queried following links, with the type and
+     * access::can-execute attributes.
+     */
+    public static bool is_command(FileInfo info) {
+        return info.get_file_type() == FileType.REGULAR
+               && info.get_attribute_boolean(FileAttribute.ACCESS_CAN_EXECUTE);
+    }
+
     /*
      * The escaping algorithm operates as follows:
      * given a string, any "/" character is replaced by "-", and all other characters which

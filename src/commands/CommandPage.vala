@@ -156,18 +156,15 @@ namespace Ilia {
         }
 
         private async void load_commands_from_path() {
-            var paths = Environment.get_variable("PATH");
-
-            foreach (unowned string path in paths.split(":")) {
-                var path_dir = File.new_for_path(path);
-                if (path_dir.query_exists())
-                    yield load_commands_from_dir(path_dir);
-            }
+            foreach (unowned string path in command_dirs(Environment.get_variable("PATH")))
+                yield load_commands_from_dir(File.new_for_path(path));
         }
 
         private async void load_commands_from_dir(File app_dir) {
             try {
-                var enumerator = yield app_dir.enumerate_children_async(FileAttribute.STANDARD_NAME, FileQueryInfoFlags.NOFOLLOW_SYMLINKS, Priority.DEFAULT);
+                // Follow links: most commands are links (alternatives), and is_command() needs their targets
+                var attributes = FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.ACCESS_CAN_EXECUTE;
+                var enumerator = yield app_dir.enumerate_children_async(attributes, FileQueryInfoFlags.NONE, Priority.DEFAULT);
 
                 while (true) {
                     var app_files = yield enumerator.next_files_async(FS_FILE_READ_COUNT, Priority.DEFAULT);
@@ -176,6 +173,9 @@ namespace Ilia {
                         break;
 
                     foreach (var info in app_files) {
+                        if (!is_command(info))
+                            continue;
+
                         string file_path = app_dir.get_child(info.get_name()).get_path();
 
                         model.append(out iter);

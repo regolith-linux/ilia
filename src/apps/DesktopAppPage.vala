@@ -271,7 +271,7 @@ namespace Ilia {
             if (app_info != null && app_info.should_show()) {
                 model.append(out iter);
 
-                var keywords = app_info.get_string("Comment") + app_info.get_string("Keywords");
+                var keywords = desktop_app_search_text(app_info);
 
                 if (icon_size > 0)
                     model.set(

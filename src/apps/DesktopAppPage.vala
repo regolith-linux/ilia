@@ -253,10 +253,13 @@ namespace Ilia {
         private void load_apps() {
             // determine theme for icons
             icon_theme = Gtk.IconTheme.get_default();
-            // Set a blank icon to avoid visual jank as real icons are loaded
+            // Set a blank icon to avoid visual jank as real icons are loaded. It stays for apps
+            // without a loadable icon, so it must be transparent (a new pixbuf is not cleared).
             Gdk.Pixbuf ? blank_icon = null;
-            if (icon_size > 0)
-                blank_icon = new Gdk.Pixbuf(Gdk.Colorspace.RGB, false, 8, icon_size, icon_size);
+            if (icon_size > 0) {
+                blank_icon = new Gdk.Pixbuf(Gdk.Colorspace.RGB, true, 8, icon_size, icon_size);
+                blank_icon.fill(0x00000000);
+            }
 
             var app_list = AppInfo.get_all();
             foreach (AppInfo appinfo in app_list) {

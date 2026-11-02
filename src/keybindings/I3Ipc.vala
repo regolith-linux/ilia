@@ -282,12 +282,13 @@ namespace Ilia {
             return val.get_data_as_bytes().get_data();
         }
 
-        private uint8[] generate_request(WM_COMMAND cmd) {
+        private uint8[] generate_request(WM_COMMAND cmd, string payload = "") {
             ByteArray np = new ByteArray();
 
             np.append(magic_number);
-            np.append(int32_to_uint8_array(0));   // payloadSize.get_data_as_bytes().get_data());
-            np.append(int32_to_uint8_array(cmd));   // command.get_data_as_bytes().get_data());
+            np.append(int32_to_uint8_array(payload.length));
+            np.append(int32_to_uint8_array(cmd));
+            np.append(payload.data);
 
             Bytes message = ByteArray.free_to_bytes(np);
 
@@ -310,8 +311,11 @@ namespace Ilia {
             return data;
         }
 
-        private Json.Node ? wm_ipc(WM_COMMAND command) throws GLib.Error {
-            ssize_t sent = socket.send(generate_request(command));
+        private Json.Node ? wm_ipc(WM_COMMAND command, string request_payload = "") throws GLib.Error {
+            uint8[] request = generate_request(command, request_payload);
+            ssize_t sent = 0;
+            while (sent < request.length)
+                sent += socket.send(request[sent: request.length]);
 
             debug("Sent " + sent.to_string() + " bytes to " + wm_name);
 
@@ -352,6 +356,26 @@ namespace Ilia {
                 throw new WM_ERROR.RPC_ERROR("No Response");
 
             return new ConfigReply(response, this.wm_name);
+        }
+
+        /**
+         * Run a command in the window manager, in its own message: the text reaches
+         * the window manager unchanged, with no shell or command line in between.
+         * Throws if the window manager reports that the command failed.
+         */
+        public void runCommand(string command) throws WM_ERROR, GLib.Error {
+            var response = wm_ipc(WM_COMMAND.RUN_COMMAND, command);
+
+            if (response == null || response.get_node_type() != Json.NodeType.ARRAY)
+                throw new WM_ERROR.RPC_ERROR("No Response");
+
+            foreach (unowned Json.Node result in response.get_array().get_elements()) {
+                var obj = result.get_object();
+                if (obj != null && obj.has_member("success") && !obj.get_boolean_member("success")) {
+                    string reason = obj.has_member("error") ? obj.get_string_member("error") : "unknown error";
+                    throw new WM_ERROR.RPC_ERROR("%s: %s".printf(command, reason));
+                }
+            }
         }
 
         public TreeReply getTree() throws WM_ERROR, GLib.Error {

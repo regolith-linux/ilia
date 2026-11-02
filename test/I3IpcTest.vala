@@ -7,6 +7,8 @@ class FakeWm {
     private Socket listener;
     private string[] payloads;
     private Thread<void> thread;
+    // The payload of each request received, in order
+    public string[] requests = {};
 
     public FakeWm (string[] payloads) throws GLib.Error {
         this.payloads = payloads;
@@ -31,15 +33,23 @@ class FakeWm {
         try {
             var conn = listener.accept();
             foreach (unowned string payload in payloads) {
-                var request = new uint8[14];
+                var header = new uint8[14];
                 size_t got = 0;
-                while (got < request.length)
-                    got += conn.receive(request[got: request.length]);
+                while (got < header.length)
+                    got += conn.receive(header[got: header.length]);
+                uint32 request_length = 0, type = 0;
+                Memory.copy(&request_length, &header[6], 4);
+                Memory.copy(&type, &header[10], 4);
+                var request = new uint8[request_length + 1];
+                got = 0;
+                while (got < request_length)
+                    got += conn.receive(request[got: request_length]);
+                request[request_length] = 0;
+                requests += (string) request;
 
                 var reply = new ByteArray();
                 reply.append("i3-ipc".data);
                 uint32 length = payload.length;
-                uint32 type = 9; // GET_CONFIG
                 reply.append(((uint8[]) &length)[0 : 4]);
                 reply.append(((uint8[]) &type)[0 : 4]);
                 reply.append(payload.data);
@@ -151,6 +161,40 @@ public void test_missing_socket() {
     }
 }
 
+// A command reaches the window manager as one RUN_COMMAND request, unchanged:
+// quotes, criteria and repeated spaces inside quotes are not touched.
+public void test_run_command() {
+    string command = "[con_id=\"__focused__\"] exec \"swaynag -m 'Really  quit?' -b 'Yes' 'swaymsg exit'\"";
+
+    try {
+        var wm = new FakeWm({ "[{\"success\":true}]" });
+        Environment.set_variable("I3SOCK", wm.socket_path, true);
+        new Ilia.IPCClient("i3").runCommand(command);
+        wm.join();
+        assert(wm.requests.length == 1);
+        assert(wm.requests[0] == command);
+    } catch (GLib.Error e) {
+        error("runCommand failed: %s", e.message);
+    }
+}
+
+// A command the window manager rejects is reported as an error
+public void test_run_command_failure() {
+    try {
+        var wm = new FakeWm({ "[{\"success\":false,\"error\":\"Unknown command\"}]" });
+        Environment.set_variable("I3SOCK", wm.socket_path, true);
+        try {
+            new Ilia.IPCClient("i3").runCommand("no-such-command");
+            assert_not_reached();
+        } catch (Ilia.WM_ERROR e) {
+            assert(e.message.contains("Unknown command"));
+        }
+        wm.join();
+    } catch (GLib.Error e) {
+        error("runCommand failed: %s", e.message);
+    }
+}
+
 public int main(string[] args) {
     Test.init(ref args);
 
@@ -158,6 +202,8 @@ public int main(string[] args) {
     Test.add_func("/i3ipc/consecutive_replies", test_consecutive_replies);
     Test.add_func("/i3ipc/sway_socket", test_sway_socket);
     Test.add_func("/i3ipc/missing_socket", test_missing_socket);
+    Test.add_func("/i3ipc/run_command", test_run_command);
+    Test.add_func("/i3ipc/run_command_failure", test_run_command_failure);
 
     return Test.run();
 }

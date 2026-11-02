@@ -210,24 +210,14 @@ namespace Ilia {
             if (cmd_path != null) execute_keybinding(cmd_path);
         }
 
+        // Run the binding's command in the window manager, as pressing the key does
         private void execute_keybinding(string exec) {
-            string cli_bin = get_wm_cli(this.wm_name);
-
-            if (cli_bin == null) {
-                stderr.printf("Error: execute_keybinding failed - Action not supported for your WM");
-                return;
-            }
-            string commandline = cli_bin + "\"" + exec + "\"";
-
             try {
-                var app_info = AppInfo.create_from_commandline(commandline, null, AppInfoCreateFlags.NONE);
-
-                if (!app_info.launch(null, null))
-                    stderr.printf("Error: execute_keybinding failed\n");
-                session_controller.quit();
+                new IPCClient(this.wm_name).runCommand(exec);
             } catch (GLib.Error err) {
                 stderr.printf("Error: execute_keybinding failed: %s\n", err.message);
             }
+            session_controller.quit();
         }
     }
 }

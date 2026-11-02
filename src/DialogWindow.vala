@@ -556,15 +556,18 @@ namespace Ilia {
             var display = this.get_screen().get_display();
             var clipboard = Clipboard.get_for_display(display, Gdk.SELECTION_CLIPBOARD);
 
-            string text = clipboard.wait_for_text();
+            // Don't wait for the text: wait_for_text() runs a nested main loop until the clipboard
+            // owner answers, and an owner that hangs keeps ilia running for up to two minutes.
+            clipboard.request_text((clipboard, text) => {
+                if (text == null)
+                    return;
 
-            if (text != null) {
                 int start, end;
 
                 if (entry.get_selection_bounds(out start, out end))
                     entry.get_buffer().delete_text(start, end - start);
                 entry.insert_at_cursor(text);
-            }
+            });
         }
 
         void move_forward_word() {

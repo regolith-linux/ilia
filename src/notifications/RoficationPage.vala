@@ -148,6 +148,10 @@ namespace Ilia {
         // filter selection based on contents of Entry
         void on_entry_changed() {
             filter.refilter();
+            // A new text highlights its first match, wherever the arrow keys left the highlight
+            if (path == null)
+                path = new Gtk.TreePath.first();
+            select_first_row(item_view, path);
             set_selection();
         }
 

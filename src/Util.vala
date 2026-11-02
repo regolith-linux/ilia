@@ -41,6 +41,16 @@ namespace Ilia {
         while (path.compare(target) > 0 && path.prev()) {}
     }
 
+    /**
+     * Move path, in place, to the last row of model if it points past the end, as after
+     * the last row was removed. A path in an empty model is left alone.
+     */
+    public static void clamp_path_to_rows(Gtk.TreePath path, Gtk.TreeModel model) {
+        int rows = model.iter_n_children(null);
+        if (rows > 0 && path.get_indices()[0] >= rows)
+            move_path_to(path, new Gtk.TreePath.from_indices(rows - 1));
+    }
+
     public static bool selection_is_last(Gtk.TreeSelection selection) {
         Gtk.TreeModel model;
         Gtk.TreeIter iter;

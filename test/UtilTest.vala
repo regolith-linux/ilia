@@ -181,6 +181,30 @@ public void test_build_command_line() {
     assert (string.joinv("|", argv) == "x-terminal-emulator|-e|npm|docs|some library");
 }
 
+// Ctrl+w, Ctrl+b, Ctrl+C and Ctrl+X work in characters, as the entry does, also after non-ASCII text
+public void test_word_motion() {
+    // Before: "café bar" Ctrl+0 Ctrl+w went to byte 5, inside "bar"
+    assert (Ilia.next_word_start("café bar", 0) == 5);
+    assert (Ilia.next_word_start("ab cd", 0) == 3);
+    assert (Ilia.next_word_start("ab cd", 3) == 5);
+    assert (Ilia.next_word_start("ab, cd", 1) == 4);
+    assert (Ilia.next_word_start("日本語 テスト", 0) == 4);
+    assert (Ilia.next_word_start("", 0) == 0);
+
+    // Back to the start of the previous word
+    assert (Ilia.previous_word_start("über café bar", 13) == 5);
+    assert (Ilia.previous_word_start("ab cd ef", 8) == 3);
+    assert (Ilia.previous_word_start("ab cd ef", 6) == 3);
+    assert (Ilia.previous_word_start("ab cd", 2) == 0);
+    assert (Ilia.previous_word_start("日本語 テスト 終わり", 11) == 4);
+    assert (Ilia.previous_word_start("", 0) == 0);
+
+    // Selected text by character positions
+    assert (Ilia.substring_chars("café bar", 3, 6) == "é b");
+    assert (Ilia.substring_chars("café bar", 5, 8) == "bar");
+    assert (Ilia.substring_chars("café", 0, 4) == "café");
+}
+
 public void test_move_path_to() {
     var path = new Gtk.TreePath.first();
 
@@ -229,6 +253,7 @@ public int main (string[] args) {
     Test.add_func ("/test_is_enter_key", test_is_enter_key);
     Test.add_func ("/test_is_sleep_or_lock_signal", test_is_sleep_or_lock_signal);
     Test.add_func ("/test_matches_all_words", test_matches_all_words);
+    Test.add_func ("/test_word_motion", test_word_motion);
     Test.add_func ("/test_compare_desktop_apps", test_compare_desktop_apps);
     Test.add_func ("/test_desktop_app_search_text", test_desktop_app_search_text);
     Test.add_func ("/test_build_command_line", test_build_command_line);

@@ -329,4 +329,72 @@ namespace Ilia {
         }
         return true;
     }
+
+    // Gtk.Entry counts positions in characters; Vala string indexes count bytes
+
+    private static unichar[] chars_of(string text) {
+        unichar[] chars = {};
+        int index = 0;
+        unichar c;
+        while (text.get_next_char(ref index, out c))
+            chars += c;
+        return chars;
+    }
+
+    private static bool is_word_break(unichar c) {
+        return c.isspace() || c.ispunct();
+    }
+
+    /**
+     * The entry position Ctrl+w moves to: the start of the next word, or the end of the text
+     *
+     * @param pos A position in characters, as Gtk.Entry.get_position() gives it
+     * @return A position in characters
+     */
+    public static int next_word_start(string text, int pos) {
+        var chars = chars_of(text);
+        bool found_word_break = false;
+
+        for (int i = pos; i < chars.length; i++) {
+            if (is_word_break(chars[i]))
+                found_word_break = true;
+            else if (found_word_break)
+                return i;
+        }
+
+        return chars.length;
+    }
+
+    /**
+     * The entry position Ctrl+b moves to: the start of the word before the one at pos, or 0
+     *
+     * @param pos A position in characters, as Gtk.Entry.get_position() gives it
+     * @return A position in characters
+     */
+    public static int previous_word_start(string text, int pos) {
+        var chars = chars_of(text);
+
+        // Start of the word the position is in
+        int start = int.min(pos, chars.length);
+        while (start > 0 && !is_word_break(chars[start - 1]))
+            start--;
+
+        bool found_word = false;
+        for (int i = start - 1; i >= 0; i--) {
+            if (!is_word_break(chars[i]))
+                found_word = true;
+            else if (found_word)
+                return i + 1;
+        }
+
+        return 0;
+    }
+
+    /**
+     * The text between two entry positions, which count characters
+     */
+    public static string substring_chars(string text, int start, int end) {
+        long start_byte = text.index_of_nth_char(start);
+        return text.substring(start_byte, text.index_of_nth_char(end) - start_byte);
+    }
 }

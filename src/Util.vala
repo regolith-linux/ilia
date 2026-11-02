@@ -244,6 +244,29 @@ namespace Ilia {
     }
 
     /**
+     * The text the apps page searches besides the app name: the generic name, the
+     * keywords and the comment, as the desktop file gives them for the current locale
+     *
+     * Each part is optional; they are separated by spaces so words do not run together.
+     */
+    public static string desktop_app_search_text(DesktopAppInfo app_info) {
+        string[] parts = {};
+
+        unowned string ? generic_name = app_info.get_generic_name();
+        if (generic_name != null)
+            parts += generic_name;
+
+        foreach (unowned string keyword in app_info.get_keywords())
+            parts += keyword;
+
+        unowned string ? comment = app_info.get_description();
+        if (comment != null)
+            parts += comment;
+
+        return string.joinv(" ", parts);
+    }
+
+    /**
      * Match a filter query against the searchable text of a row
      *
      * The query is split into words at whitespace. A row matches when every

@@ -112,6 +112,53 @@ public void test_compare_desktop_apps() {
         "", launch_counts) == -1); // "chrome" comes before "firefox" alphabetically
 }
 
+DesktopAppInfo desktop_app(string dir, string name, string contents) {
+    var filename = Path.build_filename(dir, name + ".desktop");
+    try {
+        FileUtils.set_contents(filename, "[Desktop Entry]\nType=Application\nExec=true\n" + contents);
+    } catch (FileError e) {
+        error("cannot write %s: %s", filename, e.message);
+    }
+    var app_info = new DesktopAppInfo.from_filename(filename);
+    assert (app_info != null);
+    return app_info;
+}
+
+// The apps page searches the generic name, keywords and comment, each on its own
+public void test_desktop_app_search_text() {
+    string dir;
+    try {
+        dir = DirUtils.make_tmp("ilia-apps-test-XXXXXX");
+    } catch (FileError e) {
+        error("%s", e.message);
+    }
+
+    // Keywords without a comment, as GNOME Settings has (they were lost before)
+    var settings_app = desktop_app(dir, "settings", "Name=Settings\nKeywords=Preferences;Settings;\n");
+    assert (Ilia.matches_all_words("preferences", { settings_app.get_name(), Ilia.desktop_app_search_text(settings_app) }));
+
+    // The generic name
+    var viewer = desktop_app(dir, "viewer", "Name=Gn Only\nGenericName=Quuxviewer\n");
+    assert (Ilia.matches_all_words("quuxviewer", { viewer.get_name(), Ilia.desktop_app_search_text(viewer) }));
+
+    // All of them, with words kept apart: the last keyword and the comment do not run together
+    var all = desktop_app(dir, "all", "Name=All\nGenericName=Generic\nKeywords=zebra;yak;\nComment=Does things\n");
+    assert (Ilia.desktop_app_search_text(all) == "Generic zebra yak Does things");
+    assert (!Ilia.matches_all_words("yakdoes", { all.get_name(), Ilia.desktop_app_search_text(all) }));
+
+    // The value for the current locale (here the untranslated one), as for the name
+    var localized = desktop_app(dir, "localized", "Name=Loc\nKeywords=plain;\nKeywords[xx]=localword;\n");
+    assert (Ilia.desktop_app_search_text(localized) == "plain");
+
+    // None of them
+    var bare = desktop_app(dir, "bare", "Name=Bare\n");
+    assert (Ilia.desktop_app_search_text(bare) == "");
+
+    foreach (var name in new string[] { "settings", "viewer", "all", "localized", "bare" })
+        FileUtils.unlink(Path.build_filename(dir, name + ".desktop"));
+    DirUtils.remove(dir);
+}
+
 public void test_build_command_line() {
     // A path selected from the list, quoted as one argument: same command line as before
     assert (Ilia.build_command_line(Shell.quote("/usr/bin/flameshot"), false) == "x-terminal-emulator -e '/usr/bin/flameshot'");
@@ -158,6 +205,7 @@ public int main (string[] args) {
     Test.add_func ("/test_is_sleep_or_lock_signal", test_is_sleep_or_lock_signal);
     Test.add_func ("/test_matches_all_words", test_matches_all_words);
     Test.add_func ("/test_compare_desktop_apps", test_compare_desktop_apps);
+    Test.add_func ("/test_desktop_app_search_text", test_desktop_app_search_text);
     Test.add_func ("/test_build_command_line", test_build_command_line);
     Test.add_func ("/test_move_path_to", test_move_path_to);
 

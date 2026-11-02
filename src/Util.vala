@@ -50,6 +50,22 @@ namespace Ilia {
     }
 
     /**
+     * Highlight the first row of the view and move path, in place, to it
+     *
+     * For a new filter text, whose best match comes first. The arrow keys and Ctrl+n/p move
+     * the view's cursor, and when the filter hides that row GTK highlights a neighbouring row,
+     * not the first match.
+     */
+    public static void select_first_row(Gtk.TreeView item_view, Gtk.TreePath path) {
+        move_path_to(path, new Gtk.TreePath.first());
+
+        Gtk.TreeIter iter;
+        var model = item_view.get_model();
+        if (model != null && model.get_iter_first(out iter))
+            item_view.set_cursor(path, null, false); // also selects the row and scrolls to it
+    }
+
+    /**
      * True for the keys that act on the selection: Return and the keypad Enter
      */
     public static bool is_enter_key(uint keyval) {

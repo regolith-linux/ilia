@@ -101,7 +101,12 @@ namespace Ilia {
             item_view.enable_search = false;
 
             // Create columns
-            item_view.insert_column_with_attributes(-1, "App", new CellRendererPixbuf(), "pixbuf", ITEM_VIEW_COLUMN_APP_ICON);
+            // With fixed_height_mode GTK sizes the column from one row: a fixed size keeps every
+            // icon shown when that row has none
+            var icon_renderer = new CellRendererPixbuf();
+            if (icon_size > 0)
+                icon_renderer.set_fixed_size(icon_size, icon_size);
+            item_view.insert_column_with_attributes(-1, "App", icon_renderer, "pixbuf", ITEM_VIEW_COLUMN_APP_ICON);
             item_view.insert_column_with_attributes(-1, "Title", new CellRendererText(), "text", ITEM_VIEW_COLUMN_TITLE);
 
             // Launch app on one click
@@ -179,6 +184,8 @@ namespace Ilia {
                     pixbuf = load_icon_from_app_name(icon_theme, node.windowProperties.instance, icon_size);
                 else
                     pixbuf = load_icon_from_app_name(icon_theme, node.app_id, icon_size);
+                if (pixbuf == null) // the app has no icon, or it cannot be loaded
+                    pixbuf = load_icon_from_name(icon_theme, "application-x-executable", icon_size);
 
                 model.append(out iter);
                 model.set(

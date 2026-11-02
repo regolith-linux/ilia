@@ -2,6 +2,7 @@ unit_test_files = [
     'InputSource',
     'Util',
     'I3Ipc',
+    'ConfigReply',
     'Launch',
     'Rofication',
     'TextFilter',

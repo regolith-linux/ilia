@@ -46,103 +46,92 @@ namespace Ilia {
     public class ConfigReply {
         public string config { get; private set; }
 
-        private string expand_path_vars(string path) {
+        // Expand $NAME and ${NAME} from the environment; unknown variables are left as written
+        private static string expand_path_vars(string path) {
             if (!path.contains("$"))
                 return path;
-            string[] parts = path.split("$");
-            string result = "";
-            for (int i = 0; i < parts.length; i++) {
-                string part = parts[i];
 
-                // part is empty if we either have two consequtive '$' or
-                // if the path starts with '$' and it is the first segment
-                // of the split
-                if (part == "") {
-                    bool is_first_segment = i == 0;
-                    if (is_first_segment)
-                        continue;
-                    result += "$";
+            var result = new StringBuilder();
+            int i = 0;
+            while (i < path.length) {
+                char c = path[i];
+                int start = i + 1;
+                bool braced = c == '$' && start < path.length && path[start] == '{';
+                if (braced)
+                    start++;
+                int end = start;
+                if (c == '$' && end < path.length && (path[end].isalpha() || path[end] == '_')) {
+                    while (end < path.length && (path[end].isalnum() || path[end] == '_'))
+                        end++;
+                }
+                if (end == start || (braced && (end >= path.length || path[end] != '}'))) {
+                    result.append_c(c);
+                    i++;
                     continue;
                 }
-                int end = part.index_of("/");
-                if (end == -1)
-                    end = part.length;
-                string var_name = part[0 : end];
-                string value = Environment.get_variable(var_name);
-                if (value != null)
-                    result += value + part[end:part.length];
-                else
-                    result += "$" + part;
+
+                string ? value = Environment.get_variable(path.substring(start, end - start));
+                int next = braced ? end + 1 : end;
+                result.append(value ?? path.substring(i, next - i));
+                i = next;
             }
-            return result;
+            return result.str;
         }
 
-        // Get array of include paths from config partial (may contain glob patterns)
-        private string[] get_includes_from_partial(string config) {
-            string[] lines = config.split("\n");
-            string[] include_paths = {};
-            foreach (unowned string line in lines) {
-                string stripped_line = line.strip();
+        // Append text to builder, keeping the files' lines apart when one does not end with a newline
+        private static void append_file(StringBuilder builder, string text) {
+            if (builder.len > 0 && builder.str[builder.len - 1] != '\n')
+                builder.append_c('\n');
+            builder.append(text);
+        }
 
-                // First token of include lines must be "include" followed by the path.
-                // Also supports globbing.
-                // Examples:
-                // "include /path/to/config"
-                // "include /path/to/config.d/*"
+        /**
+         * Read a sway configuration as sway does: each "include" is read in place, its
+         * matches in sorted order, each file once. Relative paths are relative to the
+         * including file. The order matters, as sway sets and uses variables in it.
+         */
+        private static void read_sway_config(string text, string ? dir, HashSet<string> visited, StringBuilder builder) {
+            string[] lines = text.split("\n");
+            for (int n = 0; n < lines.length; n++) {
+                unowned string line = lines[n];
+                // the last element is what follows the final newline, if any
+                append_file(builder, n < lines.length - 1 ? line + "\n" : line);
+
+                string stripped_line = line.strip();
                 if (!stripped_line.has_prefix("include "))
                     continue;
-                string path = stripped_line.split("include ", 2)[1];
-                include_paths += expand_path_vars(path);
-            }
-            return include_paths;
-        }
 
-        private string walk_included_configs(string baseConfig) throws GLib.FileError {
-            var configBuilder = new StringBuilder("\n");
-            HashSet<string> visited_paths = new HashSet<string> ();
-            GLib.Queue<string> path_queue = new GLib.Queue<string> ();
+                string path = expand_path_vars(stripped_line.substring("include ".length).strip());
+                if (path.has_prefix("~/"))
+                    path = Path.build_filename(Environment.get_home_dir(), path.substring(2));
+                if (!Path.is_absolute(path) && dir != null)
+                    path = Path.build_filename(dir, path);
 
-            string[] included_paths = get_includes_from_partial(baseConfig);
-            foreach (unowned string path in included_paths) {
-                path_queue.push_tail(path);
-            }
-
-            while (!path_queue.is_empty()) {
-
-                // Replace head of queue with paths obtained from glob matching
-                // Head of queue doesn't change if the string doesn't contain widcards
-                Posix.Glob pathMatcher = Posix.Glob();
-                string path_glob = path_queue.pop_head();
-                pathMatcher.glob(path_glob, Posix.GLOB_NOCHECK | Posix.GLOB_NOSORT);
-                foreach (unowned string matched_path in pathMatcher.pathv) {
-                    path_queue.push_head(matched_path);
-                }
-
-                // Path of config partial to be read
-                string config_path = path_queue.pop_head();
-
-                // Skip if the config partial already visited / read
-                if (visited_paths.contains(config_path))
+                Posix.Glob matcher = Posix.Glob();
+                if (matcher.glob(path, Posix.GLOB_NOSORT) != 0)
                     continue;
-                visited_paths.add(config_path);
+                var matches = new ArrayList<string> ();
+                foreach (unowned string matched_path in matcher.pathv)
+                    matches.add(matched_path);
+                matches.sort((a, b) => strcmp(a, b));
 
-                // Read config partial and append to config builder
-                string config_partial;
-                try {
-                    FileUtils.get_contents(config_path, out config_partial);
-                } catch (GLib.Error err) {
-                    continue;
-                }
+                foreach (var matched_path in matches) {
+                    if (!FileUtils.test(matched_path, FileTest.IS_REGULAR))
+                        continue;
+                    string real_path = Posix.realpath(matched_path) ?? matched_path;
+                    if (visited.contains(real_path))
+                        continue;
+                    visited.add(real_path);
 
-                configBuilder.append(config_partial);
-
-                // Append paths of configs included from current config partial to queue for bfs
-                string[] include_paths = get_includes_from_partial(config_partial);
-                foreach (unowned string path in include_paths) {
-                    path_queue.push_tail(path);
+                    string partial;
+                    try {
+                        FileUtils.get_contents(matched_path, out partial);
+                    } catch (GLib.Error err) {
+                        continue;
+                    }
+                    read_sway_config(partial, Path.get_dirname(matched_path), visited, builder);
                 }
             }
-            return configBuilder.str;
         }
 
         private string get_i3_config(Json.Node responseJson) {
@@ -151,16 +140,17 @@ namespace Ilia {
             var configs = responseJson.get_object().get_array_member("included_configs");
 
             configs.foreach_element((arr, index, node) => {
-                configBuilder.append(node.get_object().get_string_member("variable_replaced_contents"));
+                append_file(configBuilder, node.get_object().get_string_member("variable_replaced_contents"));
             });
 
             return configBuilder.str;
         }
 
-        private string get_sway_config(Json.Node responseJson) throws GLib.FileError {
+        private string get_sway_config(Json.Node responseJson) {
             string baseConfig = responseJson.get_object().get_string_member("config");
-            string walked_configs = walk_included_configs(baseConfig);
-            return baseConfig + walked_configs;
+            var configBuilder = new StringBuilder("");
+            read_sway_config(baseConfig, null, new HashSet<string> (), configBuilder);
+            return configBuilder.str;
         }
 
         internal ConfigReply (Json.Node responseJson, string wm_name) throws GLib.FileError {

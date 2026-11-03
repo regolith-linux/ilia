@@ -27,6 +27,9 @@ namespace Ilia {
 
         private string wm_name;
 
+        // The binding has been run; ilia is closing
+        private bool executed = false;
+
         public string get_name() {
             return "<u>K</u>eybindings";
         }
@@ -110,6 +113,37 @@ namespace Ilia {
 
             // Launch app on row selection
             item_view.row_activated.connect(on_row_activated);
+
+            // Under the X11 input grab the tree view doesn't activate a clicked row itself
+            item_view.button_release_event.connect(on_button_released);
+        }
+
+        // A click runs the binding of the row under the pointer, whichever row is highlighted
+        private bool on_button_released(Gdk.EventButton event) {
+            if (event.button != Gdk.BUTTON_PRIMARY ||
+                (event.state & (Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.CONTROL_MASK)) != 0)
+                return false;
+
+            var bin_window = item_view.get_bin_window();
+            if (bin_window == null)
+                return false;
+
+            double x = event.x, y = event.y;
+            if (event.window != bin_window) {
+                int origin_x, origin_y;
+                bin_window.get_origin(out origin_x, out origin_y);
+                x = event.x_root - origin_x;
+                y = event.y_root - origin_y;
+            }
+
+            Gtk.TreePath ? clicked = null;
+            if (!item_view.get_path_at_pos((int) x, (int) y, out clicked, null, null, null) || clicked == null)
+                return false;
+
+            Gtk.TreeIter clicked_iter;
+            if (filter.get_iter(out clicked_iter, clicked))
+                execute_app_from_selection(clicked_iter);
+            return false;
         }
 
         public bool key_event(Gdk.EventKey event_key) {
@@ -212,6 +246,11 @@ namespace Ilia {
 
         // Run the binding's command in the window manager, as pressing the key does
         private void execute_keybinding(string exec) {
+            // A click can activate the row twice, through the tree view and on release
+            if (executed)
+                return;
+            executed = true;
+
             try {
                 new IPCClient(this.wm_name).runCommand(exec);
             } catch (GLib.Error err) {

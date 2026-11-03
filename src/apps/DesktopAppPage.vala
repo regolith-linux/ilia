@@ -45,6 +45,39 @@ namespace Ilia {
 
         private Gtk.TreePath path;
 
+        // The desktop files, enumerated on a worker thread started as early as possible so that
+        // the parse overlaps with GTK's own startup (theme CSS, fontconfig). Handed to the main
+        // thread through an idle callback; only the main thread touches these fields.
+        private static bool prefetch_started = false;
+        private static GLib.List<AppInfo> ? prefetched_apps = null;
+        private static SourceFunc ? prefetch_waiter = null;
+
+        public static void prefetch_apps() {
+            if (prefetch_started) return;
+            prefetch_started = true;
+            new Thread<void *>("ilia-apps", () => {
+                var list = AppInfo.get_all();
+                Idle.add(() => {
+                    prefetched_apps = (owned) list;
+                    if (prefetch_waiter != null) {
+                        var waiter = (owned) prefetch_waiter;
+                        waiter();
+                    }
+                    return false;
+                }, Priority.HIGH);
+                return null;
+            });
+        }
+
+        private async GLib.List<AppInfo> get_app_list() {
+            prefetch_apps();
+            if (prefetched_apps == null) {
+                prefetch_waiter = get_app_list.callback;
+                yield;
+            }
+            return (owned) prefetched_apps;
+        }
+
         public string get_name() {
             return "<u>A</u>pplications";
         }
@@ -88,13 +121,6 @@ namespace Ilia {
 
             create_item_view();
 
-            load_apps();
-
-            model.set_sort_func(1, app_sort_func);
-            model.set_sort_column_id(1, SortType.ASCENDING);
-
-            set_selection();
-
             var scrolled = new Gtk.ScrolledWindow(null, null);
             scrolled.get_style_context().add_class("scrolled_window");
             scrolled.add(item_view);
@@ -102,11 +128,20 @@ namespace Ilia {
 
             root_widget = scrolled;
 
-            // Load app icons incrementally from the main loop. The model must only be
+            // The window is built and shown while the desktop files are still being read
+            var app_list = yield get_app_list();
+            load_apps(app_list);
+
+            model.set_sort_func(1, app_sort_func);
+            model.set_sort_column_id(1, SortType.ASCENDING);
+
+            set_selection();
+
+            // Load app icons once the list is on screen. The model must only be
             // accessed from the GTK main thread: walking it from another thread races
             // with the re-sort done on every keystroke (ilia#78, ilia#90).
             if (icon_size > 0)
-                loadAppIcons();
+                Idle.add(() => { start_icon_loading(); return false; }, Priority.DEFAULT_IDLE);
         }
 
         public Gtk.Widget get_root() {
@@ -240,7 +275,7 @@ namespace Ilia {
             }
         }
 
-        private void load_apps() {
+        private void load_apps(GLib.List<AppInfo> app_list) {
             // determine theme for icons
             icon_theme = Gtk.IconTheme.get_default();
             // Set a blank icon to avoid visual jank as real icons are loaded. It stays for apps
@@ -251,16 +286,15 @@ namespace Ilia {
                 blank_icon.fill(0x00000000);
             }
 
-            var app_list = AppInfo.get_all();
             foreach (AppInfo appinfo in app_list) {
-                read_desktop_file(appinfo, blank_icon);
+                read_desktop_file(appinfo as DesktopAppInfo, blank_icon);
             }
             debug("Finished loading all apps (%.3f seconds since app start)", app_timer.elapsed());
         }
 
-        private void read_desktop_file(AppInfo appInfo, Gdk.Pixbuf ? icon_img) {
-            DesktopAppInfo app_info = new DesktopAppInfo(appInfo.get_id());
-
+        // app_info is the object from AppInfo.get_all(): creating a new DesktopAppInfo from the
+        // id would parse the desktop file a second time
+        private void read_desktop_file(DesktopAppInfo ? app_info, Gdk.Pixbuf ? icon_img) {
             if (app_info != null && app_info.should_show()) {
                 model.append(out iter);
 
@@ -284,48 +318,53 @@ namespace Ilia {
             }
         }
 
-        void loadAppIcons() {
-            load_icons_async.begin((obj, res) => {
-                try {
-                    load_icons_async.end(res);
-                } catch (Error e) {
-                    stderr.printf("Error loading icons: %s\n", e.message);
-                }
-            });
+        // Icons are looked up on the main thread (the theme cache makes that cheap) and decoded
+        // on GTK's worker threads, a few at a time. Rows are queued in the order they are shown
+        // so the visible rows get their icons first.
+        private const int ICON_LOAD_PARALLELISM = 4;
+        private TreeIter[] icon_queue = {};
+        private int icon_queue_next = 0;
+        private int icons_in_flight = 0;
+
+        private void start_icon_loading() {
+            TreeIter filter_iter;
+            for (bool next = filter.get_iter_first(out filter_iter); next; next = filter.iter_next(ref filter_iter)) {
+                TreeIter child_iter;
+                filter.convert_iter_to_child_iter(out child_iter, filter_iter);
+                icon_queue += child_iter;
+            }
+            for (int i = 0; i < ICON_LOAD_PARALLELISM; ++i)
+                load_next_icon();
         }
 
-        // Asynchronously load icons with idle priority to avoid UI blocking
-        private async void load_icons_async() throws Error {
-            // Collect all iterators up front. This runs on the main thread, before the
-            // first yield. GtkListStore iterators persist across re-sorting and rows are
-            // never removed, so they stay valid while the user types.
-            TreeIter[] iterators = {};
-            TreeIter app_iter;
+        private void load_next_icon() {
+            while (icon_queue_next < icon_queue.length) {
+                var iter = icon_queue[icon_queue_next++];
 
-            for (bool next = model.get_iter_first(out app_iter); next; next = model.iter_next(ref app_iter)) {
-                iterators += app_iter;
-            }
-
-            foreach (TreeIter iter in iterators) {
-                // Yield to main loop after each icon to keep UI maximally responsive
-                Idle.add(load_icons_async.callback);
-                yield;
-
-                // Load the icon
                 Value app_info_val;
                 model.get_value(iter, ITEM_VIEW_COLUMN_APPINFO, out app_info_val);
+                var icon = ((DesktopAppInfo) app_info_val.get_object()).get_icon();
+                if (icon == null) continue;
 
-                Gdk.Pixbuf ? icon = Ilia.load_icon_from_info(
-                    icon_theme,
-                    (DesktopAppInfo) app_info_val,
-                    icon_size
-                );
+                var icon_info = icon_theme.lookup_by_gicon(icon, icon_size, Gtk.IconLookupFlags.FORCE_SIZE);
+                if (icon_info == null) continue;
 
-                // Update the model with the loaded icon if successful
-                if (icon != null)
-                    model.set(iter, ITEM_VIEW_COLUMN_ICON, icon);
+                icons_in_flight++;
+                icon_info.load_icon_async.begin(null, (obj, res) => {
+                    try {
+                        var pixbuf = icon_info.load_icon_async.end(res);
+                        // GtkListStore iterators persist across re-sorting and rows are never removed
+                        model.set(iter, ITEM_VIEW_COLUMN_ICON, pixbuf);
+                    } catch (Error e) {
+                        debug("Icon not loaded: %s", e.message);
+                    }
+                    icons_in_flight--;
+                    load_next_icon();
+                });
+                return;
             }
-            debug("Finished loading all icons (%.3f seconds since app start)", app_timer.elapsed());
+            if (icons_in_flight == 0)
+                debug("Finished loading all icons (%.3f seconds since app start)", app_timer.elapsed());
         }
 
         // In the case that neither success or failure signals are received, exit after a timeout

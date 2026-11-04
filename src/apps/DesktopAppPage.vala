@@ -49,8 +49,14 @@ namespace Ilia {
         // the parse overlaps with GTK's own startup (theme CSS, fontconfig). Handed to the main
         // thread through an idle callback; only the main thread touches these fields.
         private static bool prefetch_started = false;
+        private static bool prefetch_done = false;
         private static GLib.List<AppInfo> ? prefetched_apps = null;
         private static SourceFunc ? prefetch_waiter = null;
+
+        // Set once the desktop files are in the model
+        private bool apps_loaded = false;
+        // Enter was pressed before the list arrived: launch the best match once it has
+        private bool activate_when_loaded = false;
 
         public static void prefetch_apps() {
             if (prefetch_started) return;
@@ -59,6 +65,7 @@ namespace Ilia {
                 var list = AppInfo.get_all();
                 Idle.add(() => {
                     prefetched_apps = (owned) list;
+                    prefetch_done = true;
                     if (prefetch_waiter != null) {
                         var waiter = (owned) prefetch_waiter;
                         waiter();
@@ -71,7 +78,7 @@ namespace Ilia {
 
         private async GLib.List<AppInfo> get_app_list() {
             prefetch_apps();
-            if (prefetched_apps == null) {
+            if (!prefetch_done) {
                 prefetch_waiter = get_app_list.callback;
                 yield;
             }
@@ -128,6 +135,9 @@ namespace Ilia {
 
             root_widget = scrolled;
 
+            // Keys can arrive before the list does: the navigation handler needs a path
+            set_selection();
+
             // The window is built and shown while the desktop files are still being read
             var app_list = yield get_app_list();
             load_apps(app_list);
@@ -136,6 +146,9 @@ namespace Ilia {
             model.set_sort_column_id(1, SortType.ASCENDING);
 
             set_selection();
+            apps_loaded = true;
+            if (activate_when_loaded)
+                on_entry_activated();
 
             // Load app icons once the list is on screen. The model must only be
             // accessed from the GTK main thread: walking it from another thread races
@@ -149,6 +162,10 @@ namespace Ilia {
         }
 
         public bool key_event(Gdk.EventKey key) {
+            if (!apps_loaded && is_enter_key(key.keyval)) {
+                activate_when_loaded = true;
+                return true;
+            }
             return handle_emacs_vim_nav(item_view, path, key);
         }
 
@@ -207,6 +224,10 @@ namespace Ilia {
 
         // called on enter when in text box
         void on_entry_activated() {
+            if (!apps_loaded) {
+                activate_when_loaded = true;
+                return;
+            }
             if (filter.get_iter(out iter, path))
                 execute_app(iter);
         }
@@ -326,12 +347,22 @@ namespace Ilia {
         private int icon_queue_next = 0;
         private int icons_in_flight = 0;
 
+        // Queue every row: the ones visible through the filter first, then the rest, so
+        // that rows hidden by text typed before the list arrived still get their icons
         private void start_icon_loading() {
+            var queued = new bool[model.iter_n_children(null)];
             TreeIter filter_iter;
             for (bool next = filter.get_iter_first(out filter_iter); next; next = filter.iter_next(ref filter_iter)) {
                 TreeIter child_iter;
                 filter.convert_iter_to_child_iter(out child_iter, filter_iter);
                 icon_queue += child_iter;
+                queued[model.get_path(child_iter).get_indices()[0]] = true;
+            }
+            TreeIter model_iter;
+            int row = 0;
+            for (bool next = model.get_iter_first(out model_iter); next; next = model.iter_next(ref model_iter), ++row) {
+                if (!queued[row])
+                    icon_queue += model_iter;
             }
             for (int i = 0; i < ICON_LOAD_PARALLELISM; ++i)
                 load_next_icon();
@@ -346,7 +377,13 @@ namespace Ilia {
                 var icon = ((DesktopAppInfo) app_info_val.get_object()).get_icon();
                 if (icon == null) continue;
 
-                var icon_info = icon_theme.lookup_by_gicon(icon, icon_size, Gtk.IconLookupFlags.FORCE_SIZE);
+                // Themed icons go by name: lookup_by_gicon() also tries the "-symbolic" variant,
+                // which the theme chain finds (grey, in Adwaita) before the colour icon in gnome
+                Gtk.IconInfo ? icon_info;
+                if (icon is ThemedIcon)
+                    icon_info = icon_theme.choose_icon(((ThemedIcon) icon).get_names(), icon_size, Gtk.IconLookupFlags.FORCE_SIZE);
+                else
+                    icon_info = icon_theme.lookup_by_gicon(icon, icon_size, Gtk.IconLookupFlags.FORCE_SIZE);
                 if (icon_info == null) continue;
 
                 icons_in_flight++;

@@ -140,6 +140,7 @@ namespace Ilia {
 
             // The window is built and shown while the desktop files are still being read
             var app_list = yield get_app_list();
+
             load_apps(app_list);
 
             model.set_sort_func(1, app_sort_func);
@@ -377,11 +378,12 @@ namespace Ilia {
                 var icon = ((DesktopAppInfo) app_info_val.get_object()).get_icon();
                 if (icon == null) continue;
 
-                // Themed icons go by name: lookup_by_gicon() also tries the "-symbolic" variant,
-                // which the theme chain finds (grey, in Adwaita) before the colour icon in gnome
+                // Themed icons go by their plain name: lookup_by_gicon() also tries the "-symbolic"
+                // variant (GLib adds it to the icon's name list), which the theme chain finds (grey,
+                // in Adwaita) before the colour icon in gnome
                 Gtk.IconInfo ? icon_info;
                 if (icon is ThemedIcon)
-                    icon_info = icon_theme.choose_icon(((ThemedIcon) icon).get_names(), icon_size, Gtk.IconLookupFlags.FORCE_SIZE);
+                    icon_info = icon_theme.lookup_icon(icon.to_string(), icon_size, Gtk.IconLookupFlags.FORCE_SIZE);
                 else
                     icon_info = icon_theme.lookup_by_gicon(icon, icon_size, Gtk.IconLookupFlags.FORCE_SIZE);
                 if (icon_info == null) continue;

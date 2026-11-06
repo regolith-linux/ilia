@@ -44,6 +44,13 @@ namespace Ilia {
             this.arg_map = parse_args(args);
             if (arg_map.contains("-h") || arg_map.contains("--help")) print_help_and_exit();
             if (arg_map.contains("-v") || arg_map.contains("--version")) print_version_and_exit();
+            // Start reading the desktop files now, on a worker thread, so that it overlaps with GTK's startup.
+            // GtkApplication only sets the locale in the base local_command_line(), so set it first:
+            // GLib translates the desktop files' Name and Keywords as it reads them
+            if (arg_map.contains("-a") || (arg_map.get("-p") ?? "apps").down() == "apps") {
+                Intl.setlocale(LocaleCategory.ALL, "");
+                DesktopAppPage.prefetch_apps();
+            }
             args[0] = null;
             return base.local_command_line(ref args, out exit_status);
         }
@@ -80,6 +87,14 @@ namespace Ilia {
 
             initialize_style(window, arg_map);
             close_on_sleep_or_lock(window);
+            // Startup timing, shown with G_MESSAGES_DEBUG=all along with the pages' own timings
+            var show_timer = new GLib.Timer();
+            ulong first_draw = 0;
+            first_draw = window.draw.connect(() => {
+                debug("First draw (%.3f seconds since show_all)", show_timer.elapsed());
+                window.disconnect(first_draw);
+                return false;
+            });
             window.show_all();
 
             // Grab inputs from X11 backend after showing window

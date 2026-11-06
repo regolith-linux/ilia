@@ -1,3 +1,50 @@
+ilia (0.19.2) jammy; urgency=medium
+
+  [ rego-port-bot ]
+  * fix(apps): run Terminal=true apps in a terminal again
+  * fix(files): load tinysparql or tracker-sparql at run time
+  * fix(notifications): list the newest notification first
+  * fix(textlist): stay responsive on large lists
+  * fix(textlist): fill the view in bounded steps, stop when the window closes
+  * fix(keys): switch keyboard layout while the launcher is open
+  * fix(keys): move with Ctrl+n/p from the highlighted row
+  * fix(notifications): Delete removes the highlighted notification
+  * fix(notifications): do not hang on a daemon that never answers
+  * fix(wayland): Alt+minus shrinks the window right away
+  * fix(ipc): read the sway socket from SWAYSOCK
+  * fix(wayland): detect Wayland from the GDK display
+  * fix(keys): keypad Enter acts on the highlighted row, like Return
+  * fix(tracker): search files without blocking the UI
+  * fix(x11): close before a suspend so the screen locker can lock
+  * fix(windows): list dialog windows on i3, as on sway
+  * fix(windows): keep the icon column when a window has no icon
+  * fix(apps): show no black square for apps without an icon
+  * fix(apps): search keywords without a comment, and the generic name
+  * fix(keys): close on the right Super key too
+  * fix(keys): count entry positions in characters for word motion and copy
+  * fix(notifications): highlight the new last row after deleting the last one
+  * fix(files): find files by their content
+  * fix(commands): list each command once, and only commands
+  * fix(filter): highlight the first match for new text after arrow keys
+  * fix: paste without blocking on the clipboard owner
+  * fix(keybindings): run the chosen binding over IPC, quotes intact
+  * fix(keybindings): run the clicked row's binding on X11
+  * fix(keybindings): read the config files in order, each on its own lines
+  * fix(keybindings): send the command the window manager holds for the binding
+
+  [ Bishwa Saha ]
+  * fix(filter): apply the entry text to the switched page
+  * chore: bump the version string to 0.19
+
+  [ Kyle Anderson ]
+  * Apps page: read desktop files during GTK startup, decode icons off the main thread
+
+  [ Kyle Cascade ]
+  * Apps page: address review of the early-startup changes
+  * Apps page: look themed icons up by their plain name
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Thu, 05 Nov 2026 17:08:28 -0800
+
 ilia (0.19.0) jammy; urgency=medium
 
   [ Carlos Fernandez Sanz ]

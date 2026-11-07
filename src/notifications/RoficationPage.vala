@@ -1,15 +1,98 @@
 using Gtk;
 
 namespace Ilia {
+    // draws a notification's text with its action shortcuts below it in a right
+    // aligned and wrapped manner
+    class NotificationCellRenderer : Gtk.CellRenderer {
+        public string? text { get; set; }
+        public string? hints { get; set; }
+        public int wrap_width { get; set; default = 300; }
+        private const int NATURAL_WIDTH = 300;
+
+        private Pango.Layout body_layout(Gtk.Widget widget, int wrap) {
+            var layout = widget.create_pango_layout(text ?? "");
+            layout.set_width(int.max(wrap, 1) * Pango.SCALE);
+            layout.set_wrap(Pango.WrapMode.WORD_CHAR);
+            return layout;
+        }
+
+        private Pango.Layout ? shortcut_layout(Gtk.Widget widget, int wrap) {
+            if (hints == null || hints.length == 0)
+                return null;
+            var layout = widget.create_pango_layout(hints);
+            layout.set_width(int.max(wrap, 1) * Pango.SCALE);
+            layout.set_wrap(Pango.WrapMode.WORD_CHAR);
+            layout.set_alignment(Pango.Alignment.RIGHT);
+            return layout;
+        }
+
+        public override void get_size (Gtk.Widget widget, Gdk.Rectangle? cell_area,
+                                       out int x_offset, out int y_offset,
+                                       out int width, out int height) {
+            int wrapped = wrap_width;
+            if (cell_area != null)
+                wrapped = cell_area.width;
+
+            int text_width, text_height;
+            body_layout(widget, wrapped).get_pixel_size(out text_width, out text_height);
+
+            var shortcuts = shortcut_layout(widget, wrapped);
+            int hints_width, hints_height = 0;
+            if (shortcuts != null)
+                shortcuts.get_pixel_size(out hints_width, out hints_height);
+
+            width = NATURAL_WIDTH;
+            height = text_height + (hints_height > 0 ? hints_height + 4 : 0);
+            x_offset = 0;
+            y_offset = 0;
+            if (cell_area != null)
+                y_offset = int.max (0, (cell_area.height - height) / 2);
+        }
+
+        public override void render (Cairo.Context cr, Gtk.Widget widget,
+                                     Gdk.Rectangle background_area, Gdk.Rectangle cell_area,
+                                     Gtk.CellRendererState flags) {
+            var style = widget.get_style_context ();
+            var state = Gtk.StateFlags.NORMAL;
+            if ((flags & Gtk.CellRendererState.SELECTED) != 0)
+                state |= Gtk.StateFlags.SELECTED;
+
+            int x = cell_area.x;
+            int available = cell_area.width;
+
+            var body = body_layout(widget, available);
+            int body_width, body_height;
+            body.get_pixel_size(out body_width, out body_height);
+
+            var shortcuts = shortcut_layout(widget, available);
+            int shortcut_width, shortcut_height = 0;
+            if (shortcuts != null)
+                shortcuts.get_pixel_size(out shortcut_width, out shortcut_height);
+
+            int block_height = body_height + (shortcut_height > 0 ? shortcut_height + 4 : 0);
+            int y = cell_area.y + int.max(0, (cell_area.height - block_height) / 2);
+
+            style.save();
+            style.set_state(state);
+            style.render_layout(cr, (double) x, (double) y, body);
+
+            if (shortcuts != null)
+                style.render_layout(cr, (double) x, (double) (y + body_height + 4), shortcuts);
+            style.restore();
+        }
+    }
+
     // A dialog page that allows management of notifications
     // [{"id": 2, "summary": "Hello! January", "body": "", "application": "notify-send", "icon": "face-wink", "urgency": 1, "actions": [], "hints": {"urgency": 1}}]
     class RoficationPage : DialogPage, GLib.Object {
-        private const int ITEM_VIEW_COLUMNS = 5;
+        private const int ITEM_VIEW_COLUMNS = 7;
         private const int ITEM_VIEW_COLUMN_ICON = 0;
         private const int ITEM_VIEW_COLUMN_APP = 1;
         private const int ITEM_VIEW_COLUMN_DETAIL = 2;
         private const int ITEM_VIEW_COLUMN_ID = 3;
         private const int ITEM_VIEW_COLUMN_APP_INFO = 4;
+        private const int ITEM_VIEW_COLUMN_NOTIFICATION = 5;
+        private const int ITEM_VIEW_COLUMN_ACTIONS = 6;
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -45,7 +128,7 @@ namespace Ilia {
         }
 
         public string get_help() {
-            return "This dialog manages desktop notifications. Initially all desktop apps are presented. The user may filter the list in the top text box.";
+            return "This dialog manages desktop notifications. Type to filter the list. Press Enter to activate the highlighted notification. When the notification has actions, Alt 1 through Alt 9 run them.";
         }
 
         public char get_keybinding() {
@@ -55,6 +138,8 @@ namespace Ilia {
         public HashTable<string, string> ? get_keybindings() {
             var keybindings = new HashTable<string, string ?>(str_hash, str_equal);
 
+            keybindings.set("enter", "Activate Notification");
+            keybindings.set("Alt 1..9", "Run Notification Action");
             keybindings.set("del", "Delete Notification");
             keybindings.set("shift del", "Delete All Notifications");
 
@@ -66,7 +151,7 @@ namespace Ilia {
             this.session_controller = sessionController;
             this.icon_size = settings.get_int("icon-size");
 
-            model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (string), typeof (DesktopAppInfo));
+            model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (string), typeof (DesktopAppInfo), typeof (NotificationDesc), typeof (string));
 
             filter = new Gtk.TreeModelFilter(model, null);
             filter.set_visible_func(filter_func);
@@ -112,10 +197,26 @@ namespace Ilia {
             // Create columns
             item_view.insert_column_with_attributes(-1, "Icon", new CellRendererPixbuf(), "pixbuf", ITEM_VIEW_COLUMN_ICON);
             item_view.insert_column_with_attributes(-1, "App", new CellRendererText(), "text", ITEM_VIEW_COLUMN_APP);
-            var wrapping_cell_renderer = new CellRendererText();
-            wrapping_cell_renderer.wrap_mode = Pango.WrapMode.WORD;
-            wrapping_cell_renderer.wrap_width = 300;
-            item_view.insert_column_with_attributes(-1, "Body", wrapping_cell_renderer, "text", ITEM_VIEW_COLUMN_DETAIL);
+            // Body and shortcuts share one cell, so the shortcuts take no width from the text
+            var detail_renderer = new NotificationCellRenderer();
+            detail_renderer.wrap_width = 300;
+            var detail_column = new Gtk.TreeViewColumn();
+            detail_column.pack_start(detail_renderer, true);
+            detail_column.add_attribute(detail_renderer, "text", ITEM_VIEW_COLUMN_DETAIL);
+            detail_column.add_attribute(detail_renderer, "hints", ITEM_VIEW_COLUMN_ACTIONS);
+            detail_column.expand = true;
+            item_view.append_column(detail_column);
+
+            // The drawn width is known only after the tree view allocates its columns
+            item_view.size_allocate.connect(() => {
+                var separator = GLib.Value(typeof(int));
+                item_view.style_get_property("horizontal-separator", ref separator);
+                int drawn_width = detail_column.get_width() - separator.get_int();
+                if (drawn_width > 0 && drawn_width != detail_renderer.wrap_width) {
+                    detail_renderer.wrap_width = drawn_width;
+                    detail_column.queue_resize();
+                }
+            });
 
             // Launch app on one click
             item_view.set_activate_on_single_click(true);
@@ -203,6 +304,18 @@ namespace Ilia {
                 else
                     detail = "<no content>";
 
+                string action_hints = "";
+                if (notification.action_count > 0) {
+                    var labels = new StringBuilder();
+                    for (int i = 0; i < notification.action_count; ++i) {
+                        if (labels.len > 0) labels.append("  ");
+                        // No-break spaces keep each shortcut whole when the line wraps
+                        labels.append_printf("[Alt\xc2\xa0%d]\xc2\xa0%s", i + 1,
+                            notification.action_label(i).replace(" ", "\xc2\xa0"));
+                    }
+                    action_hints = labels.str;
+                }
+
                 model.append(out iter);
                 model.set(
                     iter,
@@ -210,7 +323,9 @@ namespace Ilia {
                     ITEM_VIEW_COLUMN_APP, notification.application,
                     ITEM_VIEW_COLUMN_DETAIL, detail,
                     ITEM_VIEW_COLUMN_ID, notification.id.to_string(),
-                    ITEM_VIEW_COLUMN_APP_INFO, desktopAppInfo
+                    ITEM_VIEW_COLUMN_APP_INFO, desktopAppInfo,
+                    ITEM_VIEW_COLUMN_NOTIFICATION, notification,
+                    ITEM_VIEW_COLUMN_ACTIONS, action_hints
                 );
             }
         }
@@ -260,6 +375,11 @@ namespace Ilia {
             if (handle_emacs_vim_nav(item_view, path, event))
                 return true;
 
+            if ((event.state & Gdk.ModifierType.MOD1_MASK) != 0 &&
+                event.keyval >= (uint) '1' && event.keyval <= (uint) '9' &&
+                invoke_selected_action((int) event.keyval - (int) '1'))
+                return true;
+
             if (event.keyval == 65535) {
                 if ((event.state & Gdk.ModifierType.SHIFT_MASK) == Gdk.ModifierType.SHIFT_MASK)
                     delete_all_notifications();
@@ -269,6 +389,27 @@ namespace Ilia {
             }
 
             return false;
+        }
+
+        private bool invoke_selected_action(int index) {
+            Gtk.TreeModel selected_model;
+            Gtk.TreeIter selected;
+            if (!item_view.get_selection().get_selected(out selected_model, out selected))
+                return false;
+
+            NotificationDesc notification;
+            filter.@get(selected, ITEM_VIEW_COLUMN_NOTIFICATION, out notification);
+
+            if (notification == null || index < 0 || index >= notification.action_count)
+                return false;
+
+            try {
+                rofi_client.invoke_action(notification.id, notification.action_key(index));
+            } catch (GLib.Error e) {
+                stderr.printf("%s\n", e.message);
+            }
+            session_controller.quit();
+            return true;
         }
 
         private void delete_selected_notification() {
@@ -306,6 +447,22 @@ namespace Ilia {
 
         // launch a desktop app
         public void execute_app_from_selection(Gtk.TreeIter selection) {
+            NotificationDesc notification;
+            filter.@get(selection, ITEM_VIEW_COLUMN_NOTIFICATION, out notification);
+
+            // a notification with a default action behaves as it does in GNOME
+            // that is activating it runs the action instead of launching the
+            // application
+            if (notification != null && notification.has_action("default")) {
+                try {
+                    rofi_client.see_notification(notification.id);
+                } catch (GLib.Error e) {
+                    stderr.printf("%s\n", e.message);
+                }
+                session_controller.quit();
+                return;
+            }
+
             DesktopAppInfo app_info;
             filter.@get(selection, ITEM_VIEW_COLUMN_APP_INFO, out app_info);
 

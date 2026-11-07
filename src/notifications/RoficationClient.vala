@@ -8,7 +8,7 @@ namespace Ilia {
         COUNT
     }
 
-    public class NotificationDesc {
+    public class NotificationDesc : GLib.Object {
         public int64 id { get; private set; }
         public string summary { get; private set; }
         public string body { get; private set; }
@@ -17,7 +17,8 @@ namespace Ilia {
         public int64 urgency { get; private set; }
         // Time the notification arrived, in seconds since the epoch; 0 if unknown
         public double timestamp { get; private set; }
-        // TODO add 'actions' (list of string)
+        // Flat list of action id/label pairs, as sent to the daemon
+        public string[] actions = {};
 
         internal NotificationDesc (Json.Object responseJson) {
             id = responseJson.get_int_member("id");
@@ -32,6 +33,36 @@ namespace Ilia {
             if (ts != null && ts.get_node_type() == Json.NodeType.VALUE &&
                 (ts.get_value_type() == typeof (double) || ts.get_value_type() == typeof (int64)))
                 timestamp = ts.get_double();
+
+            if (responseJson.has_member("actions")) {
+                var actions_array = responseJson.get_array_member("actions");
+                string[] parsed = {};
+                foreach (var node in actions_array.get_elements()) {
+                    if (node.get_node_type() == Json.NodeType.VALUE &&
+                        node.get_value_type() == typeof (string))
+                        parsed += node.get_string();
+                }
+                actions = parsed;
+            }
+        }
+
+        public bool has_action(string key) {
+            for (int i = 0; i + 1 < actions.length; i += 2)
+                if (actions[i] == key)
+                    return true;
+            return false;
+        }
+
+        public int action_count {
+            get { return actions.length / 2; }
+        }
+
+        public string action_key(int index) {
+            return actions[index * 2];
+        }
+
+        public string action_label(int index) {
+            return actions[index * 2 + 1];
         }
     }
 
@@ -95,6 +126,26 @@ namespace Ilia {
             }
 
             return list;
+        }
+
+        private void send_command(string command) throws GLib.Error {
+            var socket = open_socket(socket_addr);
+
+            debug(command);
+
+            ssize_t sent = socket.send((command + "\n").data);
+
+            debug("Sent " + sent.to_string() + " bytes to notification backend.");
+            socket.close();
+        }
+
+        // "Seen" makes the daemon invoke the notification's default action, if it has one
+        public void see_notification(int64 id) throws GLib.Error {
+            send_command("see:" + id.to_string());
+        }
+
+        public void invoke_action(int64 id, string key) throws GLib.Error {
+            send_command("invoke:" + id.to_string() + ":" + key);
         }
 
         public void delete_notification_by_id(int64 id) throws GLib.Error {

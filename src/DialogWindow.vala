@@ -104,6 +104,10 @@ namespace Ilia {
 
             // Exit if focus leaves us
             focus_out_event.connect(() => {
+                // Removing the seat's last keyboard (one wtype run, a virtual or Bluetooth keyboard going away) also
+                // takes keyboard focus on Wayland, though it went nowhere; the next keyboard to appear focuses ilia again
+                if (is_wayland && !seat_has_keyboard())
+                    return false;
                 quit();
                 return false;
             });
@@ -278,6 +282,11 @@ namespace Ilia {
             if (keymap.translate_keyboard_state(key.hardware_keycode, key.state, 0, out keyval, out effective_group, out level, out consumed))
                 return keyval;
             return key.keyval;
+        }
+
+        private bool seat_has_keyboard() {
+            var default_seat = get_display().get_default_seat();
+            return default_seat != null && default_seat.get_slaves(Gdk.SeatCapabilities.KEYBOARD).length() > 0;
         }
 
         public void set_seat(Gdk.Seat seat) {

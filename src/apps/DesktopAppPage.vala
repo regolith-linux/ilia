@@ -571,16 +571,8 @@ namespace Ilia {
 
         // Record a launch, for the sort order
         private void add_to_launch_history(string key) {
-            if (launch_history == null) {
-                launch_history = { key };
-            } else {
-                launch_history += key;
-            }
-
-            if (launch_history.length <= HISTORY_MAX_LEN)
-                settings.set_strv("app-launch-counts", launch_history);
-            else
-                settings.set_strv("app-launch-counts", launch_history[1 : HISTORY_MAX_LEN]);
+            launch_history = append_launch_history(launch_history, key, (int) HISTORY_MAX_LEN);
+            settings.set_strv("app-launch-counts", launch_history);
         }
     }
 }

@@ -245,6 +245,21 @@ namespace Ilia {
     }
 
     /**
+     * The launch history with one more launch: the newest max_len launches, ending with key
+     */
+    public static string[] append_launch_history(string[] ? history, string key, int max_len) {
+        string[] result = {};
+        if (history != null)
+            result = history;
+        result += key;
+        if (result.length <= max_len)
+            return result;
+
+        string[] newest = result[result.length - max_len : result.length];
+        return newest;
+    }
+
+    /**
      * Build the command line that the commands page launches
      *
      * @param command A command line in shell syntax: a quoted path from the list, or the text typed by the user

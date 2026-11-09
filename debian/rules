@@ -2,3 +2,7 @@
 
 %:
 	dh $@
+
+# Fail rather than leave the calculator page out if libqalculate is missing
+override_dh_auto_configure:
+	dh_auto_configure -- -Dcalculator=enabled

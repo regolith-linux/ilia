@@ -15,6 +15,11 @@ namespace Ilia {
         private const int FS_FILE_READ_COUNT = 128;
         // Roots of app dirs env var.  See https://github.com/flatpak/flatpak/issues/1286#issuecomment-354554684
         private const string XDG_DATA_DIRS = "XDG_DATA_DIRS";
+        // The message bus itself, which starts apps from their service files
+        private const string DBUS_NAME = "org.freedesktop.DBus";
+        private const string DBUS_PATH = "/org/freedesktop/DBus";
+        // Time a running app has to answer an activation request before the page closes
+        private const int ACTIVATE_TIMEOUT_MS = 3000;
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -39,7 +44,8 @@ namespace Ilia {
 
         private int icon_size;
 
-        private int post_launch_sleep;
+        // Set once an app is launched; the page closes afterwards
+        private bool launching = false;
 
         private Gtk.Widget root_widget;
 
@@ -119,7 +125,6 @@ namespace Ilia {
             launch_history = settings.get_strv("app-launch-counts");
             launch_counts = load_launch_counts(launch_history);
             icon_size = settings.get_int("icon-size");
-            post_launch_sleep = settings.get_int("post-launch-sleep");
 
             model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (DesktopAppInfo));
 
@@ -406,61 +411,85 @@ namespace Ilia {
                 debug("Finished loading all icons (%.3f seconds since app start)", app_timer.elapsed());
         }
 
-        // In the case that neither success or failure signals are received, exit after a timeout
-        private async void launch_failure_exit() {
-            GLib.Timeout.add(post_launch_sleep, () => {
-                session_controller.quit();
-                return false;
-            }, GLib.Priority.DEFAULT);
-            yield;
-        }
-
-        // launch a desktop app
+        // Launch a desktop app, at most once: a double click activates the row twice
         public void execute_app(Gtk.TreeIter selection) {
+            if (launching)
+                return;
+            launching = true;
+
             DesktopAppInfo app_info;
             filter.@get(selection, ITEM_VIEW_COLUMN_APPINFO, out app_info);
 
-            try {
-                AppInfo runner = get_runner_app_info(app_info);
-                AppLaunchContext ctx = new AppLaunchContext();
-
-                ctx.launched.connect((info, platform_data) => {
-                    session_controller.quit();
-                });
-
-                ctx.launch_failed.connect((startup_notify_id) => {
-                    stderr.printf("Failed to launch app: %s\n", startup_notify_id);
-                    session_controller.quit();
-                });
-
-
-                ctx.launch_started.connect((info, platform_data) => {
-                    launch_failure_exit.begin();
-                    // TODO ~ perhaps add some visual hint that launch process has begun
-                });
-
-                var result = runner.launch(null, ctx);
-
-                if (result) {
-                    string key = app_info.get_id();
-                    if (launch_history == null) {
-                        launch_history = { key };
-                    } else {
-                        launch_history += key;
-                    }
-
-                    if (launch_history.length <= HISTORY_MAX_LEN)
-                        settings.set_strv("app-launch-counts", launch_history);
-                    else
-                        settings.set_strv("app-launch-counts", launch_history[1 : HISTORY_MAX_LEN]);
-                } else {
-                    stderr.printf("Failed to launch %s\n", app_info.get_name());
-                    session_controller.quit();
-                }
-            } catch (GLib.Error e) {
-                stderr.printf("%s\n", e.message);
-                session_controller.quit();
+            string ? bus_name = get_dbus_activation_name(app_info);
+            if (bus_name != null) {
+                activate_app.begin(app_info, bus_name);
+                return;
             }
+
+            try {
+                bool launched = true;
+                if (needs_terminal(app_info) && GLib.Environment.find_program_in_path("x-terminal-emulator") == null) {
+                    // GLib picks a terminal it knows, and runs the entry outside a scope
+                    launched = app_info.launch(null, null);
+                } else {
+                    Pid pid;
+                    Process.spawn_async(get_desktop_working_directory(app_info), get_desktop_launch_argv(app_info),
+                                        null, SpawnFlags.SEARCH_PATH, null, out pid);
+                }
+
+                if (launched)
+                    add_to_launch_history(app_info.get_id());
+                else
+                    stderr.printf("Failed to launch %s\n", app_info.get_name());
+            } catch (GLib.Error e) {
+                stderr.printf("Failed to launch %s: %s\n", app_info.get_name(), e.message);
+            }
+            session_controller.quit();
+        }
+
+        /*
+         * Start a DBusActivatable app over the session bus, with Activate on its
+         * org.freedesktop.Application interface, as the Desktop Entry Specification describes
+         */
+        private async void activate_app(DesktopAppInfo app_info, string bus_name) {
+            try {
+                var bus = yield Bus.get(BusType.SESSION);
+
+                // Have the bus start the app first if it is not running: a message that waits
+                // for its destination to start is dropped once the sender has disconnected.
+                var has_owner = yield bus.call(DBUS_NAME, DBUS_PATH, DBUS_NAME, "NameHasOwner",
+                                               new Variant("(s)", bus_name), new VariantType("(b)"),
+                                               DBusCallFlags.NONE, -1);
+
+                if (!has_owner.get_child_value(0).get_boolean())
+                    yield bus.call(DBUS_NAME, DBUS_PATH, DBUS_NAME, "StartServiceByName",
+                                   new Variant("(su)", bus_name, (uint32) 0), new VariantType("(u)"),
+                                   DBusCallFlags.NONE, -1);
+
+                var platform_data = new VariantBuilder(new VariantType("a{sv}"));
+                yield bus.call(bus_name, get_dbus_activation_path(bus_name), "org.freedesktop.Application",
+                               "Activate", new Variant("(a{sv})", platform_data),
+                               null, DBusCallFlags.NO_AUTO_START, ACTIVATE_TIMEOUT_MS);
+
+                add_to_launch_history(app_info.get_id());
+            } catch (GLib.Error e) {
+                stderr.printf("Failed to activate %s: %s\n", app_info.get_name(), e.message);
+            }
+            session_controller.quit();
+        }
+
+        // Record a launch, for the sort order
+        private void add_to_launch_history(string key) {
+            if (launch_history == null) {
+                launch_history = { key };
+            } else {
+                launch_history += key;
+            }
+
+            if (launch_history.length <= HISTORY_MAX_LEN)
+                settings.set_strv("app-launch-counts", launch_history);
+            else
+                settings.set_strv("app-launch-counts", launch_history[1 : HISTORY_MAX_LEN]);
         }
     }
 }

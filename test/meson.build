@@ -8,7 +8,8 @@ unit_test_files = [
     'TextFilter',
     'FileSearch',
     'WindowPage',
-    'ConfigParser'
+    'ConfigParser',
+    'KeybindingsPage'
 ]
 
 foreach name : unit_test_files

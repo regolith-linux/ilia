@@ -42,9 +42,138 @@ namespace Ilia {
         }
     }
 
+    /**
+     * The variables of an i3 configuration, defined as i3 defines them when no resource
+     * is set. i3 first reads the set and set_from_resource lines of a file, the last
+     * value given to a name winning, and then replaces every variable in that file at
+     * once. The variables carry over to the files read after it.
+     */
+    internal class I3UnsetVariables {
+        // Names with their '$', longest first, so that a name wins over its prefixes
+        private ArrayList<string> names = new ArrayList<string> ();
+        private HashMap<string, string> values = new HashMap<string, string> ();
+
+        // The next whitespace-delimited word of text at or after pos; pos moves past it
+        private static string ? next_word(string text, ref int pos) {
+            while (pos < text.length && text[pos].isspace()) pos++;
+            if (pos >= text.length) return null;
+            int start = pos;
+            while (pos < text.length && !text[pos].isspace()) pos++;
+            return text.substring(start, pos - start);
+        }
+
+        // The rest of the line in text after pos and any whitespace, as i3 reads a value
+        private static string rest_of_line(string text, int pos) {
+            while (pos < text.length && text[pos].isspace()) pos++;
+            int end = text.index_of_char('\n', pos);
+            return text.substring(pos, (end < 0 ? text.length : end) - pos);
+        }
+
+        private void define(string name, string value) {
+            if (!values.has_key(name)) {
+                int i = 0;
+                while (i < names.size && names[i].length > name.length)
+                    i++;
+                names.insert(i, name);
+            }
+            values.set(name, value);
+        }
+
+        // A set or set_from_resource line defines its variable; resources take their fallback
+        private void read_line(string line) {
+            int pos = 0;
+            string ? key = next_word(line, ref pos);
+            if (key == null || key.length < 3 || key[0] == '#')
+                return;
+            string value = rest_of_line(line, pos);
+
+            int value_pos = 0;
+            if (key.ascii_down() == "set" && value != "") {
+                string name = next_word(value, ref value_pos);
+                if (name.has_prefix("$"))
+                    define(name, rest_of_line(value, value_pos));
+            } else if (key.ascii_down() == "set_from_resource") {
+                string ? name = next_word(value, ref value_pos);
+                if (name == null || !name.has_prefix("$"))
+                    return;
+                string ? resource = next_word(value, ref value_pos);
+                define(name, resource != null ? rest_of_line(value, value_pos) : "");
+            }
+        }
+
+        /**
+         * The contents of a file as i3 would hold them with no resource set. Like i3,
+         * a line ending in a backslash runs on into the next one, unless it is a comment,
+         * and a variable name matches regardless of case.
+         */
+        public string replace_in_file(string raw) {
+            var text = new StringBuilder();
+            var line = new StringBuilder();
+            string[] lines = raw.split("\n");
+            for (int n = 0; n < lines.length; n++) {
+                bool has_newline = n < lines.length - 1;
+                line.append(lines[n]);
+                int pos = 0;
+                string ? first = next_word(line.str, ref pos);
+                if (has_newline && lines[n].has_suffix("\\") && (first == null || first[0] != '#')) {
+                    line.truncate(line.len - 1);
+                    continue;
+                }
+                if (has_newline)
+                    line.append_c('\n');
+                read_line(line.str);
+                text.append(line.str);
+                line.truncate(0);
+            }
+            return replace(text.str);
+        }
+
+        // Replace each variable in text, the nearest first, without replacing in the values
+        private string replace(string text) {
+            string lowered = text.ascii_down();
+            var lowered_names = new string[names.size];
+            var next = new int[names.size];
+            for (int i = 0; i < names.size; i++) {
+                lowered_names[i] = names[i].ascii_down();
+                next[i] = -2;
+            }
+
+            var result = new StringBuilder();
+            int walk = 0;
+            while (true) {
+                int nearest = -1;
+                for (int i = 0; i < names.size; i++) {
+                    if (next[i] != -1 && next[i] < walk)
+                        next[i] = lowered.index_of(lowered_names[i], walk);
+                    if (next[i] >= 0 && (nearest < 0 || next[i] < next[nearest]))
+                        nearest = i;
+                }
+                if (nearest < 0) {
+                    result.append(text.substring(walk));
+                    break;
+                }
+                result.append(text.substring(walk, next[nearest] - walk));
+                result.append(values.get(names[nearest]));
+                walk = next[nearest] + names[nearest].length;
+            }
+            return result.str;
+        }
+    }
+
     // https://i3wm.org/docs/ipc.html#_config_reply
     public class ConfigReply {
         public string config { get; private set; }
+
+        // config in pieces, each from a single file. i3: each included file, its variables
+        // replaced; sway: the files as sway reads them, split where they include others
+        public string[] configs { get; private set; }
+
+        /**
+         * i3: each included file as i3 would hold it with no resource set, every
+         * set_from_resource taking its fallback; when i3 does not send the raw files,
+         * the files as i3 holds them. null for sway, which hands its files over as written.
+         */
+        public string[] ? unset_resources_configs { get; private set; }
 
         // Expand $NAME and ${NAME} from the environment; unknown variables are left as written
         private static string expand_path_vars(string path) {
@@ -89,13 +218,15 @@ namespace Ilia {
          * Read a sway configuration as sway does: each "include" is read in place, its
          * matches in sorted order, each file once. Relative paths are relative to the
          * including file. The order matters, as sway sets and uses variables in it.
+         * The text is added to pieces as it is read, a new piece after each include.
          */
-        private static void read_sway_config(string text, string ? dir, HashSet<string> visited, StringBuilder builder) {
+        private static void read_sway_config(string text, string ? dir, HashSet<string> visited, ArrayList<string> pieces) {
+            var piece = new StringBuilder();
             string[] lines = text.split("\n");
             for (int n = 0; n < lines.length; n++) {
                 unowned string line = lines[n];
                 // the last element is what follows the final newline, if any
-                append_file(builder, n < lines.length - 1 ? line + "\n" : line);
+                piece.append(n < lines.length - 1 ? line + "\n" : line);
 
                 string stripped_line = line.strip();
                 if (!stripped_line.has_prefix("include "))
@@ -115,6 +246,8 @@ namespace Ilia {
                     matches.add(matched_path);
                 matches.sort((a, b) => strcmp(a, b));
 
+                pieces.add(piece.str);
+                piece.truncate(0);
                 foreach (var matched_path in matches) {
                     if (!FileUtils.test(matched_path, FileTest.IS_REGULAR))
                         continue;
@@ -129,35 +262,56 @@ namespace Ilia {
                     } catch (GLib.Error err) {
                         continue;
                     }
-                    read_sway_config(partial, Path.get_dirname(matched_path), visited, builder);
+                    read_sway_config(partial, Path.get_dirname(matched_path), visited, pieces);
                 }
             }
+            pieces.add(piece.str);
         }
 
         private string get_i3_config(Json.Node responseJson) {
 
             var configBuilder = new StringBuilder("");
-            var configs = responseJson.get_object().get_array_member("included_configs");
+            var included = responseJson.get_object().get_array_member("included_configs");
+            string[] replaced = {};
+            string[] unset = {};
+            bool have_raw = true;
+            var variables = new I3UnsetVariables();
 
-            configs.foreach_element((arr, index, node) => {
-                append_file(configBuilder, node.get_object().get_string_member("variable_replaced_contents"));
-            });
+            for (uint i = 0; i < included.get_length(); i++) {
+                var file = included.get_object_element(i);
+                string contents = file.get_string_member("variable_replaced_contents");
+                append_file(configBuilder, contents);
+                replaced += contents;
+                if (have_raw && file.has_member("raw_contents"))
+                    unset += variables.replace_in_file(file.get_string_member("raw_contents"));
+                else
+                    have_raw = false;
+            }
 
+            configs = replaced;
+            unset_resources_configs = have_raw ? unset : replaced;
             return configBuilder.str;
         }
 
         private string get_sway_config(Json.Node responseJson) {
             string baseConfig = responseJson.get_object().get_string_member("config");
+            var pieces = new ArrayList<string> ();
+            read_sway_config(baseConfig, null, new HashSet<string> (), pieces);
+            configs = pieces.to_array();
+
             var configBuilder = new StringBuilder("");
-            read_sway_config(baseConfig, null, new HashSet<string> (), configBuilder);
+            foreach (var piece in pieces)
+                append_file(configBuilder, piece);
             return configBuilder.str;
         }
 
         internal ConfigReply (Json.Node responseJson, string wm_name) throws GLib.FileError {
-            if (wm_name == "sway")
+            if (wm_name == "sway") {
                 config = get_sway_config(responseJson);
-            else
+                unset_resources_configs = null;
+            } else {
                 config = get_i3_config(responseJson);
+            }
         }
     }
 

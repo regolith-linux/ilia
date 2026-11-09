@@ -16,6 +16,31 @@ string ? command_of(string config, string label, bool sway = false, HashTable<st
     error("no row %s", label);
 }
 
+// The row with this label
+Keybinding row_of(Map<string, ArrayList<Keybinding> > rows, string label) {
+    foreach (var bindings in rows.values)
+        foreach (var binding in bindings)
+            if (binding.label == label)
+                return binding;
+    error("no row %s", label);
+}
+
+Map<string, ArrayList<Keybinding> > parse_pieces(string[] pieces, bool sway = false, HashTable<string, string> ? resources = null) {
+    try {
+        return new ConfigParser.from_files(pieces, "", sway, resources).parse();
+    } catch (GLib.Error e) {
+        error("parse failed: %s", e.message);
+    }
+}
+
+// The keys of a row, "code:" marking keycodes and "-" keys no longer bound, joined by spaces
+string keys_of(Map<string, ArrayList<Keybinding> > rows, string label) {
+    string[] keys = {};
+    foreach (var keys_bound in row_of(rows, label).bound_keys)
+        keys += (keys_bound.active ? "" : "-") + (keys_bound.is_keycode ? "code:" : "") + keys_bound.combination;
+    return string.joinv(" ", keys);
+}
+
 // i3 reports its files with the variables replaced, including in set_from_resource lines
 const string I3_CONFIG = """
 set_from_resource ilia -p apps wm.program.launcher.app ilia -p apps
@@ -115,6 +140,117 @@ void test_sway_value_at_binding() {
     assert(command_of(SWAY_CONFIG, "Previous Layout", true) == "exec xkb_switch_layout prev");
 }
 
+// i3 as it reports its files: variables replaced
+const string I3_ROWS = """
+## Launch // Terminal // <> Enter ##
+set_from_resource Return wm.binding.terminal Return
+bindsym Mod4+Return exec term
+# a remark between the bindings of one row
+bindsym --release --border Mod4+Shift+Return exec term2
+bindcode Mod4+36 exec term3
+
+bindsym Mod4+t exec after-blank
+## Resize // Enter Resize Mode // <> r ##
+mode "Resize Mode" {
+    ## Resize // Resize Window // ← → ##
+    bindsym Left resize shrink width 6 px
+    bindsym Right resize grow width 6 px
+
+    bindsym Escape mode "default"
+}
+set_from_resource r wm.binding.resize_mode r
+bindsym Mod4+r mode "Resize Mode"
+## Other // Closed // <> o ##
+bindsym Mod4+o exec o
+for_window [class="x"] floating enable
+bindsym Mod4+p exec p
+## Other // Keycode First // <> 1 ##
+bindcode Mod4+10 workspace number 1
+bindsym Mod4+1 workspace number 1
+## Other // Bar // <> b ##
+bar {
+    bindsym button4 nop
+}
+""";
+
+// A row's keys come from the binding lines that follow it, past their options, up to a
+// blank line or a line of another kind; bindcode lines count, their keys marked as codes
+void test_row_keys() {
+    var rows = parse_pieces({ I3_ROWS });
+    assert(keys_of(rows, "Terminal") == "Mod4+Return Mod4+Shift+Return code:Mod4+36");
+    assert(row_of(rows, "Terminal").exec == "exec term");
+    assert(keys_of(rows, "Closed") == "Mod4+o");
+    assert(keys_of(rows, "Keycode First") == "code:Mod4+10 Mod4+1");
+    assert(row_of(rows, "Keycode First").exec == "workspace number 1");
+}
+
+// A block has rows of its own; the row before it takes the first binding after it at its own level
+void test_row_around_block() {
+    var rows = parse_pieces({ I3_ROWS });
+    assert(keys_of(rows, "Resize Window") == "Left Right");
+    assert(keys_of(rows, "Enter Resize Mode") == "Mod4+r");
+    assert(row_of(rows, "Enter Resize Mode").exec == "mode \"Resize Mode\"");
+    // the bindings of a bar block are not the window manager's keys
+    assert(keys_of(rows, "Bar") == "");
+    assert(row_of(rows, "Bar").exec == null);
+}
+
+// A row does not run on into the next piece of the configuration
+void test_row_within_piece() {
+    var rows = parse_pieces({ "## Group // Row // x ##\n", "bindsym x exec y\n" });
+    assert(keys_of(rows, "Row") == "");
+    assert(row_of(rows, "Row").exec == null);
+}
+
+const string SWAY_ROWS = """
+set $mod Mod4
+set_from_resource $wm.binding.terminal wm.binding.terminal Return
+## Launch // Terminal // <> Enter ##
+bindsym $mod+$wm.binding.terminal exec term
+## Launch // Browser // <><Shift> b ##
+bindsym --to-code $mod+Shift+b exec browser
+## Launch // Other // <> x ##
+bindsym --release $mod+x exec released
+bindsym $mod+x exec pressed
+mode "Resize Mode" {
+    ## Resize // Exit // Escape ##
+    bindsym Escape mode "default"
+}
+""";
+
+// sway: the keys take the values the variables have where the binding is read, resources included
+void test_sway_row_keys() {
+    assert(keys_of(parse_pieces({ SWAY_ROWS }, true), "Terminal") == "Mod4+Return");
+
+    var resources = new HashTable<string, string> (str_hash, str_equal);
+    resources.insert("wm.binding.terminal", "y");
+    assert(keys_of(parse_pieces({ SWAY_ROWS }, true, resources), "Terminal") == "Mod4+y");
+}
+
+// sway: a later binding of the same keys in the same mode, in any spelling, replaces an earlier
+// one, and unbinding takes them; options such as --release make keys distinct, --to-code does too
+void test_sway_rebinding() {
+    var rows = parse_pieces({ SWAY_ROWS,
+                              "bindsym super+return exec other\n" +
+                              "bindsym Mod4+Shift+B exec other\n" +
+                              "unbindsym --release Mod4+x\n" +
+                              "bindsym Escape exec other\n" }, true);
+    assert(keys_of(rows, "Terminal") == "-Mod4+Return");
+    assert(keys_of(rows, "Browser") == "Mod4+Shift+b");
+    assert(keys_of(rows, "Other") == "-Mod4+x Mod4+x");
+    // bindings in another mode are other keys
+    assert(keys_of(rows, "Exit") == "Escape");
+
+    rows = parse_pieces({ SWAY_ROWS, "bindsym --to-code Mod4+B+Shift exec other\n" }, true);
+    assert(keys_of(rows, "Browser") == "-Mod4+Shift+b");
+}
+
+// i3 refuses a second binding of the same keys, so it never replaces the first
+void test_i3_no_rebinding() {
+    var rows = parse_pieces({ I3_ROWS, "bindsym Mod4+Return exec other\n" });
+    assert(keys_of(rows, "Terminal") == "Mod4+Return Mod4+Shift+Return code:Mod4+36");
+}
+
 public int main(string[] args) {
     Test.init(ref args);
 
@@ -125,6 +261,12 @@ public int main(string[] args) {
     Test.add_func("/config_parser/sway_resources", test_sway_resources);
     Test.add_func("/config_parser/sway_names", test_sway_names);
     Test.add_func("/config_parser/sway_value_at_binding", test_sway_value_at_binding);
+    Test.add_func("/config_parser/row_keys", test_row_keys);
+    Test.add_func("/config_parser/row_around_block", test_row_around_block);
+    Test.add_func("/config_parser/row_within_piece", test_row_within_piece);
+    Test.add_func("/config_parser/sway_row_keys", test_sway_row_keys);
+    Test.add_func("/config_parser/sway_rebinding", test_sway_rebinding);
+    Test.add_func("/config_parser/i3_no_rebinding", test_i3_no_rebinding);
 
     return Test.run();
 }

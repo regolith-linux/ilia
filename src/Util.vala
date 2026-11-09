@@ -116,38 +116,132 @@ namespace Ilia {
     }
 
     /*
-     * Get AppInfo object used to run a command
+     * Get AppInfo object used to run a command line, as the commands page builds it
      *
-     * The app is started in its own systemd scope. The command line is rebuilt from
-     * the Exec key, so keys that GLib would otherwise act on are lost. For Terminal=true
-     * the terminal is started inside the scope, as x-terminal-emulator -e <Exec>, so the
-     * terminal and the program running in it share the scope.
+     * The command is started in its own systemd scope. Desktop entries are launched
+     * with get_desktop_launch_argv() instead, which keeps what the entry asks for.
      */
     public static AppInfo get_runner_app_info(AppInfo app_info) throws GLib.Error {
         string systemd_run_path = GLib.Environment.find_program_in_path("systemd-run");
         if (systemd_run_path == null)
-            return app_info; // GLib launches the entry itself and honours Terminal=true
+            return app_info;
         string app_id = app_info.get_id();
         string exec = app_info.get_commandline();
-        var flags = AppInfoCreateFlags.NONE;
-
-        if (needs_terminal(app_info)) {
-            if (GLib.Environment.find_program_in_path("x-terminal-emulator") != null)
-                exec = "x-terminal-emulator -e " + exec;
-            else
-                flags = AppInfoCreateFlags.NEEDS_TERMINAL; // GLib picks a terminal, outside the scope
-        }
 
         string random_suffix = Uuid.string_random().slice(0, 8);
         string unit_name = "run_ilia_" + systemd_escape(app_id) + "_" + random_suffix + ".scope";
         string systemd_launch = "systemd-run --user --scope --unit \"" + unit_name + "\" " + exec;
-        return AppInfo.create_from_commandline(systemd_launch, app_id, flags);
+        return AppInfo.create_from_commandline(systemd_launch, app_id, AppInfoCreateFlags.NONE);
     }
 
     /* True if the desktop file asks to be run in a terminal (Terminal=true) */
     public static bool needs_terminal(AppInfo app_info) {
         var desktop_app_info = app_info as DesktopAppInfo;
         return desktop_app_info != null && desktop_app_info.get_filename() != null && desktop_app_info.get_boolean("Terminal");
+    }
+
+    /*
+     * The program and arguments of a desktop entry, from its Exec key
+     *
+     * Field codes are expanded as the Desktop Entry Specification describes, for a
+     * launch that opens no files: %f, %F, %u and %U expand to nothing, %i to --icon and
+     * the Icon key (to nothing without one), %c to the name in the user's language, %k
+     * to the file name of the desktop entry and %% to %. The deprecated codes expand to
+     * nothing. As in GLib, each value is quoted before the command line is split, so it
+     * stays literal and a single argument, also inside a longer one as in --class=%c.
+     */
+    public static string[] expand_desktop_exec(DesktopAppInfo app_info) throws ShellError {
+        unowned string exec = app_info.get_commandline() ?? "";
+        var command_line = new StringBuilder();
+
+        for (int i = 0; i < exec.length; ++i) {
+            if (exec[i] != '%' || i + 1 == exec.length) {
+                command_line.append_c(exec[i]);
+                continue;
+            }
+
+            switch (exec[++i]) {
+                case 'i':
+                    string ? icon = app_info.get_locale_string("Icon");
+                    if (icon != null && icon != "")
+                        command_line.append("--icon " + Shell.quote(icon));
+                    break;
+                case 'c':
+                    command_line.append(Shell.quote(app_info.get_name()));
+                    break;
+                case 'k':
+                    unowned string ? filename = app_info.get_filename();
+                    if (filename != null)
+                        command_line.append(Shell.quote(filename));
+                    break;
+                case '%':
+                    command_line.append_c('%');
+                    break;
+                default: // No files to pass, and the deprecated field codes
+                    break;
+            }
+        }
+
+        string[] argv;
+        Shell.parse_argv(command_line.str, out argv);
+        return argv;
+    }
+
+    /*
+     * The command that launches a desktop entry, as a program and its arguments
+     *
+     * The entry is started in its own systemd scope when systemd-run is available. For
+     * Terminal=true the terminal is started inside the scope, as x-terminal-emulator -e
+     * <program>, so the terminal and the program running in it share the scope; without
+     * x-terminal-emulator such an entry is left to GLib. The command is meant to run in
+     * the directory get_desktop_working_directory() gives.
+     */
+    public static string[] get_desktop_launch_argv(DesktopAppInfo app_info) throws ShellError {
+        string[] argv = {};
+
+        if (GLib.Environment.find_program_in_path("systemd-run") != null) {
+            string random_suffix = Uuid.string_random().slice(0, 8);
+            string unit_name = "run_ilia_" + systemd_escape(app_info.get_id()) + "_" + random_suffix + ".scope";
+            argv = { "systemd-run", "--user", "--scope", "--unit", unit_name };
+        }
+
+        if (needs_terminal(app_info)) {
+            argv += "x-terminal-emulator";
+            argv += "-e";
+        }
+
+        foreach (unowned string arg in expand_desktop_exec(app_info))
+            argv += arg;
+
+        return argv;
+    }
+
+    /* The directory a desktop entry asks its program to run in (the Path key), or null */
+    public static string ? get_desktop_working_directory(DesktopAppInfo app_info) {
+        string ? path = app_info.get_string("Path");
+        return path != null && path != "" ? path : null;
+    }
+
+    /*
+     * The well-known D-Bus name of a desktop entry that is started over the session bus
+     * (DBusActivatable=true): its desktop file ID without .desktop. Null for other
+     * entries, and, as in GLib, when the ID does not form a valid name.
+     */
+    public static string ? get_dbus_activation_name(DesktopAppInfo app_info) {
+        unowned string ? app_id = app_info.get_id();
+        if (app_id == null || !app_id.has_suffix(".desktop") || !app_info.get_boolean("DBusActivatable"))
+            return null;
+
+        string name = app_id.substring(0, app_id.length - ".desktop".length);
+        return GLib.DBus.is_name(name) && !GLib.DBus.is_unique_name(name) ? name : null;
+    }
+
+    /*
+     * The object path of an application from its D-Bus name: a leading /, then the
+     * name with each . turned into / and each - into _
+     */
+    public static string get_dbus_activation_path(string bus_name) {
+        return "/" + bus_name.replace(".", "/").replace("-", "_");
     }
 
     /**

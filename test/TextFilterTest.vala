@@ -38,11 +38,11 @@ void test_line_reader() {
 // The words used for filtering many rows give the same answer as matches_all_words()
 void test_contains_all_words_matches_matches_all_words() {
     string[] fields = { "foo bar baz", "Foo --Baz", "Capture d'écran", "", "ÉCRAN", "tab\there" };
-    string[] queries = { "", "  ", "foo", "BAZ foo", "foo qux", "écran", "ÉCRAN capture", "\there ", "o b" };
+    string[] queries = { "", "  ", "foo", "BAZ foo", "foo qux", "écran", "ÉCRAN capture", "\there ", "o b", "ecran" };
     foreach (var query in queries) {
         var words = Ilia.query_words(query);
         foreach (var field in fields)
-            assert (Ilia.contains_all_words(field.down(), words) == Ilia.matches_all_words(query, { field }));
+            assert (Ilia.contains_all_words(Ilia.fold_text(field), words) == Ilia.matches_all_words(query, { field }));
     }
 }
 

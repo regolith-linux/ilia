@@ -134,6 +134,129 @@ public void test_matches_all_words() {
     assert (!Ilia.matches_all_words("foxinternet", { "Firefox", "Internet" }));
 }
 
+// Compatibility decomposition, combining marks dropped, then full case folding
+public void test_fold_text() {
+    assert (Ilia.fold_text("Plain ASCII") == "plain ascii");
+    assert (Ilia.fold_text("Café") == "cafe");
+    assert (Ilia.fold_text("CAFÉ") == "cafe");
+    assert (Ilia.fold_text("Straße") == "strasse");
+    assert (Ilia.fold_text("ﬁle") == "file");
+    assert (Ilia.fold_text("Ｆｕｌｌ") == "full");
+    // U+0345 is a mark, dropped before case folding would turn it into a letter
+    assert (Ilia.fold_text("Alpha\u0345") == "alpha");
+    assert (Ilia.fold_text("ΟΣ") == "οσ");
+
+    assert (Ilia.matches_all_words("cafe", { "Café Racer" }));
+    assert (Ilia.matches_all_words("CAFÉ", { "cafe" }));
+    assert (Ilia.matches_all_words("strasse", { "Straße" }));
+    assert (Ilia.matches_all_words("file", { "ﬁle Manager" }));
+}
+
+public void test_subsequence() {
+    assert (Ilia.is_subsequence("ffx", "firefox"));
+    assert (Ilia.is_subsequence("", "firefox"));
+    assert (!Ilia.is_subsequence("xff", "firefox"));
+    assert (!Ilia.is_subsequence("ccc", "cafe cafe"));
+    assert (Ilia.is_subsequence("éx", "aébx"));
+
+    assert (Ilia.subsequence_span("ffx", "firefox") == 7);
+    assert (Ilia.subsequence_span("ffx", "ffax tool") == 4);
+    assert (Ilia.subsequence_span("qx", "z qaaaaqzx") == 3);
+    assert (Ilia.subsequence_span("q", "aqa") == 1);
+    assert (Ilia.subsequence_span("qx", "xq") == -1);
+
+    // Each word takes its shortest span in any field
+    assert (Ilia.words_subsequence_span({ "brsr", "stss" }, { "probe - browser", "mod4+strasse" }) == 7 + 6);
+    assert (Ilia.words_subsequence_span({ "ffx" }, { "firefox focus", "mod4+ffax" }) == 4);
+    assert (Ilia.words_subsequence_span({ "ffx", "zz" }, { "firefox" }) == -1);
+
+    int span;
+    string[] words = { "ffx" };
+    assert (Ilia.match_words(words, { "ffx window" }, { "ffx window" }, true, out span) == Ilia.MatchKind.WORDS && span == 0);
+    assert (Ilia.match_words(words, { "firefox" }, { "firefox" }, true, out span) == Ilia.MatchKind.SUBSEQUENCE && span == 7);
+    assert (Ilia.match_words(words, { "firefox" }, { "firefox" }, false, out span) == Ilia.MatchKind.NONE);
+
+    // Word-rule rows first in title order, then subsequence-only rows by span, then title
+    assert (Ilia.compare_matched_rows(Ilia.MatchKind.WORDS, 0, "Z", Ilia.MatchKind.SUBSEQUENCE, 3, "A") < 0);
+    assert (Ilia.compare_matched_rows(Ilia.MatchKind.WORDS, 0, "Z", Ilia.MatchKind.WORDS, 0, "A") > 0);
+    assert (Ilia.compare_matched_rows(Ilia.MatchKind.SUBSEQUENCE, 5, "A Qaaax", Ilia.MatchKind.SUBSEQUENCE, 3, "Z Qzx") > 0);
+    assert (Ilia.compare_matched_rows(Ilia.MatchKind.SUBSEQUENCE, 3, "A", Ilia.MatchKind.SUBSEQUENCE, 3, "B") < 0);
+}
+
+Ilia.AppMatch ranked_app(string id, string name, string ? generic, string keywords, string query, bool fuzzy = false,
+                         string ? comment = null, Ilia.AppField fields = Ilia.AppField.ALL) {
+    var app = new Ilia.AppMatch(id, name, generic, keywords, comment, fields);
+    app.rank(Ilia.query_words(query), fuzzy);
+    return app;
+}
+
+public void test_app_fields() {
+    assert (Ilia.AppField.from_names({ "name", "generic-name", "keywords", "comment" }) == Ilia.AppField.ALL);
+    assert (Ilia.AppField.from_names({ "bogus", "comment" }) == Ilia.AppField.COMMENT);
+    assert (Ilia.AppField.from_names({}) == 0);
+
+    var keywords_only = Ilia.AppField.from_names({ "name", "keywords" });
+    assert (ranked_app("a", "Firefox", null, "browser", "browser", false, null, keywords_only).tier == Ilia.AppTier.IN_OTHER_FIELDS);
+    assert (ranked_app("a", "Firefox", null, "browser", "web", false, "web browser", keywords_only).tier == Ilia.AppTier.NONE);
+    assert (ranked_app("a", "Editor", "Code", "", "code", false, null, keywords_only).tier == Ilia.AppTier.NONE);
+    var name_only = Ilia.AppField.from_names({ "name" });
+    assert (ranked_app("a", "Code", "Editor", "", "code", false, null, name_only).tier == Ilia.AppTier.EXACT);
+    assert (ranked_app("a", "Code", "Editor", "", "editor", false, null, name_only).tier == Ilia.AppTier.NONE);
+    // Subsequence matching uses the name whatever the fields
+    assert (ranked_app("a", "Firefox", null, "", "ffx", true, null, 0).tier == Ilia.AppTier.SUBSEQUENCE);
+}
+
+public void test_app_tiers() {
+    assert (ranked_app("a", "Code", null, "", "code").tier == Ilia.AppTier.EXACT);
+    assert (ranked_app("a", "Codec Tool", null, "", "code").tier == Ilia.AppTier.PREFIX);
+    assert (ranked_app("a", "Visual Studio Code", null, "", "code").tier == Ilia.AppTier.WORD_STARTS);
+    assert (ranked_app("a", "Barcode Reader", null, "", "code").tier == Ilia.AppTier.IN_NAME);
+    assert (ranked_app("a", "Text Editor", "Source code editor", "", "code").tier == Ilia.AppTier.IN_GENERIC_NAME);
+    assert (ranked_app("a", "Firefox", null, "code browser", "code").tier == Ilia.AppTier.IN_OTHER_FIELDS);
+    assert (ranked_app("a", "Firefox", null, "code browser", "ffx").tier == Ilia.AppTier.NONE);
+    assert (ranked_app("a", "Café", null, "", "CAFE").tier == Ilia.AppTier.EXACT);
+    assert (ranked_app("a", "Zeta Dock", null, "", "  zeta\t dock ").tier == Ilia.AppTier.EXACT);
+    assert (ranked_app("a", "Dock-Zeta", null, "", "zeta dock").tier == Ilia.AppTier.WORD_STARTS);
+    assert (ranked_app("a", "Tool_λ7", null, "", "λ7").tier == Ilia.AppTier.WORD_STARTS);
+    assert (ranked_app("a", "Tool9λ7", null, "", "λ7").tier == Ilia.AppTier.IN_NAME);
+
+    var fuzzy = ranked_app("a", "Z Qzx Vyz", null, "", "qx vz", true);
+    assert (fuzzy.tier == Ilia.AppTier.SUBSEQUENCE && fuzzy.span == 6);
+    // Subsequence matching looks at the name only
+    assert (ranked_app("a", "Plain App", null, "fancy fox", "ffx", true).tier == Ilia.AppTier.NONE);
+
+    var counts = new GLib.HashTable<string, int>(GLib.str_hash, GLib.str_equal);
+    counts.insert("firefox.desktop", 10);
+    var firefox = ranked_app("firefox.desktop", "Firefox", null, "code", "code");
+    var barcode = ranked_app("barcode.desktop", "Barcode Reader", null, "", "code");
+    assert (Ilia.compare_app_matches(barcode, firefox, counts) < 0);
+    // Inside a tier: launches, then the folded name, then the id
+    var codec = ranked_app("codec.desktop", "Codec Tool", null, "", "co");
+    var code = ranked_app("code.desktop", "Code", null, "", "co");
+    assert (Ilia.compare_app_matches(code, codec, counts) < 0);
+    counts.insert("codec.desktop", 1);
+    assert (Ilia.compare_app_matches(code, codec, counts) > 0);
+    var tie_a = ranked_app("a.desktop", "Qz Café", null, "", "qz");
+    var tie_z = ranked_app("z.desktop", "Qz Cafe", null, "", "qz");
+    assert (Ilia.compare_app_matches(tie_a, tie_z, counts) < 0);
+    // Subsequence matches go by span before launches
+    var short_span = ranked_app("short.desktop", "Ffax Tool", null, "", "ffx", true);
+    var long_span = ranked_app("firefox.desktop", "Firefox", null, "", "ffx", true);
+    assert (Ilia.compare_app_matches(short_span, long_span, counts) < 0);
+}
+
+public void test_is_hidden_app() {
+    string[] hidden = { "org.example.Hidden.desktop", "snap-*.desktop", "a?.desktop" };
+    assert (Ilia.is_hidden_app("org.example.Hidden.desktop", hidden));
+    assert (Ilia.is_hidden_app("snap-one.desktop", hidden));
+    assert (Ilia.is_hidden_app("a1.desktop", hidden));
+    assert (Ilia.is_hidden_app("aé.desktop", hidden));
+    assert (!Ilia.is_hidden_app("abc.desktop", hidden));
+    assert (!Ilia.is_hidden_app("org.example.hidden.desktop", hidden));
+    assert (!Ilia.is_hidden_app("xsnap-one.desktop", hidden));
+    assert (!Ilia.is_hidden_app("signal.desktop", {}));
+}
+
 public void test_compare_desktop_apps() {
     // Create a mock launch counts table
     var launch_counts = new GLib.HashTable<string, int>(GLib.str_hash, GLib.str_equal);
@@ -316,6 +439,11 @@ public int main (string[] args) {
     Test.add_func ("/test_is_super_key", test_is_super_key);
     Test.add_func ("/test_is_sleep_or_lock_signal", test_is_sleep_or_lock_signal);
     Test.add_func ("/test_matches_all_words", test_matches_all_words);
+    Test.add_func ("/test_fold_text", test_fold_text);
+    Test.add_func ("/test_subsequence", test_subsequence);
+    Test.add_func ("/test_app_tiers", test_app_tiers);
+    Test.add_func ("/test_app_fields", test_app_fields);
+    Test.add_func ("/test_is_hidden_app", test_is_hidden_app);
     Test.add_func ("/test_word_motion", test_word_motion);
     Test.add_func ("/test_compare_desktop_apps", test_compare_desktop_apps);
     Test.add_func ("/test_desktop_app_search_text", test_desktop_app_search_text);

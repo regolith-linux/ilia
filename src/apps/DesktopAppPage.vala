@@ -6,7 +6,7 @@ namespace Ilia {
         private const int ITEM_VIEW_COLUMNS = 4;
         private const int ITEM_VIEW_COLUMN_ICON = 0;
         private const int ITEM_VIEW_COLUMN_NAME = 1;
-        private const int ITEM_VIEW_COLUMN_KEYWORDS = 2;
+        private const int ITEM_VIEW_COLUMN_MATCH = 2;
         private const int ITEM_VIEW_COLUMN_APPINFO = 3;
 
         // Number of past launches to store (to determine sort rank)
@@ -46,6 +46,19 @@ namespace Ilia {
 
         // Set once an app is launched; the page closes afterwards
         private bool launching = false;
+
+        // Rows that fail the word rule are shown when the words are subsequences of the name
+        private bool fuzzy_matching;
+
+        // Desktop ids and patterns of the apps that are never listed
+        private string[] hidden_apps;
+
+        // The fields of an app that filtering uses: the name and those in match-fields
+        private AppField match_fields;
+
+        // The filter text the rows were last ranked for, and its words
+        private string ? ranked_text = null;
+        private string[] ranked_words = {};
 
         private Gtk.Widget root_widget;
 
@@ -111,6 +124,7 @@ namespace Ilia {
             var keybindings = new HashTable<string, string ?>(str_hash, str_equal);
 
             keybindings.set("enter", "Launch Application");
+            keybindings.set("ctrl+delete", "Hide Application");
 
             return keybindings;
         }
@@ -125,8 +139,11 @@ namespace Ilia {
             launch_history = settings.get_strv("app-launch-counts");
             launch_counts = load_launch_counts(launch_history);
             icon_size = settings.get_int("icon-size");
+            fuzzy_matching = settings.get_boolean("fuzzy-matching");
+            hidden_apps = settings.get_strv("hidden-apps");
+            match_fields = AppField.NAME | AppField.from_names(settings.get_strv("match-fields"));
 
-            model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (DesktopAppInfo));
+            model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (AppMatch), typeof (DesktopAppInfo));
 
             filter = new Gtk.TreeModelFilter(model, null);
             filter.set_visible_func(filter_func);
@@ -172,7 +189,48 @@ namespace Ilia {
                 activate_when_loaded = true;
                 return true;
             }
+            if (key.keyval == Gdk.Key.Delete && (key.state & Gdk.ModifierType.CONTROL_MASK) != 0) {
+                // Taken whether or not a row is highlighted: it never edits the filter here
+                hide_selected_app();
+                return true;
+            }
             return handle_emacs_vim_nav(item_view, path, key);
+        }
+
+        /**
+         * Hide the highlighted app: add its desktop id to the hidden-apps setting, unless
+         * it is listed already, and take its row out of the list. The row that takes its
+         * place is highlighted, or the new last row when it was the last.
+         *
+         * The setting is read again rather than taken from startup, so the id is added to
+         * the list as it is stored now.
+         */
+        private void hide_selected_app() {
+            Gtk.TreeModel selected_model;
+            Gtk.TreeIter selected;
+            if (!item_view.get_selection().get_selected(out selected_model, out selected))
+                return;
+
+            AppMatch match;
+            filter.@get(selected, ITEM_VIEW_COLUMN_MATCH, out match);
+            if (match == null)
+                return;
+            var position = filter.get_path(selected);
+
+            string[] hidden = settings.get_strv("hidden-apps");
+            if (!(match.id in hidden)) {
+                hidden += match.id;
+                settings.set_strv("hidden-apps", hidden);
+                GLib.Settings.sync();
+            }
+
+            match.removed = true;
+            filter.refilter();
+            if (filter.iter_n_children(null) > 0) {
+                move_path_to(path, position);
+                clamp_path_to_rows(path, filter);
+                item_view.set_cursor(path, null, false);
+            }
         }
 
         // Highlight the first row: the best match for the text typed
@@ -221,6 +279,7 @@ namespace Ilia {
 
         // filter selection based on contents of Entry
         void on_entry_changed() {
+            rank_rows();
             // Cause resorting
             // TODO: find cleaner way of causing re-sort
             model.set_sort_func(1, app_sort_func);
@@ -239,12 +298,44 @@ namespace Ilia {
         }
 
         /**
+         * Rank every row for the text in the filter box, unless that was done already
+         *
+         * Filtering and sorting both use the ranks, and either may run first for a new text.
+         */
+        private void rank_rows() {
+            string text = entry.get_text();
+            if (text == ranked_text)
+                return;
+            ranked_text = text;
+            ranked_words = query_words(text);
+
+            Gtk.TreeIter row_iter;
+            for (bool next = model.get_iter_first(out row_iter); next; next = model.iter_next(ref row_iter)) {
+                AppMatch match;
+                model.@get(row_iter, ITEM_VIEW_COLUMN_MATCH, out match);
+                if (match != null)
+                    match.rank(ranked_words, fuzzy_matching);
+            }
+        }
+
+        /**
          * Sort function for the application list
          *
-         * This is a wrapper around the testable compare_desktop_apps utility function
-         * that extracts the necessary data from the TreeModel and TreeIter objects
+         * With a filter, rows go by the tiers of compare_app_matches(); without one, by
+         * the testable compare_desktop_apps utility function
          */
         private int app_sort_func(TreeModel model, TreeIter a, TreeIter b) {
+            rank_rows();
+
+            if (ranked_words.length > 0) {
+                AppMatch match_a;
+                model.@get(a, ITEM_VIEW_COLUMN_MATCH, out match_a);
+                AppMatch match_b;
+                model.@get(b, ITEM_VIEW_COLUMN_MATCH, out match_b);
+                if (match_a != null && match_b != null)
+                    return compare_app_matches(match_a, match_b, launch_counts);
+            }
+
             string query_string = entry.get_text().down();
 
             DesktopAppInfo app_a;
@@ -285,21 +376,17 @@ namespace Ilia {
 
         // traverse the model and show items with metadata that matches entry filter string
         private bool filter_func(Gtk.TreeModel m, Gtk.TreeIter iter) {
-            string query_string = entry.get_text().down().strip();
+            rank_rows();
 
-            if (query_string.length > 0) {
-                GLib.Value app_info;
-                model.get_value(iter, ITEM_VIEW_COLUMN_NAME, out app_info);
-                string name = app_info.get_string();
-
-                model.get_value(iter, ITEM_VIEW_COLUMN_KEYWORDS, out app_info);
-                string keywords = app_info.get_string();
-
-                // Each word may match either the name or the keywords
-                return matches_all_words(query_string, { name, keywords });
-            } else {
+            AppMatch match;
+            model.@get(iter, ITEM_VIEW_COLUMN_MATCH, out match);
+            if (match != null && match.removed)
+                return false;
+            if (ranked_words.length == 0)
                 return true;
-            }
+
+            // Each word may match one of the fields in match-fields
+            return match != null && match.tier != AppTier.NONE;
         }
 
         private void load_apps(GLib.List<AppInfo> app_list) {
@@ -322,24 +409,28 @@ namespace Ilia {
         // app_info is the object from AppInfo.get_all(): creating a new DesktopAppInfo from the
         // id would parse the desktop file a second time
         private void read_desktop_file(DesktopAppInfo ? app_info, Gdk.Pixbuf ? icon_img) {
-            if (app_info != null && app_info.should_show()) {
-                model.append(out iter);
+            if (app_info != null && app_info.should_show() && !is_hidden_app(app_info.get_id() ?? "", hidden_apps)) {
+                var match = new AppMatch(app_info.get_id() ?? "", app_info.get_name(), app_info.get_generic_name(),
+                                         string.joinv(" ", app_info.get_keywords()), app_info.get_description(), match_fields);
+                // Text typed before the list arrived
+                if (ranked_text != null)
+                    match.rank(ranked_words, fuzzy_matching);
 
-                var keywords = desktop_app_search_text(app_info);
+                model.append(out iter);
 
                 if (icon_size > 0)
                     model.set(
                         iter,
                         ITEM_VIEW_COLUMN_ICON, icon_img,
                         ITEM_VIEW_COLUMN_NAME, app_info.get_name(),
-                        ITEM_VIEW_COLUMN_KEYWORDS, keywords,
+                        ITEM_VIEW_COLUMN_MATCH, match,
                         ITEM_VIEW_COLUMN_APPINFO, app_info
                     );
                 else
                     model.set(
                         iter,
                         ITEM_VIEW_COLUMN_NAME, app_info.get_name(),
-                        ITEM_VIEW_COLUMN_KEYWORDS, keywords,
+                        ITEM_VIEW_COLUMN_MATCH, match,
                         ITEM_VIEW_COLUMN_APPINFO, app_info
                     );
             }

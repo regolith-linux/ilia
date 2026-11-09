@@ -35,6 +35,27 @@
       <description>
         Microseconds to wait for launching app before exit.        
       </description>
-    </key>    
+    </key>
+    <key name="fuzzy-matching" type="b">
+      <default>false</default>
+      <summary>Match by subsequence</summary>
+      <description>
+        If true, a row whose text does not contain every typed word is also shown when the characters of each word appear in its main text in order, with other characters between them. Such rows come after the other matches.
+      </description>
+    </key>
+    <key name="match-fields" type="as">
+      <default>['generic-name', 'keywords', 'comment']</default>
+      <summary>Fields the applications page matches the filter against besides the name</summary>
+      <description>
+        The fields of an application, besides its name, that typed words are looked for in: any of "generic-name", "keywords" and "comment". Other strings are ignored; an empty list matches the name only.
+      </description>
+    </key>
+    <key name="hidden-apps" type="as">
+      <default>[]</default>
+      <summary>Applications left out of the list</summary>
+      <description>
+        Desktop file ids of applications never shown on the applications page, for example "org.gnome.Seahorse.Application.desktop". An item may be a pattern, where * stands for any run of characters and ? for exactly one character. Ctrl+Delete on the applications page adds the highlighted application.
+      </description>
+    </key>
 	</schema>
 </schemalist>

@@ -80,6 +80,7 @@ namespace Ilia {
             }
 
             text_filter = new TextFilter();
+            text_filter.subsequence_matching = settings.get_boolean("fuzzy-matching");
             text_filter.reset.connect(on_filter_reset);
             text_filter.appended.connect(on_filter_appended);
             model = new FilteredLinesModel(text_filter, render_icon_flag, load_item_icon(settings.get_int("icon-size")));

@@ -431,6 +431,16 @@ public void test_clamp_path_to_rows() {
     assert (path.to_string() == "1");
 }
 
+// The history keeps the newest launches: once it is full, the oldest one goes
+public void test_append_launch_history() {
+    assert (string.joinv(",", Ilia.append_launch_history(null, "a.desktop", 3)) == "a.desktop");
+    assert (string.joinv(",", Ilia.append_launch_history({ "a", "b" }, "c", 3)) == "a,b,c");
+    assert (string.joinv(",", Ilia.append_launch_history({ "a", "b", "c" }, "d", 3)) == "b,c,d");
+
+    // A stored history longer than the limit is cut to the newest launches (before, it kept its length)
+    assert (string.joinv(",", Ilia.append_launch_history({ "a", "b", "c", "d" }, "e", 2)) == "d,e");
+}
+
 public int main (string[] args) {
     Test.init (ref args);
 
@@ -451,6 +461,7 @@ public int main (string[] args) {
     Test.add_func ("/test_command_dirs", test_command_dirs);
     Test.add_func ("/test_move_path_to", test_move_path_to);
     Test.add_func ("/test_clamp_path_to_rows", test_clamp_path_to_rows);
+    Test.add_func ("/test_append_launch_history", test_append_launch_history);
 
     return Test.run ();
 }

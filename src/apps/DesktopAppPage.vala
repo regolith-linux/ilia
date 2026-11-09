@@ -3,11 +3,13 @@ using Gtk;
 namespace Ilia {
     class DesktopAppPage : DialogPage, GLib.Object {
         private static GLib.Timer app_timer;
-        private const int ITEM_VIEW_COLUMNS = 4;
+        private const int ITEM_VIEW_COLUMNS = 5;
         private const int ITEM_VIEW_COLUMN_ICON = 0;
         private const int ITEM_VIEW_COLUMN_NAME = 1;
         private const int ITEM_VIEW_COLUMN_MATCH = 2;
         private const int ITEM_VIEW_COLUMN_APPINFO = 3;
+        // The desktop action of the row, null for the row of the app itself
+        private const int ITEM_VIEW_COLUMN_ACTION = 4;
 
         // Number of past launches to store (to determine sort rank)
         private const uint HISTORY_MAX_LEN = 32;
@@ -18,7 +20,7 @@ namespace Ilia {
         // The message bus itself, which starts apps from their service files
         private const string DBUS_NAME = "org.freedesktop.DBus";
         private const string DBUS_PATH = "/org/freedesktop/DBus";
-        // Time a running app has to answer an activation request before the page closes
+        // Time an app has to answer an activation request before the page closes
         private const int ACTIVATE_TIMEOUT_MS = 3000;
 
         // The widget to display list of available options
@@ -70,6 +72,8 @@ namespace Ilia {
         private static bool prefetch_started = false;
         private static bool prefetch_done = false;
         private static GLib.List<AppInfo> ? prefetched_apps = null;
+        // The actions of the entries by desktop ID, read on the same thread (that reads the files again)
+        private static HashTable<string, GenericArray<DesktopAction> > ? prefetched_actions = null;
         private static SourceFunc ? prefetch_waiter = null;
 
         // Set once the desktop files are in the model
@@ -82,8 +86,10 @@ namespace Ilia {
             prefetch_started = true;
             new Thread<void *>("ilia-apps", () => {
                 var list = AppInfo.get_all();
+                var actions = read_actions(list);
                 Idle.add(() => {
                     prefetched_apps = (owned) list;
+                    prefetched_actions = actions;
                     prefetch_done = true;
                     if (prefetch_waiter != null) {
                         var waiter = (owned) prefetch_waiter;
@@ -93,6 +99,22 @@ namespace Ilia {
                 }, Priority.HIGH);
                 return null;
             });
+        }
+
+        private static HashTable<string, GenericArray<DesktopAction> > read_actions(GLib.List<AppInfo> app_list) {
+            var actions = new HashTable<string, GenericArray<DesktopAction> >(str_hash, str_equal);
+            foreach (unowned AppInfo app in app_list) {
+                var desktop_app = app as DesktopAppInfo;
+                if (desktop_app == null || desktop_app.get_id() == null || !desktop_app.should_show())
+                    continue;
+
+                var app_actions = new GenericArray<DesktopAction>();
+                foreach (var action in get_desktop_actions(desktop_app))
+                    app_actions.add(action);
+                if (app_actions.length > 0)
+                    actions.insert(desktop_app.get_id(), app_actions);
+            }
+            return actions;
         }
 
         private async GLib.List<AppInfo> get_app_list() {
@@ -113,7 +135,7 @@ namespace Ilia {
         }
 
         public string get_help() {
-            return "This dialog allows for the launching of desktop applications. Initially all desktop apps are presented. The user may filter the list in the top text box. The arrow keys may be used to select from the list, and enter or clicking on an item will launch it.";
+            return "This dialog allows for the launching of desktop applications. Initially all desktop apps are presented. The user may filter the list in the top text box. The arrow keys may be used to select from the list, and enter or clicking on an item will launch it. Additional actions that an application offers, such as opening a new window, are listed as \"Application: Action\" once the filter text names them.";
         }
 
         public char get_keybinding() {
@@ -143,7 +165,7 @@ namespace Ilia {
             hidden_apps = settings.get_strv("hidden-apps");
             match_fields = AppField.NAME | AppField.from_names(settings.get_strv("match-fields"));
 
-            model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (AppMatch), typeof (DesktopAppInfo));
+            model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (AppMatch), typeof (DesktopAppInfo), typeof (DesktopAction));
 
             filter = new Gtk.TreeModelFilter(model, null);
             filter.set_visible_func(filter_func);
@@ -338,22 +360,22 @@ namespace Ilia {
 
             string query_string = entry.get_text().down();
 
+            // Action rows are ranked with the app rows by their text, "App: Action", and by
+            // their own launch count
+            string name_a;
             DesktopAppInfo app_a;
-            model.@get(a, ITEM_VIEW_COLUMN_APPINFO, out app_a);
+            DesktopAction ? action_a;
+            model.@get(a, ITEM_VIEW_COLUMN_NAME, out name_a, ITEM_VIEW_COLUMN_APPINFO, out app_a, ITEM_VIEW_COLUMN_ACTION, out action_a);
+            string name_b;
             DesktopAppInfo app_b;
-            model.@get(b, ITEM_VIEW_COLUMN_APPINFO, out app_b);
-
-            var app_a_name = app_a.get_name().down();
-            var app_b_name = app_b.get_name().down();
-
-            var app_a_id = app_a.get_id();
-            var app_b_id = app_b.get_id();
+            DesktopAction ? action_b;
+            model.@get(b, ITEM_VIEW_COLUMN_NAME, out name_b, ITEM_VIEW_COLUMN_APPINFO, out app_b, ITEM_VIEW_COLUMN_ACTION, out action_b);
 
             return compare_desktop_apps(
-                app_a_name,
-                app_b_name,
-                app_a_id,
-                app_b_id,
+                name_a.down(),
+                name_b.down(),
+                launch_history_key(app_a.get_id(), action_a != null ? action_a.id : null),
+                launch_history_key(app_b.get_id(), action_b != null ? action_b.id : null),
                 query_string,
                 launch_counts
             );
@@ -382,10 +404,13 @@ namespace Ilia {
             model.@get(iter, ITEM_VIEW_COLUMN_MATCH, out match);
             if (match != null && match.removed)
                 return false;
+            // Without a filter only the apps are listed
             if (ranked_words.length == 0)
-                return true;
+                return match == null || !match.is_action;
 
-            // Each word may match one of the fields in match-fields
+            // Each word may match one of the fields in match-fields. The name of an action
+            // row is "App: Action", and one word must occur in the action name: actions are
+            // only listed for a filter that names them
             return match != null && match.tier != AppTier.NONE;
         }
 
@@ -410,30 +435,48 @@ namespace Ilia {
         // id would parse the desktop file a second time
         private void read_desktop_file(DesktopAppInfo ? app_info, Gdk.Pixbuf ? icon_img) {
             if (app_info != null && app_info.should_show() && !is_hidden_app(app_info.get_id() ?? "", hidden_apps)) {
-                var match = new AppMatch(app_info.get_id() ?? "", app_info.get_name(), app_info.get_generic_name(),
-                                         string.joinv(" ", app_info.get_keywords()), app_info.get_description(), match_fields);
-                // Text typed before the list arrived
-                if (ranked_text != null)
-                    match.rank(ranked_words, fuzzy_matching);
+                string app_id = app_info.get_id() ?? "";
+                string ? keywords = string.joinv(" ", app_info.get_keywords());
 
-                model.append(out iter);
+                append_row(app_info.get_name(), new AppMatch(app_id, app_info.get_name(), app_info.get_generic_name(),
+                                                             keywords, app_info.get_description(), match_fields),
+                           app_info, null, icon_img);
 
-                if (icon_size > 0)
-                    model.set(
-                        iter,
-                        ITEM_VIEW_COLUMN_ICON, icon_img,
-                        ITEM_VIEW_COLUMN_NAME, app_info.get_name(),
-                        ITEM_VIEW_COLUMN_MATCH, match,
-                        ITEM_VIEW_COLUMN_APPINFO, app_info
-                    );
-                else
-                    model.set(
-                        iter,
-                        ITEM_VIEW_COLUMN_NAME, app_info.get_name(),
-                        ITEM_VIEW_COLUMN_MATCH, match,
-                        ITEM_VIEW_COLUMN_APPINFO, app_info
-                    );
+                // A row for each action the entry declares, shown by filter_func() when the filter names it.
+                // An action is counted, and hidden by Ctrl+Delete, as <desktop id>#<action id>.
+                unowned GenericArray<DesktopAction> ? actions = app_info.get_id() != null ? prefetched_actions.lookup(app_info.get_id()) : null;
+
+                if (actions != null) {
+                    foreach (var action in actions) {
+                        string key = launch_history_key(app_id, action.id);
+                        if (is_hidden_app(key, hidden_apps))
+                            continue;
+                        string row_name = app_info.get_name() + ": " + action.name;
+                        append_row(row_name, new AppMatch(key, row_name, app_info.get_generic_name(), keywords,
+                                                          app_info.get_description(), match_fields, action.name),
+                                   app_info, action, icon_img);
+                    }
+                }
             }
+        }
+
+        private void append_row(string name, AppMatch match, DesktopAppInfo app_info, DesktopAction ? action, Gdk.Pixbuf ? icon_img) {
+            // Text typed before the list arrived
+            if (ranked_text != null)
+                match.rank(ranked_words, fuzzy_matching);
+
+            model.append(out iter);
+
+            if (icon_size > 0)
+                model.set(iter, ITEM_VIEW_COLUMN_ICON, icon_img);
+
+            model.set(
+                iter,
+                ITEM_VIEW_COLUMN_NAME, name,
+                ITEM_VIEW_COLUMN_MATCH, match,
+                ITEM_VIEW_COLUMN_APPINFO, app_info,
+                ITEM_VIEW_COLUMN_ACTION, action
+            );
         }
 
         // Icons are looked up on the main thread (the theme cache makes that cheap) and decoded
@@ -443,6 +486,8 @@ namespace Ilia {
         private TreeIter[] icon_queue = {};
         private int icon_queue_next = 0;
         private int icons_in_flight = 0;
+        // Decoded icons by file: action rows show the icon of their app, which is decoded once
+        private HashTable<string, Gdk.Pixbuf> decoded_icons = new HashTable<string, Gdk.Pixbuf>(str_hash, str_equal);
 
         // Queue every row: the ones visible through the filter first, then the rest, so
         // that rows hidden by text typed before the list arrived still get their icons
@@ -469,25 +514,35 @@ namespace Ilia {
             while (icon_queue_next < icon_queue.length) {
                 var iter = icon_queue[icon_queue_next++];
 
-                Value app_info_val;
-                model.get_value(iter, ITEM_VIEW_COLUMN_APPINFO, out app_info_val);
-                var icon = ((DesktopAppInfo) app_info_val.get_object()).get_icon();
-                if (icon == null) continue;
+                DesktopAppInfo app_info;
+                DesktopAction ? action;
+                model.@get(iter, ITEM_VIEW_COLUMN_APPINFO, out app_info, ITEM_VIEW_COLUMN_ACTION, out action);
 
-                // Themed icons go by their plain name: lookup_by_gicon() also tries the "-symbolic"
-                // variant (GLib adds it to the icon's name list), which the theme chain finds (grey,
-                // in Adwaita) before the colour icon in gnome
-                Gtk.IconInfo ? icon_info;
-                if (icon is ThemedIcon)
-                    icon_info = icon_theme.lookup_icon(icon.to_string(), icon_size, Gtk.IconLookupFlags.FORCE_SIZE);
-                else
-                    icon_info = icon_theme.lookup_by_gicon(icon, icon_size, Gtk.IconLookupFlags.FORCE_SIZE);
+                // An action may name an icon of its own; the app's icon stands in when it names none or it is not found
+                Gtk.IconInfo ? icon_info = null;
+                if (action != null && action.icon != null) {
+                    try {
+                        icon_info = lookup_icon(Icon.new_for_string(action.icon));
+                    } catch (GLib.Error e) {
+                        debug("Icon %s not loaded: %s", action.icon, e.message);
+                    }
+                }
+                if (icon_info == null)
+                    icon_info = lookup_icon(app_info.get_icon());
                 if (icon_info == null) continue;
+
+                unowned string ? icon_file = icon_info.get_filename();
+                if (icon_file != null && decoded_icons.contains(icon_file)) {
+                    model.set(iter, ITEM_VIEW_COLUMN_ICON, decoded_icons.get(icon_file));
+                    continue;
+                }
 
                 icons_in_flight++;
                 icon_info.load_icon_async.begin(null, (obj, res) => {
                     try {
                         var pixbuf = icon_info.load_icon_async.end(res);
+                        if (icon_info.get_filename() != null)
+                            decoded_icons.insert(icon_info.get_filename(), pixbuf);
                         // GtkListStore iterators persist across re-sorting and rows are never removed
                         model.set(iter, ITEM_VIEW_COLUMN_ICON, pixbuf);
                     } catch (Error e) {
@@ -502,14 +557,32 @@ namespace Ilia {
                 debug("Finished loading all icons (%.3f seconds since app start)", app_timer.elapsed());
         }
 
-        // Launch a desktop app, at most once: a double click activates the row twice
+        private Gtk.IconInfo ? lookup_icon(GLib.Icon ? icon) {
+            if (icon == null)
+                return null;
+
+            // Themed icons go by their plain name: lookup_by_gicon() also tries the "-symbolic"
+            // variant (GLib adds it to the icon's name list), which the theme chain finds (grey,
+            // in Adwaita) before the colour icon in gnome
+            if (icon is ThemedIcon)
+                return icon_theme.lookup_icon(icon.to_string(), icon_size, Gtk.IconLookupFlags.FORCE_SIZE);
+            return icon_theme.lookup_by_gicon(icon, icon_size, Gtk.IconLookupFlags.FORCE_SIZE);
+        }
+
+        // Launch a desktop app, or one of its actions, at most once: a double click activates the row twice
         public void execute_app(Gtk.TreeIter selection) {
             if (launching)
                 return;
             launching = true;
 
             DesktopAppInfo app_info;
-            filter.@get(selection, ITEM_VIEW_COLUMN_APPINFO, out app_info);
+            DesktopAction ? action;
+            filter.@get(selection, ITEM_VIEW_COLUMN_APPINFO, out app_info, ITEM_VIEW_COLUMN_ACTION, out action);
+
+            if (action != null) {
+                execute_action(app_info, action);
+                return;
+            }
 
             string ? bus_name = get_dbus_activation_name(app_info);
             if (bus_name != null) {
@@ -524,12 +597,12 @@ namespace Ilia {
                     launched = app_info.launch(null, null);
                 } else {
                     Pid pid;
-                    Process.spawn_async(get_desktop_working_directory(app_info), get_desktop_launch_argv(app_info),
+                    Process.spawn_async(get_desktop_working_directory(app_info), get_desktop_launch_argv(app_info, app_info.get_commandline() ?? ""),
                                         null, SpawnFlags.SEARCH_PATH, null, out pid);
                 }
 
                 if (launched)
-                    add_to_launch_history(app_info.get_id());
+                    add_to_launch_history(launch_history_key(app_info.get_id(), null));
                 else
                     stderr.printf("Failed to launch %s\n", app_info.get_name());
             } catch (GLib.Error e) {
@@ -562,9 +635,73 @@ namespace Ilia {
                                "Activate", new Variant("(a{sv})", platform_data),
                                null, DBusCallFlags.NO_AUTO_START, ACTIVATE_TIMEOUT_MS);
 
-                add_to_launch_history(app_info.get_id());
+                add_to_launch_history(launch_history_key(app_info.get_id(), null));
             } catch (GLib.Error e) {
                 stderr.printf("Failed to activate %s: %s\n", app_info.get_name(), e.message);
+            }
+            session_controller.quit();
+        }
+
+        /*
+         * Start an action of a desktop app
+         *
+         * The action's command runs in its own scope, as the app does. A DBusActivatable app is
+         * asked over the session bus instead, and its command is not used.
+         */
+        private void execute_action(DesktopAppInfo app_info, DesktopAction action) {
+            string ? bus_name = get_dbus_activation_name(app_info);
+            if (bus_name != null) {
+                activate_action.begin(app_info, action, bus_name);
+                return;
+            }
+
+            if (needs_terminal(app_info) && GLib.Environment.find_program_in_path("x-terminal-emulator") == null) {
+                // GLib picks a terminal it knows, and runs the action outside a scope, as for the app
+                app_info.launch_action(action.id, new AppLaunchContext());
+                add_to_launch_history(launch_history_key(app_info.get_id(), action.id));
+                session_controller.quit();
+                return;
+            }
+
+            try {
+                Process.spawn_async(get_desktop_working_directory(app_info),
+                                    get_desktop_launch_argv(app_info, action.exec),
+                                    null, SpawnFlags.SEARCH_PATH, null, null);
+                add_to_launch_history(launch_history_key(app_info.get_id(), action.id));
+            } catch (GLib.Error e) {
+                stderr.printf("Failed to launch %s: %s\n", action.name, e.message);
+            }
+            session_controller.quit();
+        }
+
+        /*
+         * Start an action of a DBusActivatable app with ActivateAction on its
+         * org.freedesktop.Application interface, as the Desktop Entry Specification describes
+         */
+        private async void activate_action(DesktopAppInfo app_info, DesktopAction action, string bus_name) {
+            try {
+                var bus = yield Bus.get(BusType.SESSION);
+
+                // Have the bus start the app first if it is not running: a message that waits
+                // for its destination to start is dropped once the sender has disconnected.
+                var has_owner = yield bus.call(DBUS_NAME, DBUS_PATH, DBUS_NAME, "NameHasOwner",
+                                               new Variant("(s)", bus_name), new VariantType("(b)"),
+                                               DBusCallFlags.NONE, -1);
+
+                if (!has_owner.get_child_value(0).get_boolean())
+                    yield bus.call(DBUS_NAME, DBUS_PATH, DBUS_NAME, "StartServiceByName",
+                                   new Variant("(su)", bus_name, (uint32) 0), new VariantType("(u)"),
+                                   DBusCallFlags.NONE, -1);
+
+                var parameters = new VariantBuilder(new VariantType("av"));
+                var platform_data = new VariantBuilder(new VariantType("a{sv}"));
+                yield bus.call(bus_name, get_dbus_activation_path(bus_name), "org.freedesktop.Application",
+                               "ActivateAction", new Variant("(sava{sv})", action.id, parameters, platform_data),
+                               null, DBusCallFlags.NO_AUTO_START, ACTIVATE_TIMEOUT_MS);
+
+                add_to_launch_history(launch_history_key(app_info.get_id(), action.id));
+            } catch (GLib.Error e) {
+                stderr.printf("Failed to activate %s: %s\n", action.name, e.message);
             }
             session_controller.quit();
         }

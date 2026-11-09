@@ -128,10 +128,14 @@ namespace Ilia {
         string app_id = app_info.get_id();
         string exec = app_info.get_commandline();
 
-        string random_suffix = Uuid.string_random().slice(0, 8);
-        string unit_name = "run_ilia_" + systemd_escape(app_id) + "_" + random_suffix + ".scope";
-        string systemd_launch = "systemd-run --user --scope --unit \"" + unit_name + "\" " + exec;
+        string systemd_launch = "systemd-run --user --scope --unit \"" + systemd_scope_unit_name(app_id) + "\" " + exec;
         return AppInfo.create_from_commandline(systemd_launch, app_id, AppInfoCreateFlags.NONE);
+    }
+
+    /* A new name for the systemd scope an app is started in: run_ilia_<escaped id>_<random>.scope */
+    public static string systemd_scope_unit_name(string app_id) {
+        string random_suffix = Uuid.string_random().slice(0, 8);
+        return "run_ilia_" + systemd_escape(app_id) + "_" + random_suffix + ".scope";
     }
 
     /* True if the desktop file asks to be run in a terminal (Terminal=true) */
@@ -141,54 +145,8 @@ namespace Ilia {
     }
 
     /*
-     * The program and arguments of a desktop entry, from its Exec key
-     *
-     * Field codes are expanded as the Desktop Entry Specification describes, for a
-     * launch that opens no files: %f, %F, %u and %U expand to nothing, %i to --icon and
-     * the Icon key (to nothing without one), %c to the name in the user's language, %k
-     * to the file name of the desktop entry and %% to %. The deprecated codes expand to
-     * nothing. As in GLib, each value is quoted before the command line is split, so it
-     * stays literal and a single argument, also inside a longer one as in --class=%c.
-     */
-    public static string[] expand_desktop_exec(DesktopAppInfo app_info) throws ShellError {
-        unowned string exec = app_info.get_commandline() ?? "";
-        var command_line = new StringBuilder();
-
-        for (int i = 0; i < exec.length; ++i) {
-            if (exec[i] != '%' || i + 1 == exec.length) {
-                command_line.append_c(exec[i]);
-                continue;
-            }
-
-            switch (exec[++i]) {
-                case 'i':
-                    string ? icon = app_info.get_locale_string("Icon");
-                    if (icon != null && icon != "")
-                        command_line.append("--icon " + Shell.quote(icon));
-                    break;
-                case 'c':
-                    command_line.append(Shell.quote(app_info.get_name()));
-                    break;
-                case 'k':
-                    unowned string ? filename = app_info.get_filename();
-                    if (filename != null)
-                        command_line.append(Shell.quote(filename));
-                    break;
-                case '%':
-                    command_line.append_c('%');
-                    break;
-                default: // No files to pass, and the deprecated field codes
-                    break;
-            }
-        }
-
-        string[] argv;
-        Shell.parse_argv(command_line.str, out argv);
-        return argv;
-    }
-
-    /*
-     * The command that launches a desktop entry, as a program and its arguments
+     * The command that launches a desktop entry or one of its actions, as a program and
+     * its arguments, from the Exec key of the entry or of the action
      *
      * The entry is started in its own systemd scope when systemd-run is available. For
      * Terminal=true the terminal is started inside the scope, as x-terminal-emulator -e
@@ -196,21 +154,18 @@ namespace Ilia {
      * x-terminal-emulator such an entry is left to GLib. The command is meant to run in
      * the directory get_desktop_working_directory() gives.
      */
-    public static string[] get_desktop_launch_argv(DesktopAppInfo app_info) throws ShellError {
+    public static string[] get_desktop_launch_argv(DesktopAppInfo app_info, string exec) throws ShellError {
         string[] argv = {};
 
-        if (GLib.Environment.find_program_in_path("systemd-run") != null) {
-            string random_suffix = Uuid.string_random().slice(0, 8);
-            string unit_name = "run_ilia_" + systemd_escape(app_info.get_id()) + "_" + random_suffix + ".scope";
-            argv = { "systemd-run", "--user", "--scope", "--unit", unit_name };
-        }
+        if (GLib.Environment.find_program_in_path("systemd-run") != null)
+            argv = { "systemd-run", "--user", "--scope", "--unit", systemd_scope_unit_name(app_info.get_id()) };
 
         if (needs_terminal(app_info)) {
             argv += "x-terminal-emulator";
             argv += "-e";
         }
 
-        foreach (unowned string arg in expand_desktop_exec(app_info))
+        foreach (unowned string arg in expand_exec_field_codes(app_info, exec))
             argv += arg;
 
         return argv;
@@ -242,6 +197,137 @@ namespace Ilia {
      */
     public static string get_dbus_activation_path(string bus_name) {
         return "/" + bus_name.replace(".", "/").replace("-", "_");
+    }
+
+    /**
+     * An additional action of a desktop entry, such as New Window: an identifier from its
+     * Actions key and the [Desktop Action <identifier>] group that describes it
+     */
+    public class DesktopAction : GLib.Object {
+        public string id;
+        // The Name key, in the user's language
+        public string name;
+        // The Exec key; null when the group has none, which only an app started over the bus may leave out
+        public string ? exec;
+        // The Icon key, an icon name or an absolute path; null when the group has none
+        public string ? icon;
+
+        public DesktopAction (string id, string name, string ? exec, string ? icon) {
+            this.id = id;
+            this.name = name;
+            this.exec = exec;
+            this.icon = icon;
+        }
+    }
+
+    /**
+     * The actions a desktop entry declares, in the order of its Actions key
+     *
+     * An identifier is listed once, at its first appearance. Identifiers that are empty,
+     * have no group, or whose group has no name are left out, and so are those with no
+     * command unless the app is started over the session bus. Groups the Actions key does
+     * not name are ignored.
+     */
+    public static DesktopAction[] get_desktop_actions(DesktopAppInfo app_info) {
+        DesktopAction[] actions = {};
+        unowned string ? filename = app_info.get_filename();
+        if (filename == null || app_info.list_actions().length == 0)
+            return actions;
+
+        // DesktopAppInfo gives the name of an action but not its command: read the groups from the file
+        var key_file = new KeyFile();
+        try {
+            key_file.load_from_file(filename, KeyFileFlags.NONE);
+        } catch (GLib.Error e) {
+            debug("Cannot read the actions of %s: %s", filename, e.message);
+            return actions;
+        }
+
+        bool bus_activated = get_dbus_activation_name(app_info) != null;
+        var seen = new GenericSet<string>(str_hash, str_equal);
+        foreach (unowned string id in app_info.list_actions()) {
+            if (id == "" || seen.contains(id))
+                continue;
+            seen.add(id);
+
+            string group = "Desktop Action " + id;
+            if (!key_file.has_group(group))
+                continue;
+
+            string ? name = key_file_value(key_file, group, "Name", true);
+            string ? exec = key_file_value(key_file, group, "Exec", false);
+            string ? icon = key_file_value(key_file, group, "Icon", true);
+            if (name == null || name == "")
+                continue;
+            if (!bus_activated && (exec == null || exec.strip() == ""))
+                continue;
+
+            actions += new DesktopAction(id, name, exec, icon != "" ? icon : null);
+        }
+        return actions;
+    }
+
+    /* The value of a key in a group of a key file, in the user's language if localized; null without the key */
+    private static string ? key_file_value(KeyFile key_file, string group, string key, bool localized) {
+        try {
+            return localized ? key_file.get_locale_string(group, key, null) : key_file.get_string(group, key);
+        } catch (KeyFileError e) {
+            return null;
+        }
+    }
+
+    /**
+     * The program and arguments of an Exec key of a desktop entry, for a launch that opens no files
+     *
+     * Field codes are expanded as the Desktop Entry Specification describes: %f, %F, %u and
+     * %U expand to nothing, %c to the app name in the user's language, %k to the file name of
+     * the desktop entry, %i to --icon and the entry's Icon key (to nothing without one) and
+     * %% to %. The deprecated codes expand to nothing and, as in GLib, so does a % followed
+     * by any other character. Each value is quoted before the command line is split, so it
+     * stays literal and a single argument, also inside a longer one as in --class=%c. The
+     * command line is split with the quoting and escapes of the specification.
+     *
+     * @param exec The Exec key of the entry, or of one of its actions
+     */
+    public static string[] expand_exec_field_codes(DesktopAppInfo app_info, string exec) throws ShellError {
+        var command_line = new StringBuilder();
+
+        for (int i = 0; i < exec.length; ++i) {
+            if (exec[i] != '%' || i + 1 == exec.length) {
+                command_line.append_c(exec[i]);
+                continue;
+            }
+
+            switch (exec[++i]) {
+                case '%':
+                    command_line.append_c('%');
+                    break;
+                case 'c':
+                    command_line.append(Shell.quote(app_info.get_name()));
+                    break;
+                case 'k':
+                    unowned string ? filename = app_info.get_filename();
+                    if (filename != null)
+                        command_line.append(Shell.quote(filename));
+                    break;
+                case 'i':
+                    string ? icon = app_info.get_locale_string("Icon");
+                    if (icon != null && icon != "")
+                        command_line.append("--icon " + Shell.quote(icon));
+                    break;
+                default: // No files to pass, and the deprecated field codes
+                    break;
+            }
+        }
+
+        string[] argv;
+        Shell.parse_argv(command_line.str, out argv);
+        return argv;
+    }
+
+    /* The key a launch is recorded under in the launch history: the desktop ID, and #<action> for an action */
+    public static string launch_history_key(string app_id, string ? action_id) {
+        return action_id == null ? app_id : app_id + "#" + action_id;
     }
 
     /**
@@ -729,8 +815,9 @@ namespace Ilia {
     }
 
     /**
-     * A desktop app as the apps page matches it: the id and the folded text, and the
-     * tier the row has for the current filter
+     * A row of the apps page as it is matched: a desktop app or one of its actions, with
+     * the key its launches are counted under, the folded text, and the tier the row has
+     * for the current filter
      */
     public class AppMatch : GLib.Object {
         public string id { get; private set; }
@@ -741,6 +828,8 @@ namespace Ilia {
         private string ? generic_name;
         private string ? keywords;
         private string ? comment;
+        // Folded name of the desktop action of the row, null for the row of the app itself
+        private string ? action_name;
 
         public AppTier tier { get; private set; default = AppTier.NONE; }
         // For AppTier.SUBSEQUENCE: the summed spans of the words in the name, see subsequence_span()
@@ -749,12 +838,19 @@ namespace Ilia {
         public bool removed { get; set; default = false; }
 
         /**
+         * @param id The key the row's launches are counted under: the desktop id, or
+         *           <desktop id>#<action id> for an action (see launch_history_key())
+         * @param name The text of the row: the app name, or "App: Action" for an action
          * @param keywords The keywords joined with spaces, or null
          * @param fields The fields filtering may use
+         * @param action_name For the row of a desktop action, the action's name: one word of
+         *                    the filter must occur in it, so the row is only listed for a
+         *                    filter that names the action
          */
         public AppMatch (string id, string name, string ? generic_name, string ? keywords, string ? comment,
-                         AppField fields = AppField.ALL) {
+                         AppField fields = AppField.ALL, string ? action_name = null) {
             this.id = id;
+            this.action_name = action_name != null ? fold_text(action_name) : null;
             this.name = fold_text(name);
             this.matched_name = AppField.NAME in fields ? this.name : null;
             this.generic_name = generic_name != null && AppField.GENERIC_NAME in fields ? fold_text(generic_name) : null;
@@ -772,9 +868,16 @@ namespace Ilia {
             tier = compute_tier(words, subsequence);
         }
 
+        // True for the row of a desktop action rather than of the app itself
+        public bool is_action {
+            get { return action_name != null; }
+        }
+
         private AppTier compute_tier(string[] words, bool subsequence) {
             span = 0;
             if (words.length == 0)
+                return AppTier.NONE;
+            if (action_name != null && !names_action(words))
                 return AppTier.NONE;
 
             if (matched_name != null) {
@@ -801,6 +904,15 @@ namespace Ilia {
                 }
             }
             return AppTier.NONE;
+        }
+
+        // True if one of the words occurs in the action name
+        private bool names_action(string[] words) {
+            foreach (unowned string word in words) {
+                if (action_name.contains(word))
+                    return true;
+            }
+            return false;
         }
 
         private bool starts_name_words(string[] words) {

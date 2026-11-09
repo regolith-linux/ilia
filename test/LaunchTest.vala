@@ -56,6 +56,32 @@ void setup_fixtures() {
     write_desktop_file("zzdbus.desktop",
                        "[Desktop Entry]\nType=Application\nName=Zzdbus\nDBusActivatable=true\nExec=zzgui\n");
 
+    // Actions: valid ones, listed twice, unknown, unnamed, without a command, and a group the Actions key omits
+    write_desktop_file("zzactions.desktop",
+                       "[Desktop Entry]\nType=Application\nName=Zzactions\nName[fr]=Zzactions FR\nIcon=zz-icon\n"
+                       + "Exec=zzgui %U\nActions=new-window;missing;;unnamed;no-exec;blank-exec;new-window;private;\n\n"
+                       + "[Desktop Action new-window]\nName=New Window\nName[fr]=Nouvelle fenêtre\nExec=zzgui --new-window %U\n\n"
+                       + "[Desktop Action unnamed]\nExec=zzgui --unnamed\n\n"
+                       + "[Desktop Action no-exec]\nName=No Exec\n\n"
+                       + "[Desktop Action blank-exec]\nName=Blank Exec\nExec= \n\n"
+                       + "[Desktop Action private]\nName=New Private Window\nIcon=zz-private\n"
+                       + "Exec=zzgui --private --class=%c %i %k 100%% \"two words\" \"a\\\\\"b\" %F %u %d %Z\n\n"
+                       + "[Desktop Action unlisted]\nName=Unlisted\nExec=zzgui --unlisted\n");
+    write_desktop_file("zzquoted.desktop",
+                       "[Desktop Entry]\nType=Application\nName=Zz \"quoted\" app's\nExec=zzgui\n");
+    write_desktop_file("zztermactions.desktop",
+                       "[Desktop Entry]\nType=Application\nName=Zztermactions\nTerminal=true\nExec=ranger\n"
+                       + "Actions=home;\n\n[Desktop Action home]\nName=Home\nExec=ranger ~\n");
+    // Started over the bus: actions need no command. The second ID is no valid bus name, so
+    // that entry is started from its commands, as GLib does
+    write_desktop_file("org.example.ZzBus.desktop",
+                       "[Desktop Entry]\nType=Application\nName=Zzbus\nDBusActivatable=true\nExec=zzgui\n"
+                       + "Actions=new-window;\n\n[Desktop Action new-window]\nName=New Window\n");
+    write_desktop_file("zznobus.desktop",
+                       "[Desktop Entry]\nType=Application\nName=Zznobus\nDBusActivatable=true\nExec=zzgui\n"
+                       + "Actions=bus-only;with-exec;\n\n[Desktop Action bus-only]\nName=Bus Only\n\n"
+                       + "[Desktop Action with-exec]\nName=With Exec\nExec=zzgui --with-exec\n");
+
     // PATH variants: with systemd-run and x-terminal-emulator, with systemd-run only,
     // and with neither. GIO ignores entries whose Exec program is not in PATH.
     bin_with_terminal = Path.build_filename(fixture_dir, "bin1");
@@ -84,7 +110,8 @@ DesktopAppInfo app_info_for(string desktop_id, string path) {
 
 string[] launch_argv_for(string desktop_id, string path) {
     try {
-        return Ilia.get_desktop_launch_argv(app_info_for(desktop_id, path));
+        var app_info = app_info_for(desktop_id, path);
+        return Ilia.get_desktop_launch_argv(app_info, app_info.get_commandline());
     } catch (Error e) {
         error("%s", e.message);
     }
@@ -92,7 +119,8 @@ string[] launch_argv_for(string desktop_id, string path) {
 
 string[] exec_argv_for(string desktop_id) {
     try {
-        return Ilia.expand_desktop_exec(app_info_for(desktop_id, bin_apps_only));
+        var app_info = app_info_for(desktop_id, bin_apps_only);
+        return Ilia.expand_exec_field_codes(app_info, app_info.get_commandline());
     } catch (Error e) {
         error("%s", e.message);
     }
@@ -189,6 +217,107 @@ void test_command_line_without_systemd_run() {
     }
 }
 
+string action_ids(Ilia.DesktopAction[] actions) {
+    string[] ids = {};
+    foreach (var action in actions)
+        ids += action.id;
+    return string.joinv(",", ids);
+}
+
+// ilia#5: the actions of an entry, in the order of its Actions key, each once, and only usable ones
+void test_desktop_actions_listed() {
+    Environment.set_variable("PATH", bin_with_terminal, true);
+    var actions = Ilia.get_desktop_actions(new DesktopAppInfo("zzactions.desktop"));
+    assert (action_ids(actions) == "new-window,private");
+    assert (actions[0].name == "New Window");
+    assert (actions[0].exec == "zzgui --new-window %U");
+    assert (actions[0].icon == null);
+    assert (actions[1].name == "New Private Window");
+    assert (actions[1].icon == "zz-private");
+
+    // Entries without actions
+    assert (Ilia.get_desktop_actions(new DesktopAppInfo("zzgui.desktop")).length == 0);
+}
+
+// The action name in the user's language, the untranslated one otherwise
+void test_desktop_action_localized_name() {
+    Environment.set_variable("PATH", bin_with_terminal, true);
+    var app_info = new DesktopAppInfo("zzactions.desktop");
+
+    Environment.set_variable("LANGUAGE", "fr_CA:de", true);
+    assert (Ilia.get_desktop_actions(app_info)[0].name == "Nouvelle fenêtre");
+    Environment.set_variable("LANGUAGE", "de", true);
+    assert (Ilia.get_desktop_actions(app_info)[0].name == "New Window");
+    Environment.unset_variable("LANGUAGE");
+}
+
+// Over the bus, an action needs no command; an entry whose ID is no bus name is started from its commands
+void test_desktop_actions_bus_activated() {
+    Environment.set_variable("PATH", bin_with_terminal, true);
+    var bus_app = new DesktopAppInfo("org.example.ZzBus.desktop");
+    assert (Ilia.get_dbus_activation_name(bus_app) == "org.example.ZzBus");
+    assert (action_ids(Ilia.get_desktop_actions(bus_app)) == "new-window");
+    assert (Ilia.get_desktop_actions(bus_app)[0].exec == null);
+
+    var not_bus_app = new DesktopAppInfo("zznobus.desktop");
+    assert (Ilia.get_dbus_activation_name(not_bus_app) == null);
+    assert (action_ids(Ilia.get_desktop_actions(not_bus_app)) == "with-exec");
+
+    assert (Ilia.get_dbus_activation_name(new DesktopAppInfo("zzgui.desktop")) == null);
+    assert (Ilia.get_dbus_activation_path("org.example.Bus-App") == "/org/example/Bus_App");
+}
+
+// Field codes, quoting and escapes of an action's command
+void test_action_exec_expanded() {
+    Environment.set_variable("PATH", bin_with_terminal, true);
+    var app_info = new DesktopAppInfo("zzactions.desktop");
+    var private_window = Ilia.get_desktop_actions(app_info)[1];
+    string[] argv;
+    try {
+        argv = Ilia.expand_exec_field_codes(app_info, private_window.exec);
+    } catch (ShellError e) {
+        error("%s", e.message);
+    }
+    assert (string.joinv("|", argv) == "zzgui|--private|--class=Zzactions|--icon|zz-icon|" + app_info.get_filename()
+            + "|100%|two words|a\"b");
+
+    // A value with spaces and quotes stays one literal argument
+    try {
+        argv = Ilia.expand_exec_field_codes(new DesktopAppInfo("zzquoted.desktop"), "show --name=%c %c %i 50%");
+    } catch (ShellError e) {
+        error("%s", e.message);
+    }
+    assert (string.joinv("|", argv) == "show|--name=Zz \"quoted\" app's|Zz \"quoted\" app's|50%");
+}
+
+// The action runs in its own scope like the app, in a terminal for Terminal=true, without a scope when there is no systemd-run
+void test_action_launch_argv() {
+    try {
+        Environment.set_variable("PATH", bin_with_terminal, true);
+        var argv = Ilia.get_desktop_launch_argv(new DesktopAppInfo("zzactions.desktop"), "zzgui --new-window %U");
+        assert (argv.length == 7);
+        assert (string.joinv("|", argv[0 : 4]) == "systemd-run|--user|--scope|--unit");
+        assert (argv[4].has_prefix("run_ilia_zzactions.desktop_") && argv[4].has_suffix(".scope"));
+        assert (argv[4].length == "run_ilia_zzactions.desktop_".length + 8 + ".scope".length);
+        assert (string.joinv("|", argv[5 : 7]) == "zzgui|--new-window");
+
+        // A new scope name for every launch
+        var again = Ilia.get_desktop_launch_argv(new DesktopAppInfo("zzactions.desktop"), "zzgui");
+        assert (again[4] != argv[4]);
+
+        argv = Ilia.get_desktop_launch_argv(new DesktopAppInfo("zztermactions.desktop"), "ranger ~");
+        assert (string.joinv("|", argv[5 : argv.length]) == "x-terminal-emulator|-e|ranger|~");
+
+        Environment.set_variable("PATH", bin_apps_only, true);
+        argv = Ilia.get_desktop_launch_argv(new DesktopAppInfo("zztermactions.desktop"), "ranger ~");
+        assert (string.joinv("|", argv) == "x-terminal-emulator|-e|ranger|~");
+        argv = Ilia.get_desktop_launch_argv(new DesktopAppInfo("zzactions.desktop"), "zzgui --new-window %U");
+        assert (string.joinv("|", argv) == "zzgui|--new-window");
+    } catch (ShellError e) {
+        error("%s", e.message);
+    }
+}
+
 public int main(string[] args) {
     setup_fixtures(); // before Test.init(), which caches the XDG directories
     Environment.unset_variable("LANGUAGE");
@@ -204,6 +333,12 @@ public int main(string[] args) {
     Test.add_func("/launch/working_directory", test_working_directory);
     Test.add_func("/launch/dbus_activation", test_dbus_activation);
     Test.add_func("/launch/command_line_without_systemd_run", test_command_line_without_systemd_run);
+
+    Test.add_func("/launch/desktop_actions_listed", test_desktop_actions_listed);
+    Test.add_func("/launch/desktop_action_localized_name", test_desktop_action_localized_name);
+    Test.add_func("/launch/desktop_actions_bus_activated", test_desktop_actions_bus_activated);
+    Test.add_func("/launch/action_exec_expanded", test_action_exec_expanded);
+    Test.add_func("/launch/action_launch_argv", test_action_launch_argv);
 
     return Test.run();
 }

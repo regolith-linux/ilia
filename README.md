@@ -33,6 +33,10 @@ ilia -p keybindings
 Ilia searches the system-configured `$XDG_DATA_DIRS` with `applications` applied at the end of each path for desktop application files.
 For example, if your system has `$HOME/.local/share` in the set of paths in `$XDG_DATA_DIRS`, the path `$HOME/.local/share/applications/` will be searched for desktop app files.
 
+Additional actions that a desktop app file declares, such as "New Window" or "New Private Window", are listed as `App: Action` once the filter text names the action, for example `firefox private`.
+They rank with the applications by their text, `App: Action`, and each action has its own launch count.
+They start like the app itself: in their own systemd scope, or over D-Bus for apps with `DBusActivatable=true`.
+
 ### Text List
 
 The `textlist` page is a bit different than the others pages.
@@ -55,7 +59,7 @@ Ilia supports the following configuration via gsettings under the namespace `org
 - icon-size: size of icons in pixels or 0 to disable icons
 - fuzzy-matching: also show rows whose main text holds the typed letters in order, with other letters between them (off by default); such rows are listed after the other matches
 - match-fields: the fields of an application, besides its name, that the filter looks in: any of `generic-name`, `keywords` and `comment` (all three by default)
-- hidden-apps: desktop file ids of applications never listed on the Applications page; `*` and `?` work as wildcards. Ctrl+Delete on the Applications page adds the highlighted application
+- hidden-apps: desktop file ids of applications never listed on the Applications page; `*` and `?` work as wildcards. `<desktop file id>#<action id>` leaves out one action of an application. Ctrl+Delete on the Applications page adds the highlighted application or action
 
 When text is typed on the Applications page, the best name matches come first: the name equal to the text, then names starting with it, names with a word starting with each typed word, names containing each word, then matches through the generic name, and then through keywords or the comment. Within each group, more frequently launched applications come first. On every page, matching ignores case and accents: `cafe` finds `Café` and `strasse` finds `Straße`.
 

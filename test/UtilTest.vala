@@ -441,6 +441,58 @@ public void test_append_launch_history() {
     assert (string.joinv(",", Ilia.append_launch_history({ "a", "b", "c", "d" }, "e", 2)) == "d,e");
 }
 
+Ilia.AppMatch ranked_action(string app_id, string app_name, string action_id, string action_name, string ? generic,
+                            string keywords, string query, bool fuzzy = false) {
+    var action = new Ilia.AppMatch(Ilia.launch_history_key(app_id, action_id), app_name + ": " + action_name,
+                                   generic, keywords, null, Ilia.AppField.ALL, action_name);
+    action.rank(Ilia.query_words(query), fuzzy);
+    return action;
+}
+
+public void test_action_tiers() {
+    // One word must occur in the action name, ignoring case and accents
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "zzact").tier == Ilia.AppTier.NONE);
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "zzact window").tier == Ilia.AppTier.WORD_STARTS);
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "WIN").tier == Ilia.AppTier.WORD_STARTS);
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "indow").tier == Ilia.AppTier.IN_NAME);
+    assert (ranked_action("zz.desktop", "Zzact FR", "new", "Nouvelle fenêtre", null, "", "fenetre").tier == Ilia.AppTier.WORD_STARTS);
+    // The row text is the name: the app part and the action part both count
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "zzact app: new").tier == Ilia.AppTier.PREFIX);
+    // The app's fields count for the other words
+    assert (ranked_action("q.desktop", "Quux", "priv", "New Private Window", "Web Browser", "", "browser private").tier == Ilia.AppTier.IN_GENERIC_NAME);
+    assert (ranked_action("s.desktop", "Surf", "priv", "New Private Window", null, "web", "web private").tier == Ilia.AppTier.IN_OTHER_FIELDS);
+    // Not through the app's fields alone, and not by subsequence of the action name alone
+    assert (ranked_action("q.desktop", "Quux", "priv", "New Private Window", "Web Browser", "", "browser").tier == Ilia.AppTier.NONE);
+    assert (ranked_action("z.desktop", "Zzact App", "new", "New Window", null, "", "nwn", true).tier == Ilia.AppTier.NONE);
+    // With subsequence matching on, a word that names the action lets the others match by subsequence
+    var fuzzy = ranked_action("f.desktop", "Firefox", "priv", "New Private Window", null, "", "ffx private", true);
+    assert (fuzzy.tier == Ilia.AppTier.SUBSEQUENCE);
+    // Nothing typed: not ranked
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "  ").tier == Ilia.AppTier.NONE);
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "x").is_action);
+    assert (!ranked_app("zz.desktop", "Zzact App", null, "", "x").is_action);
+
+    // Each action has its own launch count, under <desktop id>#<action id>
+    var counts = new GLib.HashTable<string, int>(GLib.str_hash, GLib.str_equal);
+    counts.insert("zz.desktop", 9);
+    counts.insert("zz.desktop#private", 2);
+    var new_window = ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "zzact window");
+    var private_window = ranked_action("zz.desktop", "Zzact App", "private", "New Private Window", null, "", "zzact window");
+    assert (new_window.id == "zz.desktop#new");
+    assert (Ilia.compare_app_matches(private_window, new_window, counts) < 0);
+    // Ranked in the same tiers as the apps
+    var app = ranked_app("zz.desktop", "Zzact App", null, "", "zzact window");
+    assert (app.tier == Ilia.AppTier.NONE);
+    var windows_app = ranked_app("w.desktop", "Windows Tool", null, "", "window");
+    var action = ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "window");
+    assert (Ilia.compare_app_matches(windows_app, action, counts) < 0);
+}
+
+public void test_launch_history_key() {
+    assert (Ilia.launch_history_key("org.example.App.desktop", null) == "org.example.App.desktop");
+    assert (Ilia.launch_history_key("org.example.App.desktop", "new-window") == "org.example.App.desktop#new-window");
+}
+
 public int main (string[] args) {
     Test.init (ref args);
 
@@ -462,6 +514,8 @@ public int main (string[] args) {
     Test.add_func ("/test_move_path_to", test_move_path_to);
     Test.add_func ("/test_clamp_path_to_rows", test_clamp_path_to_rows);
     Test.add_func ("/test_append_launch_history", test_append_launch_history);
+    Test.add_func ("/test_action_tiers", test_action_tiers);
+    Test.add_func ("/test_launch_history_key", test_launch_history_key);
 
     return Test.run ();
 }

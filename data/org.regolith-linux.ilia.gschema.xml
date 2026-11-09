@@ -54,7 +54,7 @@
       <default>[]</default>
       <summary>Applications left out of the list</summary>
       <description>
-        Desktop file ids of applications never shown on the applications page, for example "org.gnome.Seahorse.Application.desktop". An item may be a pattern, where * stands for any run of characters and ? for exactly one character. Ctrl+Delete on the applications page adds the highlighted application.
+        Desktop file ids of applications never shown on the applications page, for example "org.gnome.Seahorse.Application.desktop". An item may be a pattern, where * stands for any run of characters and ? for exactly one character. An item of the form "&lt;desktop file id&gt;#&lt;action id&gt;" leaves out one action of an application. Ctrl+Delete on the applications page adds the highlighted application, or the highlighted action.
       </description>
     </key>
 	</schema>

@@ -79,9 +79,9 @@ namespace Ilia {
         public signal void reset();
         public signal void appended(int first, int count);
 
-        // All lines, and the same lowered for matching
+        // All lines, and the same folded for matching (see fold_text())
         private string[] lines = {};
-        private string[] lowered = {};
+        private string[] folded = {};
         private int n_lines = 0;
 
         // Words of the current query; rows [0, filtered_upto) were checked against them
@@ -99,6 +99,12 @@ namespace Ilia {
         private int job_scan_from = 0;       // then rows from here to the end
         private int[] job_visible = {};
         private int job_n_visible = 0;
+
+        /**
+         * If true a line that fails the word rule is shown when every word is a
+         * subsequence of it; set before the first query
+         */
+        public bool subsequence_matching { get; set; default = false; }
 
         // Rows checked against a query since creation; lets tests bound the work per step
         [CCode (notify = false)]
@@ -142,10 +148,10 @@ namespace Ilia {
             foreach (unowned string line in batch) {
                 if (n_lines == lines.length) {
                     lines.resize(int.max(1024, lines.length * 2));
-                    lowered.resize(lines.length);
+                    folded.resize(lines.length);
                 }
                 lines[n_lines] = line;
-                lowered[n_lines] = line.down();
+                folded[n_lines] = fold_text(line);
                 n_lines++;
             }
         }
@@ -204,7 +210,7 @@ namespace Ilia {
             while (budget > 0 && filtered_upto < n_lines) {
                 int row = filtered_upto++;
                 rows_checked++;
-                if (contains_all_words(lowered[row], words)) {
+                if (row_matches(row, words)) {
                     if (n_visible == visible.length)
                         visible.resize(int.max(1024, visible.length * 2));
                     visible[n_visible++] = row;
@@ -227,14 +233,26 @@ namespace Ilia {
 
         private void check_job_row(int row) {
             rows_checked++;
-            if (contains_all_words(lowered[row], job_words)) {
+            if (row_matches(row, job_words)) {
                 if (job_n_visible == job_visible.length)
                     job_visible.resize(int.max(1024, job_visible.length * 2));
                 job_visible[job_n_visible++] = row;
             }
         }
 
-        // Every row matching new_words also matches old_words when each old word is part of a new word
+        private bool row_matches(int row, string[] query_words) {
+            if (contains_all_words(folded[row], query_words))
+                return true;
+            if (!subsequence_matching)
+                return false;
+            foreach (unowned string word in query_words) {
+                if (!is_subsequence(word, folded[row])) return false;
+            }
+            return true;
+        }
+
+        // Every row matching new_words also matches old_words when each old word is part of a new word;
+        // this holds for subsequence matching too
         private static bool refines(string[] old_words, string[] new_words) {
             foreach (unowned string old_word in old_words) {
                 bool found = false;

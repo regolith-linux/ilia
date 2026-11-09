@@ -3,10 +3,12 @@ using Gee;
 
 namespace Ilia {
     class KeybingingsPage : DialogPage, GLib.Object {
-        private const int ITEM_VIEW_COLUMNS = 3;
+        private const int ITEM_VIEW_COLUMNS = 5;
         private const int ITEM_VIEW_COLUMN_KEYBINDING = 0;
         private const int ITEM_VIEW_COLUMN_SUMMARY = 1;
         private const int ITEM_VIEW_COLUMN_EXEC = 2;
+        private const int ITEM_VIEW_COLUMN_FOLDED_KEYBINDING = 3;
+        private const int ITEM_VIEW_COLUMN_FOLDED_SUMMARY = 4;
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -29,6 +31,11 @@ namespace Ilia {
 
         // The binding has been run; ilia is closing
         private bool executed = false;
+
+        // Bindings whose description or keys hold the words as subsequences are listed after the others
+        private bool fuzzy_matching;
+
+        private QueryWords query = new QueryWords();
 
         public string get_name() {
             return "<u>K</u>eybindings";
@@ -58,8 +65,9 @@ namespace Ilia {
             this.entry = entry;
             this.session_controller = sessionController;
             this.wm_name = wm_name;
+            fuzzy_matching = settings.get_boolean("fuzzy-matching");
 
-            model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (string), typeof (string), typeof (string));
+            model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (string), typeof (string), typeof (string), typeof (string), typeof (string));
 
             filter = new Gtk.TreeModelFilter(model, null);
             filter.set_visible_func(filter_func);
@@ -70,6 +78,8 @@ namespace Ilia {
                 read_config.end(res);
 
                 item_view.columns_autosize();
+                if (fuzzy_matching)
+                    model.set_sort_func(ITEM_VIEW_COLUMN_SUMMARY, summary_sort_func);
                 model.set_sort_column_id(1, SortType.ASCENDING);
                 // model.set_sort_func (0, app_sort_func);
                 set_selection();
@@ -162,6 +172,8 @@ namespace Ilia {
 
         // filter selection based on contents of Entry
         void on_entry_changed() {
+            if (fuzzy_matching) // subsequence matches go last: sort again
+                model.set_sort_func(ITEM_VIEW_COLUMN_SUMMARY, summary_sort_func);
             filter.refilter();
             set_selection();
         }
@@ -174,19 +186,27 @@ namespace Ilia {
 
         // traverse the model and show items with metadata that matches entry filter string
         private bool filter_func(Gtk.TreeModel m, Gtk.TreeIter iter) {
-            string queryString = entry.get_text().down().strip();
+            int span;
+            return match_row(iter, out span) != MatchKind.NONE;
+        }
 
-            if (queryString.length > 0) {
-                GLib.Value gval;
-                model.get_value(iter, ITEM_VIEW_COLUMN_SUMMARY, out gval);
-                string summary = gval.get_string();
-                model.get_value(iter, ITEM_VIEW_COLUMN_KEYBINDING, out gval);
-                string keybinding = gval.get_string();
+        // Each word may be found in, or be a subsequence of, the description or the key text
+        private MatchKind match_row(Gtk.TreeIter row, out int span) {
+            string ? summary, keybinding;
+            model.@get(row, ITEM_VIEW_COLUMN_FOLDED_SUMMARY, out summary, ITEM_VIEW_COLUMN_FOLDED_KEYBINDING, out keybinding);
+            string ?[] fields = { summary, keybinding };
+            return match_words(query.words_for(entry.get_text()), fields, fields, fuzzy_matching, out span);
+        }
 
-                return matches_all_words(queryString, { summary, keybinding });
-            } else {
-                return true;
-            }
+        // By description, as the default sort does, with the bindings that match only by subsequence last
+        private int summary_sort_func(Gtk.TreeModel m, Gtk.TreeIter a, Gtk.TreeIter b) {
+            int span_a, span_b;
+            var kind_a = match_row(a, out span_a);
+            var kind_b = match_row(b, out span_b);
+            string ? summary_a, summary_b;
+            model.@get(a, ITEM_VIEW_COLUMN_SUMMARY, out summary_a);
+            model.@get(b, ITEM_VIEW_COLUMN_SUMMARY, out summary_b);
+            return compare_matched_rows(kind_a, span_a, summary_a, kind_b, span_b, summary_b);
         }
 
         // Read the active configuration and populate the model with keybindings
@@ -225,7 +245,9 @@ namespace Ilia {
                             iter,
                             ITEM_VIEW_COLUMN_KEYBINDING, formatted_spec,
                             ITEM_VIEW_COLUMN_SUMMARY, summary,
-                            ITEM_VIEW_COLUMN_EXEC, binding.exec
+                            ITEM_VIEW_COLUMN_EXEC, binding.exec,
+                            ITEM_VIEW_COLUMN_FOLDED_KEYBINDING, fold_text(formatted_spec),
+                            ITEM_VIEW_COLUMN_FOLDED_SUMMARY, fold_text(summary)
                         );
                     }
                 }

@@ -2,10 +2,11 @@ using Gtk;
 
 namespace Ilia {
     class WindowPage : DialogPage, GLib.Object {
-        private const int ITEM_VIEW_COLUMNS = 3;
+        private const int ITEM_VIEW_COLUMNS = 4;
         private const int ITEM_VIEW_COLUMN_APP_ICON = 0;
         private const int ITEM_VIEW_COLUMN_TITLE = 1;
         private const int ITEM_VIEW_COLUMN_ID = 2;
+        private const int ITEM_VIEW_COLUMN_FOLDED_TITLE = 3;
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -31,6 +32,11 @@ namespace Ilia {
         private string wm_name;
 
         private bool is_wayland;
+
+        // Windows whose title holds the words as subsequences are listed after the others
+        private bool fuzzy_matching;
+
+        private QueryWords query = new QueryWords();
 
         public string get_name() {
             return "<u>W</u>indows";
@@ -63,8 +69,9 @@ namespace Ilia {
             this.is_wayland = is_wayland;
 
             icon_size = settings.get_int("icon-size");
+            fuzzy_matching = settings.get_boolean("fuzzy-matching");
 
-            model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string));
+            model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (string), typeof (string));
 
             filter = new Gtk.TreeModelFilter(model, null);
             filter.set_visible_func(filter_func);
@@ -72,6 +79,8 @@ namespace Ilia {
             create_item_view();
 
             load_windows();
+            if (fuzzy_matching)
+                model.set_sort_func(ITEM_VIEW_COLUMN_TITLE, title_sort_func);
             model.set_sort_column_id(1, SortType.ASCENDING);
             // model.set_sort_func (0, app_sort_func);
             set_selection();
@@ -136,6 +145,8 @@ namespace Ilia {
 
         // filter selection based on contents of Entry
         void on_entry_changed() {
+            if (fuzzy_matching) // subsequence matches go last: sort again
+                model.set_sort_func(ITEM_VIEW_COLUMN_TITLE, title_sort_func);
             filter.refilter();
             set_selection();
         }
@@ -148,18 +159,25 @@ namespace Ilia {
 
         // traverse the model and show items with metadata that matches entry filter string
         private bool filter_func(Gtk.TreeModel m, Gtk.TreeIter iter) {
-            string queryString = entry.get_text().down().strip();
+            int span;
+            return match_row(iter, out span) != MatchKind.NONE;
+        }
 
-            if (queryString.length > 0) {
-                GLib.Value app_info;
-                string strval;
-                model.get_value(iter, ITEM_VIEW_COLUMN_TITLE, out app_info);
-                strval = app_info.get_string();
+        private MatchKind match_row(Gtk.TreeIter row, out int span) {
+            string ? title;
+            model.@get(row, ITEM_VIEW_COLUMN_FOLDED_TITLE, out title);
+            return match_words(query.words_for(entry.get_text()), { title }, { title }, fuzzy_matching, out span);
+        }
 
-                return matches_all_words(queryString, { strval });
-            } else {
-                return true;
-            }
+        // By title, as the default sort does, with the windows that match only by subsequence last
+        private int title_sort_func(Gtk.TreeModel m, Gtk.TreeIter a, Gtk.TreeIter b) {
+            int span_a, span_b;
+            var kind_a = match_row(a, out span_a);
+            var kind_b = match_row(b, out span_b);
+            string ? title_a, title_b;
+            model.@get(a, ITEM_VIEW_COLUMN_TITLE, out title_a);
+            model.@get(b, ITEM_VIEW_COLUMN_TITLE, out title_b);
+            return compare_matched_rows(kind_a, span_a, title_a, kind_b, span_b, title_b);
         }
 
         private void load_windows() {
@@ -188,7 +206,8 @@ namespace Ilia {
                     iter,
                     ITEM_VIEW_COLUMN_APP_ICON, pixbuf,
                     ITEM_VIEW_COLUMN_TITLE, node.name,
-                    ITEM_VIEW_COLUMN_ID, node.id
+                    ITEM_VIEW_COLUMN_ID, node.id,
+                    ITEM_VIEW_COLUMN_FOLDED_TITLE, node.name != null ? fold_text(node.name) : null
                 );
             }
 

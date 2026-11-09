@@ -193,19 +193,32 @@ namespace Ilia {
         private async void read_config() {
             try {
                 var ipc_client = new IPCClient(this.wm_name);
-                var config_file = ipc_client.getConfig().config;
+                var reply = ipc_client.getConfig();
                 // sway hands over its files as written; i3 has already replaced the variables
                 bool is_sway = this.wm_name == "sway";
-                var parser = new ConfigParser(config_file, "", is_sway, is_sway ? yield read_trawl_resources() : null);
+                ConfigParser parser;
+                // The same configuration with no resource set, every set_from_resource at its fallback
+                ConfigParser unset_parser;
+                if (is_sway) {
+                    parser = new ConfigParser.from_files(reply.configs, "", true, yield read_trawl_resources());
+                    unset_parser = new ConfigParser.from_files(reply.configs, "", true);
+                } else {
+                    parser = new ConfigParser.from_files(reply.configs, "");
+                    unset_parser = new ConfigParser.from_files(reply.unset_resources_configs, "");
+                }
 
                 Map<string, ArrayList<Keybinding> > kbmodel = parser.parse();
+                Map<string, ArrayList<Keybinding> > unset_model = unset_parser.parse();
 
                 foreach (var entry in kbmodel.entries) {
                     var category = entry.key;
                     var bindings = entry.value;
+                    var unset_bindings = unset_model.has_key(category) ? unset_model.get(category) : null;
 
-                    foreach (var binding in bindings) {
-                        var formatted_spec = format_spec(binding.spec);
+                    for (int i = 0; i < bindings.size; i++) {
+                        var binding = bindings[i];
+                        var unset_binding = unset_bindings != null && i < unset_bindings.size ? unset_bindings[i] : null;
+                        var formatted_spec = row_keys_label(binding, unset_binding);
                         var summary = category + " - " + binding.label;
                         model.append(out iter);
                         model.set(
@@ -249,6 +262,152 @@ namespace Ilia {
                 debug("No trawl resources: %s", err.message);
             }
             return resources;
+        }
+
+        /**
+         * The key text of a row: the one its comment gives while the row binds the keys it
+         * has with no resource set, or binds none at all; otherwise the keys it binds.
+         */
+        public static string row_keys_label(Keybinding binding, Keybinding ? unset_binding) {
+            var active = new ArrayList<BoundKeys> ();
+            foreach (var keys in binding.bound_keys) {
+                if (keys.active)
+                    active.add(keys);
+            }
+
+            if (binding.bound_keys.size == 0 ||
+                (active.size == binding.bound_keys.size && unset_binding != null && same_keys(binding.bound_keys, unset_binding.bound_keys)))
+                return format_spec(binding.spec);
+            return format_keys(active);
+        }
+
+        // Whether two lists of bindings name the same keys, whatever their spelling
+        private static bool same_keys(Gee.List<BoundKeys> a, Gee.List<BoundKeys> b) {
+            if (a.size != b.size)
+                return false;
+            for (int i = 0; i < a.size; i++) {
+                if (a[i].is_keycode != b[i].is_keycode || key_identity(a[i].combination) != key_identity(b[i].combination))
+                    return false;
+            }
+            return true;
+        }
+
+        // A key combination with its modifier and key names in one spelling: "control+Return" is "ctrl+enter"
+        private static string key_identity(string combination) {
+            string[] parts = combination.split("+");
+            string[] modifiers = shown_modifiers(parts[0: parts.length - 1]);
+            string key = format_key(parts[parts.length - 1]);
+            return string.joinv("+", modifiers).down() + "+" + key.down();
+        }
+
+        // Modifiers as the page shows them, in their order, each once
+        private static string[] shown_modifiers(string[] modifiers) {
+            string[] shown = {};
+            foreach (unowned string modifier in modifiers) {
+                string name = format_modifier(modifier);
+                if (!(name in shown))
+                    shown += name;
+            }
+            return shown;
+        }
+
+        private static string format_modifier(string modifier) {
+            switch (modifier.ascii_down()) {
+                case "mod4":
+                case "super":
+                case "logo":
+                    return "\uf17a";
+                case "mod1":
+                case "alt":
+                    return "Alt";
+                case "control":
+                case "ctrl":
+                    return "Ctrl";
+                case "shift":
+                    return "Shift";
+                default:
+                    return modifier;
+            }
+        }
+
+        private static string format_key(string key) {
+            switch (key.ascii_down()) {
+                case "return": return "Enter";
+                case "space": return "Space";
+                case "left": return "\u2190";
+                case "right": return "\u2192";
+                case "up": return "\u2191";
+                case "down": return "\u2193";
+                case "question": return "?";
+                case "grave": return "`";
+                case "period": return ".";
+                case "plus": return "+";
+                case "minus": return "-";
+                case "backspace": return "Backspace";
+            }
+
+            // A keysym that types a character, such as bracketleft or odiaeresis, shows the character
+            if (key.length > 1 && !key.has_prefix("KP_")) {
+                unichar character = Gdk.keyval_to_unicode(Gdk.keyval_from_name(key));
+                if (character.isgraph())
+                    return character.to_string();
+            }
+            return key;
+        }
+
+        // The key a bindcode keycode stands for in the first keyboard layout, or the keycode
+        private static string format_keycode(string keycode) {
+            uint64 code = 0;
+            var display = Gdk.Display.get_default();
+            if (display == null || !uint64.try_parse(keycode, out code))
+                return keycode;
+
+            uint keyval;
+            int group, level;
+            Gdk.ModifierType consumed;
+            var keymap = Gdk.Keymap.get_for_display(display);
+            if (keymap.translate_keyboard_state((uint) code, 0, 0, out keyval, out group, out level, out consumed)) {
+                string ? name = Gdk.keyval_name(keyval);
+                if (name != null)
+                    return format_key(name);
+            }
+            return keycode;
+        }
+
+        /**
+         * Bindings as the page shows them: "Mod4+Shift+Return" is "\uf17a Shift Enter".
+         * Bindings whose modifiers are shown the same, in the same order, show them once,
+         * followed by each key; otherwise each binding is shown in full, joined by " or ".
+         * Bindings shown the same, such as a keysym and its keycode, are shown once.
+         */
+        public static string format_keys(Gee.List<BoundKeys> bindings) {
+            string[] modifiers = {};  // each binding's modifiers, as shown
+            string[] keys = {};       // each binding's key, as shown
+            var shown = new HashSet<string> ();
+            foreach (var binding in bindings) {
+                string[] parts = binding.combination.split("+");
+                int last = parts.length - 1;
+                string binding_modifiers = string.joinv(" ", shown_modifiers(parts[0: last]));
+                string key = binding.is_keycode ? format_keycode(parts[last]) : format_key(parts[last]);
+                if (shown.add(binding_modifiers + "\n" + key)) {
+                    modifiers += binding_modifiers;
+                    keys += key;
+                }
+            }
+
+            bool shared = true;
+            foreach (unowned string binding_modifiers in modifiers)
+                shared = shared && binding_modifiers == modifiers[0];
+
+            if (shared) {
+                string text = string.joinv(" ", keys);
+                return modifiers.length > 0 && modifiers[0] != "" ? modifiers[0] + " " + text : text;
+            }
+
+            string[] labels = {};
+            for (int i = 0; i < keys.length; i++)
+                labels += modifiers[i] != "" ? modifiers[i] + " " + keys[i] : keys[i];
+            return string.joinv(" or ", labels);
         }
 
         public static string format_spec(string raw_keybinding) {

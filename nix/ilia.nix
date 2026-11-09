@@ -16,6 +16,7 @@
 , uncrustify
 , vala
 , wrapGAppsHook3
+, xorg
 }:
 
 stdenv.mkDerivation {
@@ -40,6 +41,7 @@ stdenv.mkDerivation {
     json-glib
     libgee
     tinysparql
+    xorg.libXtst
   ];
   meta = {
     homepage = "https://github.com/regolith-linux/ilia?tab=readme-ov-file";

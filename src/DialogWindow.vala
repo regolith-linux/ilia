@@ -61,6 +61,10 @@ namespace Ilia {
         private InputSourceSwitcher ? layout_switcher = null;
         // Super was pressed as part of a layout-switch shortcut; exit if it is released on its own
         private bool exit_on_super_release = false;
+        // On X11, hands the keys ilia does not use to i3's bindings or to the desktop, as its keyboard grab keeps them from both
+        private X11KeyForwarder ? key_forwarder = null;
+        // On sway, which runs its bindings while ilia is open: ilia closes when one runs
+        private SwayBindingWatcher ? binding_watcher = null;
 
         public DialogWindow (HashTable<string, string ?> arg_map, bool is_wayland_session, string wm_name) {
             Object(type: Gtk.WindowType.POPUP); // Window is unmanaged
@@ -114,6 +118,20 @@ namespace Ilia {
 
             layout_switcher = InputSourceSwitcher.from_settings(Gdk.Keymap.get_for_display(get_display()));
 
+            if (!is_wayland && wm_name != "sway") {
+                key_forwarder = new X11KeyForwarder(get_display(), wm_name == "i3");
+                key_forwarder.release_input.connect(release_input);
+                key_forwarder.finished.connect(() => close());
+            } else if (wm_name == "sway") {
+                try {
+                    binding_watcher = new SwayBindingWatcher();
+                    // sway has already acted; just get out of the way of the result
+                    binding_watcher.binding_run.connect(() => quit());
+                } catch (GLib.Error e) {
+                    stderr.printf("Unable to follow the bindings of sway: %s\n", e.message);
+                }
+            }
+
             // Route keys based on function
             key_press_event.connect((key) => {
                 if (layout_switcher != null && !is_wayland) {
@@ -124,10 +142,16 @@ namespace Ilia {
                         return true;
                     }
                     if (exit_on_super_release && key.is_modifier == 0) { // Super did not start a layout switch after all
-                        quit();
+                        exit_on_super_release = false;
+                        // The key goes on to i3, as if Super had closed ilia when it was pressed
+                        if (key_forwarder == null || !key_forwarder.key_pressed(key))
+                            quit();
                         return true;
                     }
                 }
+
+                if (key_forwarder != null && !is_own_key(key) && key_forwarder.key_pressed(key))
+                    return true;
 
                 if ((key.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK) { // ALT
                     // Enable page nav keybindings in all page mode.
@@ -172,7 +196,7 @@ namespace Ilia {
                         entry.set_position(0);
                         return true;
                     }
-                    if (key.keyval == '4' && (key.state & Gdk.ModifierType.SHIFT_MASK) != 0) { // End of line (Ctrl+$) - vim style
+                    if (key.keyval == Gdk.Key.dollar) { // End of line (Ctrl+$) - vim style
                         entry.set_position(-1);
                         return true;
                     }
@@ -256,6 +280,8 @@ namespace Ilia {
             });
 
             key_release_event.connect((key) => {
+                if (key_forwarder != null && key_forwarder.key_released(key))
+                    return true;
                 if (exit_on_super_release && is_super_key(key.keyval))
                     quit();
                 return false;
@@ -270,6 +296,69 @@ namespace Ilia {
             base.show_all();
             notebook.set_current_page((int) active_page);
             notebook.switch_page.connect(on_page_switch);
+        }
+
+        /**
+         * True for the keys that ilia uses itself, which never go to the window manager:
+         * Escape, Enter (without Super), list and page navigation, Backspace and Delete with any
+         * modifiers; ilia's Control and Alt combinations; Super; and keys that type a character.
+         */
+        private bool is_own_key(Gdk.EventKey key) {
+            bool control = (key.state & Gdk.ModifierType.CONTROL_MASK) != 0;
+            bool alt = (key.state & Gdk.ModifierType.MOD1_MASK) != 0;
+            bool super = (key.state & Gdk.ModifierType.SUPER_MASK) != 0;
+
+            switch (key.keyval) {
+                case KEY_CODE_ESCAPE:
+                case KEY_CODE_SUPER:
+                case KEY_CODE_SUPER_R:
+                case KEY_CODE_UP:
+                case KEY_CODE_DOWN:
+                case KEY_CODE_PGUP:
+                case KEY_CODE_PGDOWN:
+                case KEY_CODE_HOME:
+                case KEY_CODE_END:
+                case KEY_CODE_KP_HOME:
+                case KEY_CODE_KP_END:
+                case KEY_CODE_LEFT:
+                case KEY_CODE_RIGHT:
+                case Gdk.Key.BackSpace:
+                case Gdk.Key.Delete:
+                    return true;
+                case KEY_CODE_ENTER:
+                case KEY_CODE_KP_ENTER:
+                    return !super;
+                default:
+                    break;
+            }
+
+            if (control && !alt && !super) {
+                switch (key.keyval) {
+                    case 'h': case 'l': case 'j': case 'k': case 'n': case 'p': case '0':
+                    case 'a': case 'w': case 'b': case 'c': case 'v': case 'x':
+                    case Gdk.Key.dollar:
+                        return true;
+                    default:
+                        return false;
+                }
+            }
+
+            if (alt && !control && !super) {
+                if (key.keyval == KEY_CODE_PLUS || key.keyval == KEY_CODE_MINUS)
+                    return true;
+                for (int i = 0; i < total_pages; ++i) {
+                    if (dialog_pages[i].get_keybinding() == key.keyval || (dialog_pages[i].get_keybinding() - 32) == key.keyval)
+                        return true;
+                }
+                return false;
+            }
+
+            if (!control && !alt && !super) {
+                unichar typed = Gdk.keyval_to_unicode(key.keyval);
+                return typed != 0 && !typed.iscntrl();
+            }
+
+            return false;
         }
 
         // The key of a key event as it is in the first layout
@@ -587,9 +676,18 @@ namespace Ilia {
             entry.set_position(previous_word_start(entry.get_text(), entry.get_position()));
         }
 
-        public void quit() {
-            if (seat != null) seat.ungrab();
+        // Give up the keyboard and pointer and hide, and wait until the X server has done so
+        private void release_input() {
+            if (seat != null) {
+                seat.ungrab();
+                seat = null;
+            }
             hide();
+            get_display().sync();
+        }
+
+        public void quit() {
+            release_input();
             close();
         }
     }

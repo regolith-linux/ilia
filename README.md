@@ -46,6 +46,18 @@ The `textlist` page supports two additional parameters for more customization:
         -i: page icon
 ```
 
+### Window manager and desktop keys
+
+While Ilia is open, keys it does not use itself keep working:
+
+- In i3, a key that i3 binds in its current binding mode closes Ilia, and i3 runs the binding.
+- In an X11 session, the media keys, brightness keys, calculator key and Print close Ilia and reach
+  the program that grabs them (such as the desktop's media-keys handler), unless i3 binds them.
+- In sway, Ilia closes when sway runs a binding, except a binding that only switches the keyboard layout.
+
+Keys that Ilia uses itself (typing, Escape, Enter, the arrow and paging keys, and its Ctrl and Alt
+shortcuts) stay with Ilia.
+
 ## Configuration
 
 Ilia supports the following configuration via gsettings under the namespace `org.regolith-linux.ilia`:

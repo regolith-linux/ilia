@@ -38,6 +38,9 @@ gtk_3_0_dep = dependency('gtk+-3.0')
 gtk_layer_shell_dep = meson.get_compiler('c').find_library('gtk-layer-shell', required: false)
 pango_dep = dependency('pango')
 x11_dep = dependency('x11')
+gdk_x11_dep = dependency('gdk-x11-3.0')
+# XTEST, to pass keys ilia does not use on to the programs that grab them
+xtst_dep = dependency('xtst')
 
 meson.add_install_script(join_paths(meson.current_source_dir(),'meson_scripts','install_data.sh'),join_paths(get_option('prefix'),get_option('datadir'),'ilia'),join_paths(meson.current_source_dir(),'data/local','','*'))
 

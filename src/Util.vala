@@ -435,15 +435,10 @@ namespace Ilia {
         int index = 0;
         unichar c;
         while (decomposed.get_next_char(ref index, out c)) {
-            switch (c.type()) {
-                case UnicodeType.NON_SPACING_MARK:
-                case UnicodeType.SPACING_MARK:
-                case UnicodeType.ENCLOSING_MARK:
-                    break;
-                default:
-                    unmarked.append_unichar(c);
-                    break;
-            }
+            // ismark(): the nonspacing, spacing and enclosing marks. UnicodeType names the
+            // spacing marks SPACING_MARK only in newer Vala bindings.
+            if (!c.ismark())
+                unmarked.append_unichar(c);
         }
         return unmarked.str.casefold();
     }

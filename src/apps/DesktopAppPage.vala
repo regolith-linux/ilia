@@ -96,7 +96,7 @@ namespace Ilia {
         }
 
         public string get_icon_name() {
-            return "system-run";
+            return "view-app-grid-symbolic";
         }
 
         public string get_help() {

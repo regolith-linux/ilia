@@ -27,6 +27,8 @@ ilia_deps += [gobject_2_0_dep]
 ilia_deps += [gtk_3_0_dep]
 ilia_deps += [pango_dep]
 ilia_deps += [x11_dep]
+ilia_deps += [gdk_x11_dep]
+ilia_deps += [xtst_dep]
 ilia_deps += [gtk_layer_shell_dep]
 ilia_sources = [cfgfile_1]
 ilia_sources += files([
@@ -36,11 +38,13 @@ ilia_sources += files([
     'IconLoader.vala',
     'InputSourceSwitcher.vala',
     'Util.vala',
+    'WmKeys.vala',
     'apps/DesktopAppPage.vala',
     'commands/CommandPage.vala',
     'keybindings/ConfigParser.vala',
     'keybindings/I3Ipc.vala',
     'keybindings/KeybindingsPage.vala',
+    'keybindings/WmBindings.vala',
     'notifications/RoficationClient.vala',
     'notifications/RoficationPage.vala',
     'textlist/TextFilter.vala',

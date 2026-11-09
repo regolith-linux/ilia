@@ -18,8 +18,25 @@ namespace Ilia {
         GET_BINDING_MODES,
         GET_CONFIG,
         SEND_TICK,
-        SYNC
+        SYNC,
+        GET_BINDING_STATE
     }
+
+    // Event types, as they appear in an event message with the high bit cleared
+    // https://i3wm.org/docs/ipc.html#_events
+    public enum WM_EVENT {
+        WORKSPACE,
+        OUTPUT,
+        MODE,
+        WINDOW,
+        BARCONFIG_UPDATE,
+        BINDING,
+        SHUTDOWN,
+        TICK
+    }
+
+    // Called with each event the window manager sends after a subscription
+    public delegate void WmEventHandler(WM_EVENT event, Json.Node payload);
 
     public errordomain WM_ERROR {
         RPC_ERROR
@@ -392,7 +409,10 @@ namespace Ilia {
         private uint8[] magic_number = "i3-ipc".data;
         // "i3-ipc" + payload length (uint32) + message type (uint32), native byte order
         private const int HEADER_SIZE = 14;
+        private const uint32 EVENT_FLAG = 1U << 31;
         private string wm_name;
+        // Watches the socket for events after subscribe()
+        private SocketSource ? event_source = null;
 
         public IPCClient (string wm_name) throws GLib.Error {
             this.wm_name = wm_name;
@@ -411,6 +431,8 @@ namespace Ilia {
         }
 
         ~IPCClient () {
+            if (event_source != null)
+                event_source.destroy();
             if (socket != null) {
                 try {
                     socket.close();
@@ -455,14 +477,9 @@ namespace Ilia {
             return data;
         }
 
-        private Json.Node ? wm_ipc(WM_COMMAND command, string request_payload = "") throws GLib.Error {
-            uint8[] request = generate_request(command, request_payload);
-            ssize_t sent = 0;
-            while (sent < request.length)
-                sent += socket.send(request[sent: request.length]);
-
-            debug("Sent " + sent.to_string() + " bytes to " + wm_name);
-
+        // Read one message: a reply, or an event when subscribed. Returns null for an empty payload.
+        private Json.Node ? read_message(out uint32 message_type) throws GLib.Error {
+            message_type = 0;
             uint8[] header = receive_exactly(HEADER_SIZE);
 
             if (Memory.cmp(header, magic_number, magic_number.length) != 0)
@@ -470,6 +487,7 @@ namespace Ilia {
 
             uint32 payload_length = 0;
             Memory.copy(&payload_length, &header[magic_number.length], sizeof (uint32));
+            Memory.copy(&message_type, &header[magic_number.length + sizeof (uint32)], sizeof (uint32));
 
             debug("Receiving " + payload_length.to_string() + " bytes from " + wm_name);
 
@@ -482,6 +500,18 @@ namespace Ilia {
             parser.load_from_data((string) payload, payload_length);
 
             return parser.get_root();
+        }
+
+        private Json.Node ? wm_ipc(WM_COMMAND command, string request_payload = "") throws GLib.Error {
+            uint8[] request = generate_request(command, request_payload);
+            ssize_t sent = 0;
+            while (sent < request.length)
+                sent += socket.send(request[sent: request.length]);
+
+            debug("Sent " + sent.to_string() + " bytes to " + wm_name);
+
+            uint32 message_type;
+            return read_message(out message_type);
         }
 
         public VersionReply getVersion() throws WM_ERROR, GLib.Error {
@@ -529,6 +559,59 @@ namespace Ilia {
                 throw new WM_ERROR.RPC_ERROR("No Response");
 
             return new TreeReply(response);
+        }
+
+        /**
+         * The name of the current binding mode ("default" outside any mode)
+         */
+        public string getBindingState() throws WM_ERROR, GLib.Error {
+            var response = wm_ipc(WM_COMMAND.GET_BINDING_STATE);
+
+            if (response == null || response.get_node_type() != Json.NodeType.OBJECT || !response.get_object().has_member("name"))
+                throw new WM_ERROR.RPC_ERROR("No Response");
+
+            return response.get_object().get_string_member("name");
+        }
+
+        /**
+         * Subscribe this connection to events, and call handler from the main loop for each
+         * event that arrives. The connection is then used for events only.
+         *
+         * @param events Event names, such as "binding"
+         */
+        public void subscribe(string[] events, owned WmEventHandler handler) throws WM_ERROR, GLib.Error {
+            var names = new Json.Builder();
+            names.begin_array();
+            foreach (unowned string name in events)
+                names.add_string_value(name);
+            names.end_array();
+            var generator = new Json.Generator();
+            generator.set_root(names.get_root());
+
+            var response = wm_ipc(WM_COMMAND.SUBSCRIBE, generator.to_data(null));
+            if (response == null || response.get_node_type() != Json.NodeType.OBJECT || !response.get_object().get_boolean_member_with_default("success", false))
+                throw new WM_ERROR.RPC_ERROR("%s refused the subscription".printf(wm_name));
+
+            event_source = socket.create_source(IOCondition.IN | IOCondition.HUP | IOCondition.ERR);
+            event_source.set_callback((source_socket, condition) => {
+                if ((condition & IOCondition.IN) == 0) {
+                    event_source = null;
+                    return Source.REMOVE;
+                }
+                try {
+                    uint32 message_type;
+                    var payload = read_message(out message_type);
+                    // Events have the highest bit set; the reply to a request does not
+                    if ((message_type & EVENT_FLAG) != 0 && payload != null)
+                        handler((WM_EVENT) (message_type & ~EVENT_FLAG), payload);
+                } catch (GLib.Error err) {
+                    stderr.printf("Stopped reading %s events: %s\n", wm_name, err.message);
+                    event_source = null;
+                    return Source.REMOVE;
+                }
+                return Source.CONTINUE;
+            });
+            event_source.attach(MainContext.default());
         }
     }
 }

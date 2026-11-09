@@ -7,11 +7,15 @@ class FakeWm {
     private Socket listener;
     private string[] payloads;
     private Thread<void> thread;
-    // The payload of each request received, in order
+    // Events sent once every request is answered, as after a subscription
+    private string[] events;
+    // The payload and the message type of each request received, in order
     public string[] requests = {};
+    public uint32[] request_types = {};
 
-    public FakeWm (string[] payloads) throws GLib.Error {
+    public FakeWm (string[] payloads, string[] events = {}) throws GLib.Error {
         this.payloads = payloads;
+        this.events = events;
         var dir = DirUtils.make_tmp("ilia-ipc-test-XXXXXX");
         socket_path = Path.build_filename(dir, "ipc.sock");
         listener = new Socket(SocketFamily.UNIX, SocketType.STREAM, SocketProtocol.DEFAULT);
@@ -46,6 +50,7 @@ class FakeWm {
                     got += conn.receive(request[got: request_length]);
                 request[request_length] = 0;
                 requests += (string) request;
+                request_types += type;
 
                 var reply = new ByteArray();
                 reply.append("i3-ipc".data);
@@ -54,6 +59,16 @@ class FakeWm {
                 reply.append(((uint8[]) &type)[0 : 4]);
                 reply.append(payload.data);
                 send_all(conn, reply.data);
+            }
+            // Event messages have the highest bit of their type set; 5 is "binding"
+            foreach (unowned string event in events) {
+                var message = new ByteArray();
+                message.append("i3-ipc".data);
+                uint32 length = event.length, type = (1U << 31) | 5;
+                message.append(((uint8[]) &length)[0 : 4]);
+                message.append(((uint8[]) &type)[0 : 4]);
+                message.append(event.data);
+                send_all(conn, message.data);
             }
             conn.close();
         } catch (GLib.Error e) {
@@ -195,6 +210,73 @@ public void test_run_command_failure() {
     }
 }
 
+// The current binding mode, as GET_BINDING_STATE (12) reports it
+public void test_binding_state() {
+    try {
+        var wm = new FakeWm({ "{\"name\":\"resize\"}" });
+        Environment.set_variable("I3SOCK", wm.socket_path, true);
+        assert(new Ilia.IPCClient("i3").getBindingState() == "resize");
+        wm.join();
+        assert(wm.request_types.length == 1 && wm.request_types[0] == 12);
+    } catch (GLib.Error e) {
+        error("getBindingState failed: %s", e.message);
+    }
+}
+
+string binding_event(string command) {
+    var builder = new Json.Builder();
+    builder.begin_object();
+    builder.set_member_name("change");
+    builder.add_string_value("run");
+    builder.set_member_name("binding");
+    builder.begin_object();
+    builder.set_member_name("command");
+    builder.add_string_value(command);
+    builder.set_member_name("event_state_mask");
+    builder.begin_array();
+    builder.add_string_value("Mod1");
+    builder.end_array();
+    builder.end_object();
+    builder.end_object();
+    var generator = new Json.Generator();
+    generator.set_root(builder.get_root());
+    return generator.to_data(null);
+}
+
+// sway's binding events arrive in the main loop; a binding that only switches the layout is not reported
+public void test_sway_binding_events() {
+    try {
+        var wm = new FakeWm({ "{\"success\":true}" },
+                            { binding_event("exec foot"),
+                              binding_event("input type:keyboard xkb_switch_layout next"),
+                              binding_event("input * xkb_switch_layout next; exec notify-send switched") });
+        Environment.set_variable("SWAYSOCK", wm.socket_path, true);
+
+        var loop = new MainLoop();
+        string[] run = {};
+        var watcher = new Ilia.SwayBindingWatcher();
+        watcher.binding_run.connect((command) => {
+            run += command;
+            if (run.length == 2)
+                loop.quit();
+        });
+        var timeout = Timeout.add_seconds(5, () => {
+            loop.quit();
+            return Source.REMOVE;
+        });
+        loop.run();
+        Source.remove(timeout);
+        wm.join();
+
+        assert(wm.request_types[0] == 2 && wm.requests[0] == "[\"binding\"]");
+        assert(run.length == 2);
+        assert(run[0] == "exec foot");
+        assert(run[1] == "input * xkb_switch_layout next; exec notify-send switched");
+    } catch (GLib.Error e) {
+        error("binding events failed: %s", e.message);
+    }
+}
+
 public int main(string[] args) {
     Test.init(ref args);
 
@@ -204,6 +286,8 @@ public int main(string[] args) {
     Test.add_func("/i3ipc/missing_socket", test_missing_socket);
     Test.add_func("/i3ipc/run_command", test_run_command);
     Test.add_func("/i3ipc/run_command_failure", test_run_command_failure);
+    Test.add_func("/i3ipc/binding_state", test_binding_state);
+    Test.add_func("/i3ipc/sway_binding_events", test_sway_binding_events);
 
     return Test.run();
 }

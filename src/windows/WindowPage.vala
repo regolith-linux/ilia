@@ -179,11 +179,7 @@ namespace Ilia {
 
         private void traverse_nodes(TreeReply node) {
             if (navigable_window(node, is_wayland)) {
-                Gdk.Pixbuf pixbuf;
-                if (node.windowProperties.instance != null)
-                    pixbuf = load_icon_from_app_name(icon_theme, node.windowProperties.instance, icon_size);
-                else
-                    pixbuf = load_icon_from_app_name(icon_theme, node.app_id, icon_size);
+                Gdk.Pixbuf pixbuf = load_icon_from_app_name(icon_theme, icon_app_name(node), icon_size);
                 if (pixbuf == null) // the app has no icon, or it cannot be loaded
                     pixbuf = load_icon_from_name(icon_theme, "application-x-executable", icon_size);
 
@@ -222,6 +218,16 @@ namespace Ilia {
             bool is_i3bar = node.windowProperties != null && node.windowProperties.clazz == "i3bar";
 
             return is_window && is_listed_type && !is_i3bar;
+        }
+
+        /**
+         * The name to look a window's icon up by: the instance of an X11 or Xwayland window,
+         * the app id of a native Wayland window, which has no window properties.
+         */
+        public static string ? icon_app_name(TreeReply node) {
+            if (node.windowProperties != null && node.windowProperties.instance != null)
+                return node.windowProperties.instance;
+            return node.app_id;
         }
 
         // Highlight the first row: the best match for the text typed

@@ -48,11 +48,22 @@ void test_sway_windows() {
         "layout": "splith", "nodes": [], "floating_nodes": []}"""), true));
 }
 
+// The icon is looked up by the X11 instance, or by the app id for a native Wayland window, which has no window_properties
+void test_icon_app_name() {
+    assert (Ilia.WindowPage.icon_app_name(container(i3_window("normal", "XTerm"))) == "xterm");
+    assert (Ilia.WindowPage.icon_app_name(container("""{"id": 4, "type": "con", "urgent": false, "name": "foot",
+        "layout": "none", "app_id": "foot", "nodes": [], "floating_nodes": []}""")) == "foot");
+    assert (Ilia.WindowPage.icon_app_name(container("""{"id": 5, "type": "floating_con", "urgent": false,
+        "name": "PickAFile", "layout": "none", "app_id": null, "window_properties": {"class": "Zenity", "instance": "zenity"},
+        "nodes": [], "floating_nodes": []}""")) == "zenity");
+}
+
 public int main(string[] args) {
     Test.init(ref args);
 
     Test.add_func("/windows/i3_windows", test_i3_windows);
     Test.add_func("/windows/sway_windows", test_sway_windows);
+    Test.add_func("/windows/icon_app_name", test_icon_app_name);
 
     return Test.run();
 }

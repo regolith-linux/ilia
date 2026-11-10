@@ -458,6 +458,14 @@ public void test_action_tiers() {
     assert (ranked_action("zz.desktop", "Zzact FR", "new", "Nouvelle fenêtre", null, "", "fenetre").tier == Ilia.AppTier.WORD_STARTS);
     // The row text is the name: the app part and the action part both count
     assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "zzact app: new").tier == Ilia.AppTier.PREFIX);
+    // The row text without its colon, or the action name alone, is equal; the row text without its colon is a prefix
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "zzact app new window").tier == Ilia.AppTier.EXACT);
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "new WINDOW").tier == Ilia.AppTier.EXACT);
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "zzact app new").tier == Ilia.AppTier.PREFIX);
+    assert (ranked_action("zz.desktop", "Zzact App", "priv", "New Private Window", null, "", "zzact app new window").tier == Ilia.AppTier.WORD_STARTS);
+    assert (ranked_action("zz.desktop", "Zzact App", "priv", "New Private Window", null, "", "new window").tier == Ilia.AppTier.WORD_STARTS);
+    // Not for the app's own row
+    assert (ranked_app("zz.desktop", "Zzact: App", null, "", "zzact app").tier == Ilia.AppTier.WORD_STARTS);
     // The app's fields count for the other words
     assert (ranked_action("q.desktop", "Quux", "priv", "New Private Window", "Web Browser", "", "browser private").tier == Ilia.AppTier.IN_GENERIC_NAME);
     assert (ranked_action("s.desktop", "Surf", "priv", "New Private Window", null, "web", "web private").tier == Ilia.AppTier.IN_OTHER_FIELDS);

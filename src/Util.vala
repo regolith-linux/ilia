@@ -325,6 +325,34 @@ namespace Ilia {
         return argv;
     }
 
+    /**
+     * The AppMatch of the row of a desktop app on the apps page
+     *
+     * @param fields The fields filtering may use
+     */
+    public static AppMatch desktop_app_match(DesktopAppInfo app_info, AppField fields) {
+        return new AppMatch(app_info.get_id() ?? "", app_info.get_name(), app_info.get_generic_name(),
+                            string.joinv(" ", app_info.get_keywords()), app_info.get_description(), fields);
+    }
+
+    /* The text of the row of a desktop action on the apps page: "App: Action" */
+    public static string desktop_action_row_name(DesktopAppInfo app_info, DesktopAction action) {
+        return app_info.get_name() + ": " + action.name;
+    }
+
+    /**
+     * The AppMatch of the row of a desktop action on the apps page: its name is the row
+     * text, its other fields are the app's, and its launches are counted under
+     * <desktop id>#<action id>
+     *
+     * @param fields The fields filtering may use
+     */
+    public static AppMatch desktop_action_match(DesktopAppInfo app_info, DesktopAction action, AppField fields) {
+        return new AppMatch(launch_history_key(app_info.get_id() ?? "", action.id), desktop_action_row_name(app_info, action),
+                            app_info.get_generic_name(), string.joinv(" ", app_info.get_keywords()),
+                            app_info.get_description(), fields, action.name);
+    }
+
     /* The key a launch is recorded under in the launch history: the desktop ID, and #<action> for an action */
     public static string launch_history_key(string app_id, string ? action_id) {
         return action_id == null ? app_id : app_id + "#" + action_id;
@@ -830,6 +858,9 @@ namespace Ilia {
         private string ? comment;
         // Folded name of the desktop action of the row, null for the row of the app itself
         private string ? action_name;
+        // For the row of an action: the words of the row text joined by single spaces, so
+        // "Firefox: New Window" is "firefox new window", which a filter typed without the colon gives
+        private string ? action_row_words;
 
         public AppTier tier { get; private set; default = AppTier.NONE; }
         // For AppTier.SUBSEQUENCE: the summed spans of the words in the name, see subsequence_span()
@@ -852,6 +883,7 @@ namespace Ilia {
             this.id = id;
             this.action_name = action_name != null ? fold_text(action_name) : null;
             this.name = fold_text(name);
+            this.action_row_words = action_name != null ? string.joinv(" ", text_words(this.name)) : null;
             this.matched_name = AppField.NAME in fields ? this.name : null;
             this.generic_name = generic_name != null && AppField.GENERIC_NAME in fields ? fold_text(generic_name) : null;
             this.keywords = keywords != null && AppField.KEYWORDS in fields ? fold_text(keywords) : null;
@@ -882,9 +914,12 @@ namespace Ilia {
 
             if (matched_name != null) {
                 string query = string.joinv(" ", words);
-                if (name == query)
+                // An action row is also equal to a filter that is the action name alone or the
+                // row text without its colon, and starts with the row text without its colon:
+                // "firefox new window" and "new window" find New Window before New Private Window
+                if (name == query || (action_name != null && (action_name == query || action_row_words == query)))
                     return AppTier.EXACT;
-                if (name.has_prefix(query))
+                if (name.has_prefix(query) || (action_row_words != null && action_row_words.has_prefix(query)))
                     return AppTier.PREFIX;
                 if (starts_name_words(words))
                     return AppTier.WORD_STARTS;

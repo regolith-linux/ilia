@@ -436,11 +436,8 @@ namespace Ilia {
         private void read_desktop_file(DesktopAppInfo ? app_info, Gdk.Pixbuf ? icon_img) {
             if (app_info != null && app_info.should_show() && !is_hidden_app(app_info.get_id() ?? "", hidden_apps)) {
                 string app_id = app_info.get_id() ?? "";
-                string ? keywords = string.joinv(" ", app_info.get_keywords());
 
-                append_row(app_info.get_name(), new AppMatch(app_id, app_info.get_name(), app_info.get_generic_name(),
-                                                             keywords, app_info.get_description(), match_fields),
-                           app_info, null, icon_img);
+                append_row(app_info.get_name(), desktop_app_match(app_info, match_fields), app_info, null, icon_img);
 
                 // A row for each action the entry declares, shown by filter_func() when the filter names it.
                 // An action is counted, and hidden by Ctrl+Delete, as <desktop id>#<action id>.
@@ -451,9 +448,7 @@ namespace Ilia {
                         string key = launch_history_key(app_id, action.id);
                         if (is_hidden_app(key, hidden_apps))
                             continue;
-                        string row_name = app_info.get_name() + ": " + action.name;
-                        append_row(row_name, new AppMatch(key, row_name, app_info.get_generic_name(), keywords,
-                                                          app_info.get_description(), match_fields, action.name),
+                        append_row(desktop_action_row_name(app_info, action), desktop_action_match(app_info, action, match_fields),
                                    app_info, action, icon_img);
                     }
                 }

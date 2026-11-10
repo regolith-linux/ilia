@@ -431,6 +431,18 @@ public void test_clamp_path_to_rows() {
     assert (path.to_string() == "1");
 }
 
+// The launch history keeps the newest launches, also when the stored list is already too long
+public void test_append_launch_history() {
+    assert (string.joinv("|", Ilia.append_launch_history(null, "a", 3)) == "a");
+    assert (string.joinv("|", Ilia.append_launch_history({ "a", "b" }, "c", 3)) == "a|b|c");
+    assert (string.joinv("|", Ilia.append_launch_history({ "a", "b", "c" }, "d", 3)) == "b|c|d");
+    assert (string.joinv("|", Ilia.append_launch_history({ "a", "b", "c", "d", "e" }, "f", 3)) == "d|e|f");
+
+    // As GSettings stores it: a NULL-terminated list
+    var newest = Ilia.append_launch_history({ "a", "b", "c" }, "d", 2);
+    assert (newest.length == 2 && strv_length(newest) == 2);
+}
+
 public int main (string[] args) {
     Test.init (ref args);
 
@@ -451,6 +463,7 @@ public int main (string[] args) {
     Test.add_func ("/test_command_dirs", test_command_dirs);
     Test.add_func ("/test_move_path_to", test_move_path_to);
     Test.add_func ("/test_clamp_path_to_rows", test_clamp_path_to_rows);
+    Test.add_func ("/test_append_launch_history", test_append_launch_history);
 
     return Test.run ();
 }

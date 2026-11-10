@@ -128,10 +128,14 @@ namespace Ilia {
         string app_id = app_info.get_id();
         string exec = app_info.get_commandline();
 
-        string random_suffix = Uuid.string_random().slice(0, 8);
-        string unit_name = "run_ilia_" + systemd_escape(app_id) + "_" + random_suffix + ".scope";
-        string systemd_launch = "systemd-run --user --scope --unit \"" + unit_name + "\" " + exec;
+        string systemd_launch = "systemd-run --user --scope --unit \"" + systemd_scope_unit_name(app_id) + "\" " + exec;
         return AppInfo.create_from_commandline(systemd_launch, app_id, AppInfoCreateFlags.NONE);
+    }
+
+    /* A new name for the systemd scope an app is started in: run_ilia_<escaped id>_<random>.scope */
+    public static string systemd_scope_unit_name(string app_id) {
+        string random_suffix = Uuid.string_random().slice(0, 8);
+        return "run_ilia_" + systemd_escape(app_id) + "_" + random_suffix + ".scope";
     }
 
     /* True if the desktop file asks to be run in a terminal (Terminal=true) */
@@ -199,11 +203,8 @@ namespace Ilia {
     public static string[] get_desktop_launch_argv(DesktopAppInfo app_info) throws ShellError {
         string[] argv = {};
 
-        if (GLib.Environment.find_program_in_path("systemd-run") != null) {
-            string random_suffix = Uuid.string_random().slice(0, 8);
-            string unit_name = "run_ilia_" + systemd_escape(app_info.get_id()) + "_" + random_suffix + ".scope";
-            argv = { "systemd-run", "--user", "--scope", "--unit", unit_name };
-        }
+        if (GLib.Environment.find_program_in_path("systemd-run") != null)
+            argv = { "systemd-run", "--user", "--scope", "--unit", systemd_scope_unit_name(app_info.get_id()) };
 
         if (needs_terminal(app_info)) {
             argv += "x-terminal-emulator";
@@ -242,6 +243,30 @@ namespace Ilia {
      */
     public static string get_dbus_activation_path(string bus_name) {
         return "/" + bus_name.replace(".", "/").replace("-", "_");
+    }
+
+    // Launches recorded in the launch history (the app-launch-counts setting), which ranks the rows of the apps page
+    public const int LAUNCH_HISTORY_MAX_LEN = 32;
+
+    /**
+     * The launch history with one more launch: the newest max_len launches, ending with key
+     */
+    public static string[] append_launch_history(string[] ? history, string key, int max_len) {
+        string[] result = {};
+        if (history != null)
+            result = history;
+        result += key;
+        if (result.length <= max_len)
+            return result;
+
+        string[] newest = result[result.length - max_len : result.length];
+        return newest;
+    }
+
+    /* Record a launch under key in the launch history, which keeps the newest LAUNCH_HISTORY_MAX_LEN */
+    public static void record_launch(GLib.Settings settings, string key) {
+        string[] history = append_launch_history(settings.get_strv("app-launch-counts"), key, LAUNCH_HISTORY_MAX_LEN);
+        settings.set_strv("app-launch-counts", history);
     }
 
     /**

@@ -28,6 +28,8 @@ Ex:
 ilia -p keybindings
 ```
 
+The last page is Help (`Alt+h`), which describes the page shown before it and lists its keys. For a more minimal dialog, `--no-help` leaves the help page out; when a single page is shown, ilia then draws no tab row at all. To make this the default, set the `show-help` key (see Configuration) to `false`.
+
 ### Desktop Apps
 
 Ilia searches the system-configured `$XDG_DATA_DIRS` with `applications` applied at the end of each path for desktop application files.
@@ -56,6 +58,7 @@ Ilia supports the following configuration via gsettings under the namespace `org
 - fuzzy-matching: also show rows whose main text holds the typed letters in order, with other letters between them (off by default); such rows are listed after the other matches
 - match-fields: the fields of an application, besides its name, that the filter looks in: any of `generic-name`, `keywords` and `comment` (all three by default)
 - hidden-apps: desktop file ids of applications never listed on the Applications page; `*` and `?` work as wildcards. Ctrl+Delete on the Applications page adds the highlighted application
+- show-help: whether ilia has a help page (on by default). When it is off, a single page is shown without a tab row. The `--no-help` option leaves the help page out whatever this key says
 
 When text is typed on the Applications page, the best name matches come first: the name equal to the text, then names starting with it, names with a word starting with each typed word, names containing each word, then matches through the generic name, and then through keywords or the comment. Within each group, more frequently launched applications come first. On every page, matching ignores case and accents: `cafe` finds `Café` and `strasse` finds `Straße`.
 

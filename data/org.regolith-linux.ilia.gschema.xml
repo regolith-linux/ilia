@@ -57,5 +57,12 @@
         Desktop file ids of applications never shown on the applications page, for example "org.gnome.Seahorse.Application.desktop". An item may be a pattern, where * stands for any run of characters and ? for exactly one character. Ctrl+Delete on the applications page adds the highlighted application.
       </description>
     </key>
+    <key name="show-help" type="b">
+      <default>true</default>
+      <summary>Show the help page</summary>
+      <description>
+        If false, ilia has no help page, and when it shows a single page it draws no tab row. The --no-help option leaves the help page out whatever this key says.
+      </description>
+    </key>
 	</schema>
 </schemalist>

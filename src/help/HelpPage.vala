@@ -24,6 +24,14 @@ namespace Ilia {
         private Gtk.TreePath path;
         private Gtk.Widget root_widget;
 
+        /**
+         * Whether the dialog has a help page: the --no-help option leaves it out, and so does
+         * the show-help key when it is false.
+         */
+        public static bool is_wanted(HashTable<string, string ?> arg_map, bool show_help) {
+            return show_help && !arg_map.contains("--no-help");
+        }
+
         public HelpPage(DialogPage[] pages) {
             this.pages = pages;
             this.described = pages[0];

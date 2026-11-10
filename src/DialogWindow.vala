@@ -37,7 +37,7 @@ namespace Ilia {
 
         // Reference to all active dialog pages
         private DialogPage[] dialog_pages;
-        // The total number of pages (including help)
+        // The total number of pages (including help, if it is shown)
         private int total_pages = -1;
         // Specifies the array index for dialog_pages of active page
         private uint active_page = 0;
@@ -52,8 +52,8 @@ namespace Ilia {
         // Controls access to keyboard and mouse
         protected Gdk.Seat seat;
 
-        // The last page: describes the page shown before it
-        private HelpPage help_page;
+        // The last page: describes the page shown before it; null when help is hidden
+        private HelpPage ? help_page = null;
 
         private string wm_name;
         private bool is_wayland;
@@ -267,8 +267,11 @@ namespace Ilia {
                                 dialog_pages[active_page].show();
                             break;
                         case KEY_CODE_RIGHT:
-                        case KEY_CODE_LEFT: // Switch pages
-                            notebook.grab_focus();
+                        case KEY_CODE_LEFT: // Switch pages; with a lone page, move the cursor in the filter
+                            if (total_pages > 1)
+                                notebook.grab_focus();
+                            else
+                                entry.grab_focus_without_selecting();
                             break;
                         default:            // Pass key event to active page for handling
                             key_handled = dialog_pages[active_page].key_event(key);
@@ -399,10 +402,16 @@ namespace Ilia {
             }
 
             // The help page comes last, in both modes, and is a page like the others
-            help_page = new HelpPage(dialog_pages);
-            help_page.initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages += help_page;
+            if (HelpPage.is_wanted(arg_map, settings.get_boolean("show-help"))) {
+                help_page = new HelpPage(dialog_pages);
+                help_page.initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+                dialog_pages += help_page;
+            }
             total_pages = dialog_pages.length;
+
+            // A lone page needs no tab to reach it: draw neither the tab row nor a frame in its place
+            notebook.show_tabs = total_pages > 1;
+            notebook.show_border = total_pages > 1;
 
             // This allows for multiple page loads.  Until startup performance is addressed, only load one page.
             for (int i = 0; i < total_pages; ++i) {

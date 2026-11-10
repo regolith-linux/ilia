@@ -156,12 +156,10 @@ namespace Ilia {
 
                 if ((key.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK) { // ALT
                     // Enable page nav keybindings in all page mode.
-                    for (int i = 0; i < total_pages; ++i) {
-                        if (dialog_pages[i].get_keybinding() == key.keyval || (dialog_pages[i].get_keybinding() - 32) == key.keyval) {
-                            // Allow both upper/lower case match
-                            notebook.set_current_page(i);
-                            return true;
-                        }
+                    int page = page_of_letter(key.keyval);
+                    if (page >= 0) {
+                        notebook.set_current_page(page);
+                        return true;
                     }
                     if (key.keyval == '+') { // Expand dialog
                         change_size(128);
@@ -347,11 +345,7 @@ namespace Ilia {
             if (alt && !control && !super) {
                 if (key.keyval == KEY_CODE_PLUS || key.keyval == KEY_CODE_MINUS)
                     return true;
-                for (int i = 0; i < total_pages; ++i) {
-                    if (dialog_pages[i].get_keybinding() == key.keyval || (dialog_pages[i].get_keybinding() - 32) == key.keyval)
-                        return true;
-                }
-                return false;
+                return page_of_letter(key.keyval) >= 0;
             }
 
             if (!control && !alt && !super) {
@@ -360,6 +354,17 @@ namespace Ilia {
             }
 
             return false;
+        }
+
+        // The page that Alt and the key selects, upper or lower case, or -1
+        private int page_of_letter(uint keyval) {
+            uint lower = Gdk.keyval_to_lower(keyval);
+            for (int i = 0; i < total_pages; ++i) {
+                char page_key = dialog_pages[i].get_keybinding();
+                if (page_key != 0 && lower == page_key)
+                    return i;
+            }
+            return -1;
         }
 
         // The key of a key event as it is in the first layout
@@ -426,91 +431,132 @@ namespace Ilia {
             }
         }
 
-        private void create_page(string focus_page, HashTable<string, string ?> arg_map) {
-            dialog_pages = new DialogPage[1];
+        // The built-in pages that -a shows, in their order
+        private const string[] ALL_PAGES_BUILTIN = { "apps", "terminal", "notifications", "keybindings", "windows", "tracker" };
 
-            switch (focus_page.down()) {
+        // The keybindings and windows pages need i3 or sway; the other built-in pages work under any window manager
+        private bool is_builtin_page_shown(string page_id) {
+            if (page_id == "keybindings" || page_id == "windows")
+                return wm_name == "i3" || wm_name == "sway";
+            return true;
+        }
+
+        private DialogPage ? new_builtin_page(string page_id) {
+            switch (page_id) {
                 case "apps":
-                    dialog_pages[0] = new DesktopAppPage();
-                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-                    break;
+                    return new DesktopAppPage();
                 case "terminal":
-                    dialog_pages[0] = new CommandPage();
-                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-                    break;
+                    return new CommandPage();
                 case "notifications":
-                    dialog_pages[0] = new RoficationPage();
-                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-                    break;
+                    return new RoficationPage();
                 case "keybindings":
-                    dialog_pages[0] = new KeybingingsPage();
-                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-                    break;
+                    return new KeybingingsPage();
                 case "textlist":
-                    dialog_pages[0] = new TextListPage();
-                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-                    break;
+                    return new TextListPage();
                 case "windows":
-                    dialog_pages[0] = new WindowPage();
-                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-                    break;
+                    return new WindowPage();
                 case "tracker":
-                    dialog_pages[0] = new TrackerPage();
-                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-                    break;
+                    return new TrackerPage();
                 default:
-                    stderr.printf("Unknown page type: %s\n", focus_page);
-                    break;
+                    return null;
             }
         }
 
-        /**
-         * Creates pages for all generally usable pages
-         */
-        private int create_all_pages(HashTable<string, string ?> arg_map, string focus_page, ref uint start_page) {
-            int page_count = 6;
-            dialog_pages = new DialogPage[page_count];
+        // A page for a page file, using key as its letter (0 for none)
+        private DialogPage new_file_page(PageFile file, char key) {
+            if (file.source == PageSource.APPS)
+                return new PageFileAppsPage(file, key);
+            return new PageFileTextPage(file, key);
+        }
 
-            dialog_pages[0] = new DesktopAppPage();
-            dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[1] = new CommandPage();
-            dialog_pages[1].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[2] = new RoficationPage();
-            dialog_pages[2].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[3] = new KeybingingsPage();
-            dialog_pages[3].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[4] = new WindowPage();
-            dialog_pages[4].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            dialog_pages[5] = new TrackerPage();
-            dialog_pages[5].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
-            // last page, help, will be initialized later in init
+        private DialogPage begin_page(DialogPage page, HashTable<string, string ?> arg_map) {
+            page.initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+            return page;
+        }
 
-            switch (focus_page.down()) {
-                case "apps":
-                    start_page = 0;
+        // The page exists, but not under this window manager: no window is shown
+        private void exit_page_not_available(string page_name) {
+            stderr.printf("ilia: page '%s' is not available under the current window manager\n", page_name);
+            Process.exit(1);
+        }
+
+        private void create_page(string focus_page, HashTable<string, string ?> arg_map) {
+            dialog_pages = new DialogPage[1];
+            string page_id = focus_page.down();
+
+            if (PageFile.is_builtin_page(page_id)) {
+                if (!is_builtin_page_shown(page_id))
+                    exit_page_not_available(focus_page);
+                // The page files are read, and problems with them reported, whichever page is opened
+                PageFile.load_all();
+                // Null if this build leaves the page out
+                var page = new_builtin_page(page_id);
+                if (page != null)
+                    dialog_pages[0] = begin_page(page, arg_map);
+            } else if (PageFile.is_valid_id(focus_page)) {
+                foreach (var file in PageFile.load_all()) {
+                    if (file.id.ascii_down() != focus_page.ascii_down())
+                        continue;
+                    if (!file.is_shown_under(wm_name))
+                        exit_page_not_available(focus_page);
+                    dialog_pages[0] = begin_page(new_file_page(file, file.key), arg_map);
                     break;
-                case "terminal":
-                    start_page = 1;
-                    break;
-                case "notifications":
-                    start_page = 2;
-                    break;
-                case "keybindings":
-                    start_page = 3;
-                    break;
-                case "windows":
-                    start_page = 4;
-                    break;
-                case "tracker":
-                    start_page = 5;
-                    break;
-                default:
-                    stderr.printf("Unknown page type: %s\n", focus_page);
-                    start_page = 0;
-                    break;
+                }
             }
 
-            return page_count;
+            if (dialog_pages[0] == null)
+                stderr.printf("Unknown page type: %s\n", focus_page);
+        }
+
+        /**
+         * Creates pages for all generally usable pages: the built-in ones that work under the
+         * window manager, then those from page files that are shown under it, by file name
+         */
+        private int create_all_pages(HashTable<string, string ?> arg_map, string focus_page, ref uint start_page) {
+            DialogPage[] pages = {};
+            string[] page_ids = {};
+            // The letters of the pages so far: the first page to claim a letter keeps it
+            string used_keys = "";
+
+            foreach (unowned string page_id in ALL_PAGES_BUILTIN) {
+                if (!is_builtin_page_shown(page_id))
+                    continue;
+                var page = begin_page(new_builtin_page(page_id), arg_map);
+                pages += page;
+                page_ids += page_id;
+                used_keys += page.get_keybinding().to_string();
+            }
+
+            bool focus_exists = PageFile.is_builtin_page(focus_page);
+            foreach (var file in PageFile.load_all()) {
+                focus_exists = focus_exists || file.id.ascii_down() == focus_page.ascii_down();
+                if (!file.is_shown_under(wm_name))
+                    continue;
+
+                char key = file.key;
+                if (key != 0 && used_keys.index_of_char(key) >= 0) {
+                    stderr.printf("ilia: page file '%s': the letter of Key '%c' is already used by another page, ignoring it\n", file.path, key);
+                    key = 0;
+                }
+                if (key != 0)
+                    used_keys += key.to_string();
+
+                pages += begin_page(new_file_page(file, key), arg_map);
+                page_ids += file.id.ascii_down();
+            }
+            // last page, help, will be initialized later in init
+            dialog_pages = pages;
+
+            // Start on the page asked for, if it is shown
+            start_page = 0;
+            for (int i = 0; i < page_ids.length; ++i) {
+                if (page_ids[i] == focus_page.down())
+                    start_page = i;
+            }
+            if (!focus_exists)
+                stderr.printf("Unknown page type: %s\n", focus_page);
+
+            return pages.length;
         }
 
         // Resize the dialog, bigger or smaller

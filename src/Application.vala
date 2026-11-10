@@ -60,14 +60,11 @@ namespace Ilia {
             // (sway started from a TTY), and GDK_BACKEND or a missing compositor can mean X11
             var is_wayland_session = Gdk.Display.get_default().get_type().name() == "GdkWaylandDisplay";
 
-            // Set window manager
-            string sway_sock = Environment.get_variable("SWAYSOCK");
-            string i3_sock = Environment.get_variable("I3SOCK");
-
-            string wm_name = "Unknown";
-            if (sway_sock != null)
+            // The window manager, from its IPC socket: sway, i3, or other when neither is set
+            string wm_name = "other";
+            if ((Environment.get_variable("SWAYSOCK") ?? "") != "")
                 wm_name = "sway";
-            else if (i3_sock != null)
+            else if ((Environment.get_variable("I3SOCK") ?? "") != "")
                 wm_name = "i3";
 
             var window = new Ilia.DialogWindow(this.arg_map, is_wayland_session, wm_name);
@@ -234,6 +231,7 @@ namespace Ilia {
             stdout.printf("\t\t-n: no icon\n");
             stdout.printf("\t'windows' - navigate to a window\n");
             stdout.printf("\t'tracker' - search for files by content\n");
+            stdout.printf("\t'<name>' - a page defined in the file ilia/pages/<name>.page of an XDG configuration directory\n");
             Process.exit(0);
         }
 

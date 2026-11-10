@@ -127,6 +127,13 @@ namespace Ilia {
         }
 
         /**
+         * The index, among all lines, of a visible line
+         */
+        public int get_visible_index(int position) {
+            return visible[position];
+        }
+
+        /**
          * True while rows are left to check: call step() until it returns false
          */
         public bool busy {
@@ -156,12 +163,36 @@ namespace Ilia {
             }
         }
 
+        /**
+         * Replace all lines, as when they were put in another order
+         *
+         * The current query is applied to the new lines at once, and reset is emitted.
+         */
+        public void replace_lines(string[] new_lines) {
+            string[] query = job_active ? job_words : words;
+
+            lines = {};
+            folded = {};
+            n_lines = 0;
+            add_lines(new_lines);
+
+            words = {};
+            visible = {};
+            n_visible = 0;
+            filtered_upto = 0;
+            start_job(query, false);
+            finish();
+        }
+
         public void set_query(string query) {
             var new_words = query_words(query);
 
             // visible holds every match for words among rows [0, filtered_upto), also while a job runs
-            bool narrows = refines(words, new_words);
+            start_job(new_words, refines(words, new_words));
+        }
 
+        // Start filtering for new words; if narrows, only the rows visible now and those not checked yet can match
+        private void start_job(string[] new_words, bool narrows) {
             job_active = true;
             job_words = new_words;
             job_visible = new int[narrows ? n_visible : 1024];

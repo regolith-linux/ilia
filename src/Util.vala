@@ -245,6 +245,22 @@ namespace Ilia {
         return "/" + bus_name.replace(".", "/").replace("-", "_");
     }
 
+    /**
+     * A program and its arguments, started in its own systemd scope when systemd-run is available
+     *
+     * @param id Names the scope, see systemd_scope_unit_name()
+     * @param argv The program and its arguments; the program may start with '-'
+     */
+    public static string[] get_scope_argv(string id, string[] argv) {
+        if (GLib.Environment.find_program_in_path("systemd-run") == null)
+            return argv;
+
+        string[] scope_argv = { "systemd-run", "--user", "--scope", "--unit", systemd_scope_unit_name(id), "--" };
+        foreach (unowned string arg in argv)
+            scope_argv += arg;
+        return scope_argv;
+    }
+
     // Launches recorded in the launch history (the app-launch-counts setting), which ranks the rows of the apps page
     public const int LAUNCH_HISTORY_MAX_LEN = 32;
 

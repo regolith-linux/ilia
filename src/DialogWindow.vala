@@ -52,7 +52,8 @@ namespace Ilia {
         // Controls access to keyboard and mouse
         protected Gdk.Seat seat;
 
-        private Gtk.TreeView keybinding_view;
+        // The last page: describes the page shown before it
+        private HelpPage help_page;
 
         private string wm_name;
         private bool is_wayland;
@@ -397,6 +398,12 @@ namespace Ilia {
                 Process.exit(1);
             }
 
+            // The help page comes last, in both modes, and is a page like the others
+            help_page = new HelpPage(dialog_pages);
+            help_page.initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+            dialog_pages += help_page;
+            total_pages = dialog_pages.length;
+
             // This allows for multiple page loads.  Until startup performance is addressed, only load one page.
             for (int i = 0; i < total_pages; ++i) {
                 Gtk.Box box = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
@@ -416,29 +423,6 @@ namespace Ilia {
                 box.pack_start(label, false, false, 5);
                 box.show_all();
                 notebook.append_page(dialog_pages[i].get_root(), box);
-            }
-
-            // FIXME - rework help UI to be consistent for both single and all page modes
-            if (!all_page_mode) {
-                // Create help page
-                var help_label = new Label("Help");
-                var help_widget = new Gtk.Box(Gtk.Orientation.VERTICAL, 5);
-
-                var page_help_label = new Label(dialog_pages[0].get_help());
-                page_help_label.set_line_wrap(true);
-                help_widget.pack_start(page_help_label, false, false, 5);
-
-                var keybindings_title = new Label("Keybindings");
-                keybindings_title.get_style_context().add_class("help_heading");
-                help_widget.pack_start(keybindings_title, false, false, 5);
-
-                keybinding_view = new TreeView();
-                setup_help_treeview(keybinding_view, dialog_pages[0].get_keybindings());
-                help_widget.pack_start(keybinding_view, false, false, 5);
-                notebook.append_page(help_widget, help_label);
-                keybinding_view.realize.connect(() => {
-                    keybinding_view.columns_autosize();
-                });
             }
         }
 
@@ -529,49 +513,6 @@ namespace Ilia {
             return page_count;
         }
 
-        private void setup_help_treeview(TreeView view, HashTable<string, string> ? keybindings) {
-            var listmodel = new Gtk.ListStore(2, typeof (string), typeof (string));
-            view.set_model(listmodel);
-
-            view.headers_visible = false;
-            view.fixed_height_mode = true;
-            view.enable_search = false;
-
-            view.insert_column_with_attributes(-1, "Key", new CellRendererText(), "text", 0);
-            view.insert_column_with_attributes(-1, "Function", new CellRendererText(), "text", 1);
-
-            TreeIter iter;
-
-            if (keybindings != null)
-                keybindings.foreach((key, val) => {
-                    TreeIter iter2;
-
-                    listmodel.append(out iter2);
-                    listmodel.set(iter2, 0, key, 1, val);
-                });
-
-            listmodel.append(out iter);
-            listmodel.set(iter, 0, "Alt -", 1, "Decrease Dialog Size");
-
-            listmodel.append(out iter);
-            listmodel.set(iter, 0, "Alt +", 1, "Increase Dialog Size");
-
-            listmodel.append(out iter);
-            listmodel.set(iter, 0, "↑ ↓", 1, "Change Selected Item");
-
-            listmodel.append(out iter);
-            listmodel.set(iter, 0, "Home End", 1, "Select First or Last Item");
-
-            listmodel.append(out iter);
-            listmodel.set(iter, 0, "Ctrl+p Ctrl+n", 1, "Change Selected Item (emacs style)");
-
-            listmodel.append(out iter);
-            listmodel.set(iter, 0, "Ctrl+k Ctrl+j", 1, "Change Selected Item (vim style)");
-
-            listmodel.append(out iter);
-            listmodel.set(iter, 0, "Esc", 1, "Exit");
-        }
-
         // Resize the dialog, bigger or smaller
         void change_size(int delta) {
             int width, height;
@@ -600,9 +541,16 @@ namespace Ilia {
         }
 
         void on_page_switch(Widget ? page, uint page_num) {
-            if (page_num == total_pages) { // On help page
+            if (page_num >= total_pages || dialog_pages[page_num] == null)
+                return;
+
+            if (dialog_pages[page_num] == help_page) {
+                // Describe the page the user comes from; there is nothing to filter
+                if (active_page != page_num)
+                    help_page.describe(dialog_pages[active_page]);
+                active_page = page_num;
                 entry.set_sensitive(false);
-            } else if (dialog_pages[page_num] != null) {
+            } else {
                 active_page = page_num;
                 entry.set_sensitive(true);
                 dialog_pages[active_page].on_entry_changed();

@@ -28,10 +28,31 @@ char * default_css = """
             """;
 
 namespace Ilia {
+    // Lets a new instance ask which page the running one is showing
+    [DBus (name = "org.regolith.launcher.State")]
+    interface RunningState : GLib.Object {
+        public abstract string active_page() throws GLib.Error;
+    }
+
+    class RunningStateService : GLib.Object, RunningState {
+        private unowned Application app;
+
+        public RunningStateService(Application app) {
+            this.app = app;
+        }
+
+        public string active_page() {
+            return app.active_page();
+        }
+    }
+
     class Application : Gtk.Application {
         private GLib.HashTable<string, string ?> arg_map;
         private Ilia.DialogWindow window;
         private DBusConnection ? system_bus = null;
+        private RunningStateService ? running_state = null;
+        // Decided in local_command_line, before the base call replaces the running instance, and read in activate
+        private bool toggle_close = false;
 
         public Application () {
             Object(
@@ -51,11 +72,42 @@ namespace Ilia {
                 Intl.setlocale(LocaleCategory.ALL, "");
                 DesktopAppPage.prefetch_apps();
             }
+            // Ask before the base call: it replaces the running instance that answers the query
+            toggle_close = (arg_map.get("-p") ?? "apps").down() == running_page();
             args[0] = null;
             return base.local_command_line(ref args, out exit_status);
         }
 
+        internal string active_page() {
+            return window != null ? window.active_page_key : "";
+        }
+
+        // Null when no instance owns the bus name or predates this interface, so the launch opens normally
+        private string? running_page() {
+            try {
+                var state = Bus.get_proxy_sync<RunningState>(BusType.SESSION, get_application_id(), "/org/regolith/launcher");
+                return state.active_page();
+            } catch (GLib.Error e) {
+                return null;
+            }
+        }
+
+        // The state object stays reachable for as long as this instance owns the application bus name
+        public override bool dbus_register(GLib.DBusConnection connection, string object_path) throws GLib.Error {
+            bool registered = base.dbus_register(connection, object_path);
+            try {
+                running_state = new RunningStateService(this);
+                connection.register_object<RunningState>(object_path, running_state);
+            } catch (GLib.Error e) {
+                stderr.printf("Cannot register the state interface: %s\n", e.message);
+            }
+            return registered;
+        }
+
         protected override void activate() {
+            if (toggle_close)
+                Process.exit(0);
+
             // Use the backend GDK connected with: XDG_SESSION_TYPE is not set in every Wayland session
             // (sway started from a TTY), and GDK_BACKEND or a missing compositor can mean X11
             var is_wayland_session = Gdk.Display.get_default().get_type().name() == "GdkWaylandDisplay";

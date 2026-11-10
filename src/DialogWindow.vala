@@ -57,6 +57,10 @@ namespace Ilia {
         private string wm_name;
         private bool is_wayland;
 
+        // Page key of the active tab e.g. "notifications"
+        public string active_page_key { get; private set; }
+        private string[] page_keys = {};
+
         // The desktop's layout-switch shortcuts; on X11 ilia switches the layout itself, as its keyboard grab keeps them from the desktop
         private InputSourceSwitcher ? layout_switcher = null;
         // Super was pressed as part of a layout-switch shortcut; exit if it is released on its own
@@ -126,7 +130,12 @@ namespace Ilia {
                 try {
                     binding_watcher = new SwayBindingWatcher();
                     // sway has already acted; just get out of the way of the result
-                    binding_watcher.binding_run.connect(() => quit());
+                    binding_watcher.binding_run.connect((command) => {
+                        // A relaunch of ilia asks this instance for its page and then
+                        // replaces it, which it cannot do once this instance has quit
+                        if (!launches_ilia(command))
+                            quit();
+                    });
                 } catch (GLib.Error e) {
                     stderr.printf("Unable to follow the bindings of sway: %s\n", e.message);
                 }
@@ -361,6 +370,16 @@ namespace Ilia {
             return false;
         }
 
+        // Whether a sway binding command runs ilia, e.g. "exec /usr/bin/ilia -p notifications"
+        private static bool launches_ilia(string command) {
+            foreach (string word in command.split_set(" ,;")) {
+                word = word.replace("\"", "").replace("'", "");
+                if (word == "ilia" || word.has_suffix("/ilia"))
+                    return true;
+            }
+            return false;
+        }
+
         // The key of a key event as it is in the first layout
         private uint keyval_in_first_layout(Gdk.EventKey key) {
             uint keyval;
@@ -444,6 +463,8 @@ namespace Ilia {
 
         private void create_page(string focus_page, HashTable<string, string ?> arg_map) {
             dialog_pages = new DialogPage[1];
+            page_keys = { focus_page.down() };
+            active_page_key = page_keys[0];
 
             switch (focus_page.down()) {
                 case "apps":
@@ -486,6 +507,7 @@ namespace Ilia {
         private int create_all_pages(HashTable<string, string ?> arg_map, string focus_page, ref uint start_page) {
             int page_count = 6;
             dialog_pages = new DialogPage[page_count];
+            page_keys = { "apps", "terminal", "notifications", "keybindings", "windows", "tracker" };
 
             dialog_pages[0] = new DesktopAppPage();
             dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
@@ -526,6 +548,7 @@ namespace Ilia {
                     break;
             }
 
+            active_page_key = page_keys[start_page];
             return page_count;
         }
 
@@ -601,9 +624,13 @@ namespace Ilia {
 
         void on_page_switch(Widget ? page, uint page_num) {
             if (page_num == total_pages) { // On help page
+                active_page_key = "help";
                 entry.set_sensitive(false);
             } else if (dialog_pages[page_num] != null) {
                 active_page = page_num;
+                if (page_num < page_keys.length)
+                    active_page_key = page_keys[page_num];
+
                 entry.set_sensitive(true);
                 dialog_pages[active_page].on_entry_changed();
             }

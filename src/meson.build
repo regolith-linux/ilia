@@ -40,6 +40,7 @@ ilia_sources += files([
     'Util.vala',
     'WmKeys.vala',
     'apps/DesktopAppPage.vala',
+    'help/HelpPage.vala',
     'commands/CommandPage.vala',
     'keybindings/ConfigParser.vala',
     'keybindings/I3Ipc.vala',

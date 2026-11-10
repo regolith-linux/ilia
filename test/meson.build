@@ -10,7 +10,8 @@ unit_test_files = [
     'WindowPage',
     'ConfigParser',
     'KeybindingsPage',
-    'WmBindings'
+    'WmBindings',
+    'HelpPage'
 ]
 
 foreach name : unit_test_files

@@ -11,7 +11,8 @@ unit_test_files = [
     'ConfigParser',
     'KeybindingsPage',
     'WmBindings',
-    'HelpPage'
+    'HelpPage',
+    'KeyListenerGuard'
 ]
 
 foreach name : unit_test_files

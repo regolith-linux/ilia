@@ -56,6 +56,9 @@ namespace Ilia {
         }
 
         protected override void activate() {
+            // Until GTK has e6372d29; see KeyListenerGuard.vala
+            KeyListenerGuard.install();
+
             // Use the backend GDK connected with: XDG_SESSION_TYPE is not set in every Wayland session
             // (sway started from a TTY), and GDK_BACKEND or a missing compositor can mean X11
             var is_wayland_session = Gdk.Display.get_default().get_type().name() == "GdkWaylandDisplay";

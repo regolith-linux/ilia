@@ -35,6 +35,8 @@ ilia_sources += files([
     'ModuleApi.vala',
     'DialogWindow.vala',
     'Application.vala',
+    'KeyListenerGuard.vala',
+    'atk-util-class.vapi',
     'IconLoader.vala',
     'InputSourceSwitcher.vala',
     'Util.vala',

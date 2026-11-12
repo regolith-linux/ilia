@@ -26,6 +26,12 @@ sparql_libdir = ''
 if sparql_dep.found()
     sparql_libdir = sparql_dep.get_variable(pkgconfig: 'libdir', default_value: '')
 endif
+# The calculator page works out its values with libqalculate, a C++ library, in a helper program
+qalculate_dep = dependency('libqalculate', required: get_option('calculator'))
+with_calculator = qalculate_dep.found() and add_languages('cpp', native: false, required: get_option('calculator'))
+if with_calculator
+    add_project_arguments(['--define=WITH_CALCULATOR'], language: 'vala')
+endif
 atk_dep = dependency('atk')
 cairo_gobject_dep = dependency('cairo-gobject')
 gdk_3_0_dep = dependency('gdk-3.0')

@@ -458,6 +458,12 @@ namespace Ilia {
                     dialog_pages[0] = new TrackerPage();
                     dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
+#if WITH_CALCULATOR
+                case "calculator":
+                    dialog_pages[0] = new CalculatorPage();
+                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+                    break;
+#endif
                 default:
                     stderr.printf("Unknown page type: %s\n", focus_page);
                     break;
@@ -468,7 +474,11 @@ namespace Ilia {
          * Creates pages for all generally usable pages
          */
         private int create_all_pages(HashTable<string, string ?> arg_map, string focus_page, ref uint start_page) {
+#if WITH_CALCULATOR
+            int page_count = 7;
+#else
             int page_count = 6;
+#endif
             dialog_pages = new DialogPage[page_count];
 
             dialog_pages[0] = new DesktopAppPage();
@@ -483,6 +493,10 @@ namespace Ilia {
             dialog_pages[4].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
             dialog_pages[5] = new TrackerPage();
             dialog_pages[5].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+#if WITH_CALCULATOR
+            dialog_pages[6] = new CalculatorPage();
+            dialog_pages[6].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+#endif
             // last page, help, will be initialized later in init
 
             switch (focus_page.down()) {
@@ -504,6 +518,11 @@ namespace Ilia {
                 case "tracker":
                     start_page = 5;
                     break;
+#if WITH_CALCULATOR
+                case "calculator":
+                    start_page = 6;
+                    break;
+#endif
                 default:
                     stderr.printf("Unknown page type: %s\n", focus_page);
                     start_page = 0;

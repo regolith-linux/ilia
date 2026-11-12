@@ -55,6 +55,16 @@ namespace Ilia {
             return base.local_command_line(ref args, out exit_status);
         }
 
+#if WITH_CALCULATOR
+        // A later launch has taken over. Keep running while a value is held on the clipboard:
+        // the dialog is gone, and the value would go with this process.
+        public override bool name_lost() {
+            if (ClipboardHolder.is_holding())
+                return true;
+            return base.name_lost();
+        }
+#endif
+
         protected override void activate() {
             // Until GTK has e6372d29; see KeyListenerGuard.vala
             KeyListenerGuard.install();
@@ -237,6 +247,9 @@ namespace Ilia {
             stdout.printf("\t\t-n: no icon\n");
             stdout.printf("\t'windows' - navigate to a window\n");
             stdout.printf("\t'tracker' - search for files by content\n");
+#if WITH_CALCULATOR
+            stdout.printf("\t'calculator' - evaluate expressions as you type\n");
+#endif
             Process.exit(0);
         }
 

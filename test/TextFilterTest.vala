@@ -195,6 +195,35 @@ void test_appended_lines() {
     assert (visible_lines(filter) == "needle 4x");
 }
 
+// Lines put in another order are filtered at once for the current query, also while a new query is pending
+void test_replace_lines() {
+    var filter = new Ilia.TextFilter();
+    var rec = new Recorder(filter);
+    filter.add_lines({ "beta one", "alpha", "beta two" });
+    filter.set_query("beta");
+    filter.finish();
+    assert (visible_lines(filter) == "beta one|beta two");
+    assert (filter.get_visible_index(1) == 2);
+
+    int resets = rec.resets;
+    filter.replace_lines({ "beta two", "beta one", "alpha", "gamma beta" });
+    assert (rec.resets == resets + 1);
+    assert (!filter.busy);
+    assert (filter.line_count == 4);
+    assert (visible_lines(filter) == "beta two|beta one|gamma beta");
+    assert (filter.get_visible_index(2) == 3);
+
+    // A query not yet filtered for applies to the new lines
+    filter.set_query("one");
+    filter.replace_lines({ "one", "two", "two one" });
+    assert (visible_lines(filter) == "one|two one");
+
+    // Narrowing afterwards works from the replaced lines
+    filter.set_query("two one");
+    filter.finish();
+    assert (visible_lines(filter) == "two one");
+}
+
 // Matching rows read later reach the view a bounded number at a time, and the model reports only
 // rows the view was told about. With an AT-SPI client connected each row-inserted signal is costly:
 // telling the view about 2048 rows per idle callback blocked the main loop for 45 ms at a time on
@@ -338,6 +367,7 @@ public int main(string[] args) {
     Test.add_func("/textlist/new_query_drops_unfinished_work", test_new_query_drops_unfinished_work);
     Test.add_func("/textlist/narrowing_checks_fewer_rows", test_narrowing_checks_fewer_rows);
     Test.add_func("/textlist/appended_lines", test_appended_lines);
+    Test.add_func("/textlist/replace_lines", test_replace_lines);
     Test.add_func("/textlist/view_announcements_bounded", test_view_announcements_bounded);
     Test.add_func("/textlist/work_bounded_per_callback", test_work_bounded_per_callback);
     Test.add_func("/textlist/work_stops", test_work_stops);

@@ -9,17 +9,10 @@ namespace Ilia {
         private const int ITEM_VIEW_COLUMN_MATCH = 2;
         private const int ITEM_VIEW_COLUMN_APPINFO = 3;
 
-        // Number of past launches to store (to determine sort rank)
-        private const uint HISTORY_MAX_LEN = 32;
         // Max number of files to read in sequence before yeilding
         private const int FS_FILE_READ_COUNT = 128;
         // Roots of app dirs env var.  See https://github.com/flatpak/flatpak/issues/1286#issuecomment-354554684
         private const string XDG_DATA_DIRS = "XDG_DATA_DIRS";
-        // The message bus itself, which starts apps from their service files
-        private const string DBUS_NAME = "org.freedesktop.DBus";
-        private const string DBUS_PATH = "/org/freedesktop/DBus";
-        // Time a running app has to answer an activation request before the page closes
-        private const int ACTIVATE_TIMEOUT_MS = 3000;
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -36,16 +29,12 @@ namespace Ilia {
 
         private GLib.Settings settings;
 
-        private SessionContoller session_controller;
-
-        private string[] launch_history;
+        // Starts the chosen app and closes ilia
+        private AppLauncher launcher;
 
         private HashTable<string, int> launch_counts;
 
         private int icon_size;
-
-        // Set once an app is launched; the page closes afterwards
-        private bool launching = false;
 
         // Rows that fail the word rule are shown when the words are subsequences of the name
         private bool fuzzy_matching;
@@ -134,10 +123,9 @@ namespace Ilia {
             app_timer.start();
             this.settings = settings;
             this.entry = entry;
-            this.session_controller = sessionController;
+            launcher = new AppLauncher(settings, sessionController);
 
-            launch_history = settings.get_strv("app-launch-counts");
-            launch_counts = load_launch_counts(launch_history);
+            launch_counts = load_launch_counts(settings.get_strv("app-launch-counts"));
             icon_size = settings.get_int("icon-size");
             fuzzy_matching = settings.get_boolean("fuzzy-matching");
             hidden_apps = settings.get_strv("hidden-apps");
@@ -504,83 +492,9 @@ namespace Ilia {
 
         // Launch a desktop app, at most once: a double click activates the row twice
         public void execute_app(Gtk.TreeIter selection) {
-            if (launching)
-                return;
-            launching = true;
-
             DesktopAppInfo app_info;
             filter.@get(selection, ITEM_VIEW_COLUMN_APPINFO, out app_info);
-
-            string ? bus_name = get_dbus_activation_name(app_info);
-            if (bus_name != null) {
-                activate_app.begin(app_info, bus_name);
-                return;
-            }
-
-            try {
-                bool launched = true;
-                if (needs_terminal(app_info) && GLib.Environment.find_program_in_path("x-terminal-emulator") == null) {
-                    // GLib picks a terminal it knows, and runs the entry outside a scope
-                    launched = app_info.launch(null, null);
-                } else {
-                    Pid pid;
-                    Process.spawn_async(get_desktop_working_directory(app_info), get_desktop_launch_argv(app_info),
-                                        null, SpawnFlags.SEARCH_PATH, null, out pid);
-                }
-
-                if (launched)
-                    add_to_launch_history(app_info.get_id());
-                else
-                    stderr.printf("Failed to launch %s\n", app_info.get_name());
-            } catch (GLib.Error e) {
-                stderr.printf("Failed to launch %s: %s\n", app_info.get_name(), e.message);
-            }
-            session_controller.quit();
-        }
-
-        /*
-         * Start a DBusActivatable app over the session bus, with Activate on its
-         * org.freedesktop.Application interface, as the Desktop Entry Specification describes
-         */
-        private async void activate_app(DesktopAppInfo app_info, string bus_name) {
-            try {
-                var bus = yield Bus.get(BusType.SESSION);
-
-                // Have the bus start the app first if it is not running: a message that waits
-                // for its destination to start is dropped once the sender has disconnected.
-                var has_owner = yield bus.call(DBUS_NAME, DBUS_PATH, DBUS_NAME, "NameHasOwner",
-                                               new Variant("(s)", bus_name), new VariantType("(b)"),
-                                               DBusCallFlags.NONE, -1);
-
-                if (!has_owner.get_child_value(0).get_boolean())
-                    yield bus.call(DBUS_NAME, DBUS_PATH, DBUS_NAME, "StartServiceByName",
-                                   new Variant("(su)", bus_name, (uint32) 0), new VariantType("(u)"),
-                                   DBusCallFlags.NONE, -1);
-
-                var platform_data = new VariantBuilder(new VariantType("a{sv}"));
-                yield bus.call(bus_name, get_dbus_activation_path(bus_name), "org.freedesktop.Application",
-                               "Activate", new Variant("(a{sv})", platform_data),
-                               null, DBusCallFlags.NO_AUTO_START, ACTIVATE_TIMEOUT_MS);
-
-                add_to_launch_history(app_info.get_id());
-            } catch (GLib.Error e) {
-                stderr.printf("Failed to activate %s: %s\n", app_info.get_name(), e.message);
-            }
-            session_controller.quit();
-        }
-
-        // Record a launch, for the sort order
-        private void add_to_launch_history(string key) {
-            if (launch_history == null) {
-                launch_history = { key };
-            } else {
-                launch_history += key;
-            }
-
-            if (launch_history.length <= HISTORY_MAX_LEN)
-                settings.set_strv("app-launch-counts", launch_history);
-            else
-                settings.set_strv("app-launch-counts", launch_history[1 : HISTORY_MAX_LEN]);
+            launcher.launch(app_info);
         }
     }
 }

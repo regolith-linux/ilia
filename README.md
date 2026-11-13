@@ -33,9 +33,12 @@ ilia -p keybindings
 Ilia searches the system-configured `$XDG_DATA_DIRS` with `applications` applied at the end of each path for desktop application files.
 For example, if your system has `$HOME/.local/share` in the set of paths in `$XDG_DATA_DIRS`, the path `$HOME/.local/share/applications/` will be searched for desktop app files.
 
-Additional actions that a desktop app file declares, such as "New Window" or "New Private Window", are listed as `App: Action` once the filter text names the action, for example `firefox private`.
+Additional actions that a desktop app file declares, such as "New Window" or "New Private Window", are marked with `›` at the end of the application's row.
+The right arrow key shows them under the application, pressed again it moves to the first of them, and the left arrow key hides them; a click on `›` shows or hides them.
+They are also listed on their own, as `App: Action`, once a word of the filter text names the action and not the application, for example `firefox private`.
 They rank with the applications by their text, `App: Action`, and each action has its own launch count.
 They start like the app itself: in their own systemd scope, or over D-Bus for apps with `DBusActivatable=true`.
+A filter written as `app:action`, such as `term:pref` or `:private`, lists only actions: those of the applications that the text before the colon lists, whose names hold every word after it.
 
 ### Text List
 

@@ -336,13 +336,28 @@ void test_action_launch_argv() {
 // The rows of the apps page that a filter shows, best first: the app and action rows of
 // app_info, matched and ranked as the page does (see DesktopAppPage.filter_func())
 string shown_rows(DesktopAppInfo app_info, string filter) {
-    var words = Ilia.query_words(filter);
-    Ilia.AppMatch[] rows = { Ilia.desktop_app_match(app_info, Ilia.AppField.ALL) };
+    var app = Ilia.desktop_app_match(app_info, Ilia.AppField.ALL);
+    Ilia.AppMatch[] rows = { app };
     string[] names = { app_info.get_name() };
     foreach (var action in Ilia.get_desktop_actions(app_info)) {
-        rows += Ilia.desktop_action_match(app_info, action, Ilia.AppField.ALL);
+        rows += Ilia.desktop_action_match(app, action);
         names += Ilia.desktop_action_row_name(app_info, action);
     }
+
+    // With a colon: the actions whose names hold the words after it, in the order of the
+    // entry, when the words before it list the app
+    string[] program_words, action_words;
+    if (Ilia.split_action_query(filter, out program_words, out action_words)) {
+        app.rank(program_words, false);
+        string[] actions = {};
+        for (int i = 1; i < rows.length; ++i) {
+            if ((program_words.length == 0 || app.tier != Ilia.AppTier.NONE) && rows[i].names_action_with(action_words))
+                actions += names[i];
+        }
+        return string.joinv(" | ", actions);
+    }
+
+    var words = Ilia.query_words(filter);
 
     var counts = new HashTable<string, int>(str_hash, str_equal);
     int[] shown = {};
@@ -391,7 +406,12 @@ void test_snap_firefox_actions() {
     // Typed without the colon, or as the action name alone, New Window comes before New Private Window
     assert (shown_rows(firefox, "firefox new window") == "Firefox: New Window | Firefox: New Private Window");
     assert (shown_rows(firefox, "new window") == "Firefox: New Window | Firefox: New Private Window");
+    // With the colon, the actions whose names hold the words after it, in the order of the entry
     assert (shown_rows(firefox, "Firefox: New Window") == "Firefox: New Window | Firefox: New Private Window");
+    assert (shown_rows(firefox, "fire:") == "Firefox: New Window | Firefox: New Private Window | Firefox: Open Profile Manager");
+    assert (shown_rows(firefox, ":priv") == "Firefox: New Private Window");
+    assert (shown_rows(firefox, "fire:firefox") == "");
+    assert (shown_rows(firefox, "chromium:") == "");
     assert (shown_rows(firefox, "firefox new win") == "Firefox: New Window | Firefox: New Private Window");
     assert (shown_rows(firefox, "firefox new") == "Firefox: New Private Window | Firefox: New Window");
     assert (shown_rows(firefox, "profile") == "Firefox: Open Profile Manager");

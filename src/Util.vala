@@ -12,15 +12,19 @@ namespace Ilia {
             if (item_view.get_selection().get_selected(out model, out iter))
                 move_path_to(path, model.get_path(iter));
 
-            bool is_last = selection_is_last(item_view.get_selection());
-
+            // The rows as they are listed: into the children of an expanded row and out of them again
             if (key.keyval == 'p' || key.keyval == 'k') {
-                path.prev();
+                var previous = adjacent_row(item_view.get_model(), path, -1, item_view.is_row_expanded);
+                if (previous != null)
+                    move_path_to(path, previous);
                 item_view.get_selection().select_path(path);
                 item_view.set_cursor(path, null, false);
                 return true;
-            } else if ((key.keyval == 'n' || key.keyval == 'j') && !is_last) {
-                path.next();
+            } else if (key.keyval == 'n' || key.keyval == 'j') {
+                var next = adjacent_row(item_view.get_model(), path, 1, item_view.is_row_expanded);
+                if (next == null)
+                    return false;
+                move_path_to(path, next);
                 item_view.get_selection().select_path(path);
                 item_view.set_cursor(path, null, false);
                 return true;
@@ -31,14 +35,62 @@ namespace Ilia {
     }
 
     /**
-     * Move path, in place, to the row at target among the same siblings
+     * Move path, in place, to target
      *
      * The pages keep their path between key events, so it is updated rather than replaced.
      */
     public static void move_path_to(Gtk.TreePath path, Gtk.TreePath target) {
-        while (path.compare(target) < 0)
-            path.next();
-        while (path.compare(target) > 0 && path.prev()) {}
+        while (path.up()) {}
+        foreach (int index in target.get_indices())
+            path.append_index(index);
+    }
+
+    /**
+     * Whether a tree view shows the children of the row at path
+     */
+    public delegate bool RowExpanded(Gtk.TreePath path);
+
+    /**
+     * The row listed right after (direction > 0) or right before (direction < 0) the row at
+     * path, when the children of the rows for which expanded() is true are listed under them
+     *
+     * @return The path of that row, or null when the row at path is the last or the first one
+     */
+    public static Gtk.TreePath ? adjacent_row(Gtk.TreeModel model, Gtk.TreePath path, int direction, RowExpanded expanded) {
+        Gtk.TreeIter iter;
+        if (!model.get_iter(out iter, path))
+            return null;
+
+        Gtk.TreeIter parent;
+        if (direction < 0) {
+            // The last row listed under the previous sibling, or the parent of the first child
+            Gtk.TreeIter row = iter;
+            if (!model.iter_previous(ref row))
+                return model.iter_parent(out parent, iter) ? model.get_path(parent) : null;
+            var row_path = model.get_path(row);
+            Gtk.TreeIter last_child;
+            while (expanded(row_path) && model.iter_has_child(row)) {
+                model.iter_nth_child(out last_child, row, model.iter_n_children(row) - 1);
+                row = last_child;
+                row_path = model.get_path(row);
+            }
+            return row_path;
+        }
+
+        // The first child of an expanded row, else the next sibling of the row or of the nearest parent that has one
+        if (expanded(path)) {
+            Gtk.TreeIter child;
+            if (model.iter_children(out child, iter))
+                return model.get_path(child);
+        }
+        while (true) {
+            Gtk.TreeIter next = iter;
+            if (model.iter_next(ref next))
+                return model.get_path(next);
+            if (!model.iter_parent(out parent, iter))
+                return null;
+            iter = parent;
+        }
     }
 
     /**
@@ -49,14 +101,6 @@ namespace Ilia {
         int rows = model.iter_n_children(null);
         if (rows > 0 && path.get_indices()[0] >= rows)
             move_path_to(path, new Gtk.TreePath.from_indices(rows - 1));
-    }
-
-    public static bool selection_is_last(Gtk.TreeSelection selection) {
-        Gtk.TreeModel model;
-        Gtk.TreeIter iter;
-        if (selection.get_selected(out model, out iter))
-            return !model.iter_next(ref iter);
-        return false;
     }
 
     /**
@@ -211,12 +255,15 @@ namespace Ilia {
         public string ? exec;
         // The Icon key, an icon name or an absolute path; null when the group has none
         public string ? icon;
+        // The place of the action among those get_desktop_actions() lists for the entry, from 0
+        public int position;
 
-        public DesktopAction (string id, string name, string ? exec, string ? icon) {
+        public DesktopAction (string id, string name, string ? exec, string ? icon, int position) {
             this.id = id;
             this.name = name;
             this.exec = exec;
             this.icon = icon;
+            this.position = position;
         }
     }
 
@@ -262,7 +309,7 @@ namespace Ilia {
             if (!bus_activated && (exec == null || exec.strip() == ""))
                 continue;
 
-            actions += new DesktopAction(id, name, exec, icon != "" ? icon : null);
+            actions += new DesktopAction(id, name, exec, icon != "" ? icon : null, actions.length);
         }
         return actions;
     }
@@ -341,16 +388,12 @@ namespace Ilia {
     }
 
     /**
-     * The AppMatch of the row of a desktop action on the apps page: its name is the row
-     * text, its other fields are the app's, and its launches are counted under
-     * <desktop id>#<action id>
+     * The AppMatch of the row of a desktop action on the apps page, see AppMatch.for_action()
      *
-     * @param fields The fields filtering may use
+     * @param app The AppMatch of the row of the action's app, see desktop_app_match()
      */
-    public static AppMatch desktop_action_match(DesktopAppInfo app_info, DesktopAction action, AppField fields) {
-        return new AppMatch(launch_history_key(app_info.get_id() ?? "", action.id), desktop_action_row_name(app_info, action),
-                            app_info.get_generic_name(), string.joinv(" ", app_info.get_keywords()),
-                            app_info.get_description(), fields, action.name);
+    public static AppMatch desktop_action_match(AppMatch app, DesktopAction action) {
+        return new AppMatch.for_action(app, action.id, action.name);
     }
 
     /* The key a launch is recorded under in the launch history: the desktop ID, and #<action> for an action */
@@ -603,6 +646,26 @@ namespace Ilia {
     }
 
     /**
+     * Split a filter of the apps page that asks for actions by name, as program:action
+     *
+     * The text up to the first colon names the program, and the rest, further colons
+     * included, the action. Each part is split by query_words().
+     *
+     * @return false, with no words, if the filter has no colon
+     */
+    public static bool split_action_query(string query, out string[] program_words, out string[] action_words) {
+        int colon = query.index_of_char(':');
+        if (colon < 0) {
+            program_words = {};
+            action_words = {};
+            return false;
+        }
+        program_words = query_words(query.substring(0, colon));
+        action_words = query_words(query.substring(colon + 1));
+        return true;
+    }
+
+    /**
      * matches_all_words() for a single field that is already folded,
      * with the query split by query_words(); for filtering many rows
      */
@@ -851,6 +914,8 @@ namespace Ilia {
         public string id { get; private set; }
         // Folded name; subsequence matching and ordering use it whatever the fields
         public string name { get; private set; }
+        // For the row of a desktop action, the row of its app; null for the row of an app
+        public AppMatch ? app { get; private set; }
         // Folded fields the word rule may use, or null for those it may not
         private string ? matched_name;
         private string ? generic_name;
@@ -869,25 +934,39 @@ namespace Ilia {
         public bool removed { get; set; default = false; }
 
         /**
-         * @param id The key the row's launches are counted under: the desktop id, or
-         *           <desktop id>#<action id> for an action (see launch_history_key())
-         * @param name The text of the row: the app name, or "App: Action" for an action
+         * @param id The key the row's launches are counted under: the desktop id (see launch_history_key())
+         * @param name The text of the row: the app name
          * @param keywords The keywords joined with spaces, or null
          * @param fields The fields filtering may use
-         * @param action_name For the row of a desktop action, the action's name: one word of
-         *                    the filter must occur in it, so the row is only listed for a
-         *                    filter that names the action
          */
         public AppMatch (string id, string name, string ? generic_name, string ? keywords, string ? comment,
-                         AppField fields = AppField.ALL, string ? action_name = null) {
+                         AppField fields = AppField.ALL) {
             this.id = id;
-            this.action_name = action_name != null ? fold_text(action_name) : null;
             this.name = fold_text(name);
-            this.action_row_words = action_name != null ? string.joinv(" ", text_words(this.name)) : null;
             this.matched_name = AppField.NAME in fields ? this.name : null;
             this.generic_name = generic_name != null && AppField.GENERIC_NAME in fields ? fold_text(generic_name) : null;
             this.keywords = keywords != null && AppField.KEYWORDS in fields ? fold_text(keywords) : null;
             this.comment = comment != null && AppField.COMMENT in fields ? fold_text(comment) : null;
+        }
+
+        /**
+         * The row of a desktop action of app: its text is "App: Action", its other fields are
+         * the app's, and its launches are counted under <desktop id>#<action id>
+         *
+         * One word of a filter must occur in the action name and not in the app name, so the
+         * row is only listed for a filter that names the action rather than the app.
+         */
+        public AppMatch.for_action (AppMatch app, string action_id, string action_name) {
+            this.id = launch_history_key(app.id, action_id);
+            this.app = app;
+            this.action_name = fold_text(action_name);
+            // The folded form of "App: Action": folding leaves the colon and the space alone
+            this.name = app.name + ": " + this.action_name;
+            this.action_row_words = string.joinv(" ", text_words(this.name));
+            this.matched_name = app.matched_name != null ? this.name : null;
+            this.generic_name = app.generic_name;
+            this.keywords = app.keywords;
+            this.comment = app.comment;
         }
 
         /**
@@ -903,6 +982,16 @@ namespace Ilia {
         // True for the row of a desktop action rather than of the app itself
         public bool is_action {
             get { return action_name != null; }
+        }
+
+        /**
+         * True for the row of an action whose name holds every word, as the part of a filter
+         * after a colon asks; there is no subsequence matching here
+         *
+         * @param words That part of the filter, split by query_words()
+         */
+        public bool names_action_with(string[] words) {
+            return action_name != null && contains_all_words(action_name, words);
         }
 
         private AppTier compute_tier(string[] words, bool subsequence) {
@@ -941,10 +1030,10 @@ namespace Ilia {
             return AppTier.NONE;
         }
 
-        // True if one of the words occurs in the action name
+        // True if one of the words occurs in the action name but not in the app name
         private bool names_action(string[] words) {
             foreach (unowned string word in words) {
-                if (action_name.contains(word))
+                if (action_name.contains(word) && !app.name.contains(word))
                     return true;
             }
             return false;

@@ -245,6 +245,279 @@ namespace Ilia {
     }
 
     /**
+     * Split a desktop file Exec value into words, by the Desktop Entry Specification
+     *
+     * The value is the string as a key file gives it, with its escapes (\s, \\ ...) already
+     * read. Spaces separate words; a double-quoted section belongs to one word, and inside it
+     * a backslash makes the next ", `, $ or \ literal. Field codes are dropped, %% becomes %,
+     * and words left empty are skipped.
+     */
+    public static string[] split_desktop_exec(string exec) {
+        string[] quoted_words = {};
+        var word = new StringBuilder();
+        bool in_word = false;
+        bool quoted = false;
+
+        for (int i = 0; i < exec.length; i++) {
+            char c = exec[i];
+            if (quoted) {
+                if (c == '"')
+                    quoted = false;
+                else if (c == '\\' && i + 1 < exec.length && "\"`$\\".index_of_char(exec[i + 1]) >= 0)
+                    word.append_c(exec[++i]);
+                else
+                    word.append_c(c);
+            } else if (c == '"') {
+                quoted = true;
+                in_word = true;
+            } else if (c == ' ' || c == '\t') {
+                if (in_word)
+                    quoted_words += word.str;
+                word.truncate();
+                in_word = false;
+            } else {
+                word.append_c(c);
+                in_word = true;
+            }
+        }
+        if (in_word)
+            quoted_words += word.str;
+
+        string[] words = {};
+        foreach (unowned string quoted_word in quoted_words) {
+            var expanded = drop_field_codes(quoted_word);
+            if (expanded.length > 0)
+                words += expanded;
+        }
+        return words;
+    }
+
+    // A word of an Exec value without its field codes (%f, %U, ... and the deprecated ones), %% read as %
+    private static string drop_field_codes(string word) {
+        var result = new StringBuilder();
+        for (int i = 0; i < word.length; i++) {
+            if (word[i] == '%' && i + 1 < word.length && "%fFuUickdDnNvm".index_of_char(word[i + 1]) >= 0) {
+                if (word[++i] == '%')
+                    result.append_c('%');
+                continue;
+            }
+            result.append_c(word[i]);
+        }
+        return result.str;
+    }
+
+    private static bool is_env_word(string word) {
+        return word == "env" || word.has_suffix("/env");
+    }
+
+    /**
+     * The index of the program run by the env at words[env_index], or -1 if env itself is the
+     * program: nothing follows, or an option other than -u and --unset comes first
+     *
+     * The arguments are read in env's order: -u NAME and --unset=NAME, one optional --, then
+     * NAME=VALUE assignments. An assignment to PATH sets path_var, where the program is looked up.
+     */
+    private static int env_program_index(string[] words, int env_index, ref string ? path_var) {
+        int i = env_index + 1;
+        while (i < words.length && (words[i] == "-u" || words[i].has_prefix("--unset="))) {
+            if (words[i] == "-u" && i + 1 >= words.length)
+                return -1;
+            i += words[i] == "-u" ? 2 : 1;
+        }
+
+        // After -- or an assignment, a word starting with - is the program
+        bool options_done = false;
+        if (i < words.length && words[i] == "--") {
+            options_done = true;
+            i++;
+        }
+
+        while (i < words.length && "=" in words[i] && !words[i].has_prefix("-") && !words[i].has_prefix("=")) {
+            if (words[i].has_prefix("PATH="))
+                path_var = words[i].substring("PATH=".length);
+            options_done = true;
+            i++;
+        }
+
+        if (i >= words.length || (!options_done && words[i].has_prefix("-")))
+            return -1;
+        return i;
+    }
+
+    // A regular file, following links, that the user may execute
+    private static bool is_executable_file(string path) {
+        return FileUtils.test(path, FileTest.IS_REGULAR) && Posix.access(path, Posix.X_OK) == 0;
+    }
+
+    /**
+     * The files exec tries for a program, in order: an absolute path as it is, a bare name in
+     * each directory of path_var. A name with a slash that is not absolute gives none.
+     */
+    private static string[] executable_candidates(string program, string ? path_var) {
+        if ("/" in program)
+            return Path.is_absolute(program) ? new string[] { program } : new string[] {};
+
+        string[] candidates = {};
+        foreach (unowned string dir in (path_var ?? "/usr/bin:/bin").split(":")) {
+            if (dir.length == 0)
+                continue;
+            string candidate = dir.has_suffix("/") ? dir + program : dir + "/" + program;
+            if (!Path.is_absolute(candidate))
+                candidate = Path.build_filename(Environment.get_current_dir(), candidate);
+            candidates += candidate;
+        }
+        return candidates;
+    }
+
+    /**
+     * Where the program of a desktop app is, as the apps page shows it
+     */
+    public class ProgramLookup {
+        // The text the apps page shows
+        public string text { get; private set; }
+        // The executable file found, by the path it was found at (a link is not followed),
+        // or null when none was found
+        public string ? path { get; private set; }
+        // The files tried, in order, up to the one found: the result changes only when one of
+        // them, or a directory or link on the way to one, changes
+        public string[] candidates { get; private set; }
+
+        internal ProgramLookup(string text, string ? path = null, string[] candidates = {}) {
+            this.text = text;
+            this.path = path;
+            this.candidates = candidates;
+        }
+    }
+
+    /**
+     * Find the program a desktop file Exec value starts, as the apps page shows it
+     *
+     * The program is the first word of the value. env is unwrapped, and its PATH= assignments
+     * change where the program (or env itself, when it runs nothing) is looked up; other
+     * launchers are not unwrapped. An absolute path is taken as it is, a bare name is looked
+     * up as exec does. The text is the path found, followed by " → " and its canonical path
+     * when that file is a symbolic link, or the program word followed by " (not found)".
+     *
+     * @param exec The Exec value, as the key file gives it
+     * @param path_var The PATH to look bare program names up in
+     */
+    public static ProgramLookup lookup_exec_program(string exec, string ? path_var) {
+        var words = split_desktop_exec(exec);
+        if (words.length == 0)
+            return new ProgramLookup("");
+
+        int program_index = 0;
+        string ? search_path = path_var;
+        while (is_env_word(words[program_index])) {
+            int next = env_program_index(words, program_index, ref search_path);
+            if (next < 0)
+                break;
+            program_index = next;
+        }
+
+        unowned string program = words[program_index];
+        string[] tried = {};
+        foreach (unowned string candidate in executable_candidates(program, search_path)) {
+            tried += candidate;
+            if (!is_executable_file(candidate))
+                continue;
+
+            if (FileUtils.test(candidate, FileTest.IS_SYMLINK)) {
+                string ? target = Posix.realpath(candidate);
+                if (target != null)
+                    return new ProgramLookup(candidate + " → " + target, candidate, tried);
+            }
+            return new ProgramLookup(candidate, candidate, tried);
+        }
+        return new ProgramLookup(program + " (not found)", null, tried);
+    }
+
+    /**
+     * Find the program of a desktop app, as the apps page shows it, see lookup_exec_program()
+     *
+     * An app activated over D-Bus that has no Exec key shows "D-Bus: " and its desktop id.
+     */
+    public static ProgramLookup lookup_desktop_app_program(DesktopAppInfo app_info, string ? path_var) {
+        unowned string ? exec = app_info.get_commandline();
+        if (exec != null && exec.length > 0)
+            return lookup_exec_program(exec, path_var);
+
+        if (app_info.get_boolean("DBusActivatable")) {
+            string id = app_info.get_id() ?? Path.get_basename(app_info.get_filename() ?? "");
+            if (id.has_suffix(".desktop"))
+                id = id.substring(0, id.length - ".desktop".length);
+            return new ProgramLookup("D-Bus: " + id);
+        }
+        return new ProgramLookup("");
+    }
+
+    // Linux follows at most this many symbolic links in a path (MAXSYMLINKS)
+    private const int MAX_SYMLINK_HOPS = 40;
+
+    /**
+     * Add the directory entries an absolute path goes through to entries, which maps each
+     * directory to the names in it that the path depends on
+     *
+     * The path is followed as the kernel resolves it: each directory on the way holds the next
+     * component, and a symbolic link met on the way, the last component included, is followed
+     * to its target, whose entries are added as well. A ".." component goes up from where the
+     * links led. The walk ends at a component that does not exist or is not a directory: the
+     * entry for it is the one whose change can let the path go on.
+     */
+    public static void add_path_dependencies(string path, HashTable<string, GenericSet<string> > entries) {
+        if (!Path.is_absolute(path))
+            return;
+
+        // The components still to go through, the next one last
+        var pending = new GenericArray<string>();
+        push_components(pending, path);
+        string dir = "/";
+        int hops_left = MAX_SYMLINK_HOPS;
+        while (pending.length > 0) {
+            string name = pending[pending.length - 1];
+            pending.remove_index(pending.length - 1);
+            if (name == "" || name == ".")
+                continue;
+            if (name == "..") {
+                dir = Path.get_dirname(dir);
+                continue;
+            }
+
+            var names = entries.lookup(dir);
+            if (names == null) {
+                names = new GenericSet<string>(str_hash, str_equal);
+                entries.insert(dir, names);
+            }
+            names.add(name);
+
+            string entry = Path.build_filename(dir, name);
+            if (FileUtils.test(entry, FileTest.IS_SYMLINK)) {
+                if (hops_left-- == 0)
+                    return;
+                try {
+                    string target = FileUtils.read_link(entry);
+                    if (Path.is_absolute(target))
+                        dir = "/";
+                    push_components(pending, target);
+                } catch (FileError e) {
+                    return;
+                }
+                continue;
+            }
+            if (pending.length > 0 && !FileUtils.test(entry, FileTest.IS_DIR))
+                return;
+            dir = entry;
+        }
+    }
+
+    // Put the components of path before the ones in pending, which holds the next one last
+    private static void push_components(GenericArray<string> pending, string path) {
+        var components = path.split("/");
+        for (int i = components.length - 1; i >= 0; i--)
+            pending.add(components[i]);
+    }
+
+    /**
      * Build the command line that the commands page launches
      *
      * @param command A command line in shell syntax: a quoted path from the list, or the text typed by the user

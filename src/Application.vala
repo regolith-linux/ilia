@@ -55,6 +55,12 @@ namespace Ilia {
             return base.local_command_line(ref args, out exit_status);
         }
 
+        protected override void shutdown() {
+            // Text copied in ilia stays on the clipboard after it exits
+            ClipboardKeeper.keep_after_exit();
+            base.shutdown();
+        }
+
         protected override void activate() {
             // Until GTK has e6372d29; see KeyListenerGuard.vala
             KeyListenerGuard.install();

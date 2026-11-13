@@ -33,6 +33,8 @@ ilia -p keybindings
 Ilia searches the system-configured `$XDG_DATA_DIRS` with `applications` applied at the end of each path for desktop application files.
 For example, if your system has `$HOME/.local/share` in the set of paths in `$XDG_DATA_DIRS`, the path `$HOME/.local/share/applications/` will be searched for desktop app files.
 
+A line under the list shows where the highlighted app's program is on disk, as its `Exec` line finds it on `PATH` (through `env`, with the target of a symbolic link after `→`). Ctrl+Shift+C copies that path, and the copy stays on the clipboard after ilia closes. The line has the style class `app_path`.
+
 ### Text List
 
 The `textlist` page is a bit different than the others pages.

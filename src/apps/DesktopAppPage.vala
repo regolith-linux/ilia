@@ -62,6 +62,13 @@ namespace Ilia {
 
         private Gtk.Widget root_widget;
 
+        // One line under the list naming the program of the highlighted app
+        private Gtk.Label program_label;
+        // The program the label shows, null when no row is highlighted
+        private ProgramLookup ? program = null;
+        // Works the label out again when the files it was worked out from change
+        private PathWatcher program_watcher;
+
         private Gtk.TreePath path;
 
         // The desktop files, enumerated on a worker thread started as early as possible so that
@@ -125,6 +132,7 @@ namespace Ilia {
 
             keybindings.set("enter", "Launch Application");
             keybindings.set("ctrl+delete", "Hide Application");
+            keybindings.set("ctrl+shift+c", "Copy Program Path");
 
             return keybindings;
         }
@@ -155,7 +163,25 @@ namespace Ilia {
             scrolled.add(item_view);
             scrolled.expand = true;
 
-            root_widget = scrolled;
+            program_label = new Gtk.Label(null);
+            program_label.get_style_context().add_class("app_path");
+            program_label.can_focus = false;
+            program_label.single_line_mode = true;
+            // Keep the end of the path, the program's file name, in view
+            program_label.ellipsize = Pango.EllipsizeMode.MIDDLE;
+            program_label.xalign = 0;
+
+            var page_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+            page_box.pack_start(scrolled, true, true, 0);
+            page_box.pack_start(program_label, false, false, 0);
+            root_widget = page_box;
+
+            program_watcher = new PathWatcher();
+            program_watcher.changed.connect(update_program_label);
+            program_label.destroy.connect(() => program_watcher.stop());
+
+            // The selection changes by the keys GTK handles, the Ctrl keys, filtering and the list arriving
+            item_view.get_selection().changed.connect(update_program_label);
 
             // Keys can arrive before the list does: the navigation handler needs a path
             set_selection();
@@ -192,6 +218,10 @@ namespace Ilia {
             if (key.keyval == Gdk.Key.Delete && (key.state & Gdk.ModifierType.CONTROL_MASK) != 0) {
                 // Taken whether or not a row is highlighted: it never edits the filter here
                 hide_selected_app();
+                return true;
+            }
+            if (is_copy_program_path_key(key)) {
+                copy_program_path();
                 return true;
             }
             return handle_emacs_vim_nav(item_view, path, key);
@@ -233,6 +263,18 @@ namespace Ilia {
             }
         }
 
+        private static bool is_copy_program_path_key(Gdk.EventKey key) {
+            var modifiers = key.state & Gtk.accelerator_get_default_mod_mask();
+            return modifiers == (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK) && Gdk.keyval_to_lower(key.keyval) == Gdk.Key.c;
+        }
+
+        // Copy the path of the program shown, without the target of a link. When no program was
+        // found, nothing is copied and the clipboard keeps what it holds.
+        private void copy_program_path() {
+            if (program != null && program.path != null)
+                ClipboardKeeper.copy(item_view.get_display(), program.path);
+        }
+
         // Highlight the first row: the best match for the text typed
         private void set_selection() {
             item_view.get_selection().set_mode(SelectionMode.SINGLE);
@@ -244,6 +286,27 @@ namespace Ilia {
         public void show() {
             item_view.grab_focus ();
             debug("DesktopAppPage ready to accept keystrokes (%.3f seconds since app start)", app_timer.elapsed());
+        }
+
+        // Show the program of the highlighted app, or nothing when no row is highlighted, and
+        // watch the files it was found from
+        private void update_program_label() {
+            Gtk.TreeModel selected_model;
+            Gtk.TreeIter selected;
+            if (item_view.get_selection().get_selected(out selected_model, out selected)) {
+                DesktopAppInfo app_info;
+                selected_model.@get(selected, ITEM_VIEW_COLUMN_APPINFO, out app_info);
+                program = lookup_desktop_app_program(app_info, Environment.get_variable("PATH"));
+                program_watcher.watch(program.candidates);
+            } else {
+                program = null;
+                program_watcher.stop();
+            }
+
+            // Only a different text is news to assistive technology
+            string text = program?.text ?? "";
+            if (program_label.get_text() != text)
+                program_label.set_text(text);
         }
 
         // Initialize the view displaying selections

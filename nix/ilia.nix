@@ -15,6 +15,9 @@
 , tinysparql
 , uncrustify
 , vala
+, wayland
+, wayland-protocols
+, wayland-scanner
 , wrapGAppsHook3
 , xorg
 }:
@@ -31,6 +34,7 @@ stdenv.mkDerivation {
     pkg-config
     uncrustify
     vala
+    wayland-scanner
     wrapGAppsHook3 # wraps the executable to register gsettings-schemas files
   ];
   buildInputs = [
@@ -42,6 +46,8 @@ stdenv.mkDerivation {
     libgee
     tinysparql
     xorg.libXtst
+    wayland
+    wayland-protocols
   ];
   meta = {
     homepage = "https://github.com/regolith-linux/ilia?tab=readme-ov-file";

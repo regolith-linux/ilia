@@ -3,11 +3,14 @@ using Gtk;
 namespace Ilia {
     class DesktopAppPage : DialogPage, GLib.Object {
         private static GLib.Timer app_timer;
-        private const int ITEM_VIEW_COLUMNS = 4;
+        private const int ITEM_VIEW_COLUMNS = 5;
         private const int ITEM_VIEW_COLUMN_ICON = 0;
         private const int ITEM_VIEW_COLUMN_NAME = 1;
         private const int ITEM_VIEW_COLUMN_MATCH = 2;
         private const int ITEM_VIEW_COLUMN_APPINFO = 3;
+        private const int ITEM_VIEW_COLUMN_FAVORITE = 4;
+        // The text of the favourite column in the row of a favourite
+        private const string FAVORITE_MARKER = "★";
 
         // Number of past launches to store (to determine sort rank)
         private const uint HISTORY_MAX_LEN = 32;
@@ -56,6 +59,12 @@ namespace Ilia {
         // The fields of an app that filtering uses: the name and those in match-fields
         private AppField match_fields;
 
+        // The place of each favourite in favorite-apps
+        private HashTable<string, int> favorite_ranks;
+
+        // The window manager, which a launch on a new workspace asks to switch
+        private string wm_name;
+
         // The filter text the rows were last ranked for, and its words
         private string ? ranked_text = null;
         private string[] ranked_words = {};
@@ -76,6 +85,8 @@ namespace Ilia {
         private bool apps_loaded = false;
         // Enter was pressed before the list arrived: launch the best match once it has
         private bool activate_when_loaded = false;
+        // That Enter was Ctrl+Enter: launch on a new workspace
+        private bool new_workspace_when_loaded = false;
 
         public static void prefetch_apps() {
             if (prefetch_started) return;
@@ -125,6 +136,10 @@ namespace Ilia {
 
             keybindings.set("enter", "Launch Application");
             keybindings.set("ctrl+delete", "Hide Application");
+            keybindings.set("ctrl+f", "Add or Remove Favorite");
+            keybindings.set("alt+up", "Move Favorite Up");
+            keybindings.set("alt+down", "Move Favorite Down");
+            keybindings.set("ctrl+enter", "Launch on a New Workspace");
 
             return keybindings;
         }
@@ -135,6 +150,7 @@ namespace Ilia {
             this.settings = settings;
             this.entry = entry;
             this.session_controller = sessionController;
+            this.wm_name = wm_name;
 
             launch_history = settings.get_strv("app-launch-counts");
             launch_counts = load_launch_counts(launch_history);
@@ -142,8 +158,11 @@ namespace Ilia {
             fuzzy_matching = settings.get_boolean("fuzzy-matching");
             hidden_apps = settings.get_strv("hidden-apps");
             match_fields = AppField.NAME | AppField.from_names(settings.get_strv("match-fields"));
+            favorite_ranks = rank_favorites(settings.get_strv("favorite-apps"));
+            // Changes by other programs, and the page's own: its keys only write the setting
+            settings.changed["favorite-apps"].connect(on_favorites_changed);
 
-            model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (AppMatch), typeof (DesktopAppInfo));
+            model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (Gdk.Pixbuf), typeof (string), typeof (AppMatch), typeof (DesktopAppInfo), typeof (string));
 
             filter = new Gtk.TreeModelFilter(model, null);
             filter.set_visible_func(filter_func);
@@ -170,7 +189,9 @@ namespace Ilia {
 
             set_selection();
             apps_loaded = true;
-            if (activate_when_loaded)
+            if (activate_when_loaded && new_workspace_when_loaded)
+                launch_selected_on_new_workspace();
+            else if (activate_when_loaded)
                 on_entry_activated();
 
             // Load app icons once the list is on screen. The model must only be
@@ -185,6 +206,16 @@ namespace Ilia {
         }
 
         public bool key_event(Gdk.EventKey key) {
+            if (is_enter_key(key.keyval) && only_control(key)) {
+                // Taken here, or the list would launch the app as for Enter
+                if (apps_loaded) {
+                    launch_selected_on_new_workspace();
+                } else {
+                    activate_when_loaded = true;
+                    new_workspace_when_loaded = true;
+                }
+                return true;
+            }
             if (!apps_loaded && is_enter_key(key.keyval)) {
                 activate_when_loaded = true;
                 return true;
@@ -194,7 +225,134 @@ namespace Ilia {
                 hide_selected_app();
                 return true;
             }
+            if (is_favorite_key(key)) {
+                toggle_selected_favorite();
+                return true;
+            }
+            if ((key.keyval == Gdk.Key.Up || key.keyval == Gdk.Key.Down) && only_alt(key)) {
+                // Taken even when the favourite cannot move, so that the selection does not move instead
+                move_selected_favorite(key.keyval == Gdk.Key.Up);
+                return true;
+            }
             return handle_emacs_vim_nav(item_view, path, key);
+        }
+
+        // Ctrl+f is ilia's on this page, also when i3 binds it
+        public bool owns_key(Gdk.EventKey key) {
+            return is_favorite_key(key);
+        }
+
+        // Ctrl+f, which pins or unpins the highlighted app
+        private static bool is_favorite_key(Gdk.EventKey key) {
+            return (key.keyval == Gdk.Key.f || key.keyval == Gdk.Key.F) && only_control(key);
+        }
+
+        // Control held, without Alt or Super
+        private static bool only_control(Gdk.EventKey key) {
+            return (key.state & Gdk.ModifierType.CONTROL_MASK) != 0
+                   && (key.state & (Gdk.ModifierType.MOD1_MASK | Gdk.ModifierType.SUPER_MASK)) == 0;
+        }
+
+        // Alt held, without Control or Super
+        private static bool only_alt(Gdk.EventKey key) {
+            return (key.state & Gdk.ModifierType.MOD1_MASK) != 0
+                   && (key.state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SUPER_MASK)) == 0;
+        }
+
+        // The desktop id of the highlighted app, or null when no row is highlighted
+        private string ? selected_app_id() {
+            Gtk.TreeModel selected_model;
+            Gtk.TreeIter selected;
+            if (!item_view.get_selection().get_selected(out selected_model, out selected))
+                return null;
+
+            AppMatch match;
+            filter.@get(selected, ITEM_VIEW_COLUMN_MATCH, out match);
+            return match.id;
+        }
+
+        /**
+         * Pin the highlighted app, or unpin it when it is a favourite. The favourites are read
+         * as they are stored now, so changes other programs made since the page opened are kept.
+         */
+        private void toggle_selected_favorite() {
+            string ? id = selected_app_id();
+            if (id == null)
+                return;
+
+            settings.set_strv("favorite-apps", toggle_favorite(settings.get_strv("favorite-apps"), id));
+            GLib.Settings.sync();
+        }
+
+        /**
+         * Move the highlighted favourite before the favourite shown above it, or after the one
+         * shown below it, as stored now. Nothing moves while the filter holds words, which may
+         * leave out favourites between the two; nor when the highlighted app is no favourite, or
+         * no favourite is shown on that side of it.
+         */
+        private void move_selected_favorite(bool up) {
+            Gtk.TreeModel selected_model;
+            Gtk.TreeIter selected;
+            if (!item_view.get_selection().get_selected(out selected_model, out selected) || ranked_words.length > 0)
+                return;
+
+            // Without words the favourites come first, so the neighbouring favourite is the neighbouring row
+            Gtk.TreeIter neighbor = selected;
+            if (!(up ? filter.iter_previous(ref neighbor) : filter.iter_next(ref neighbor)))
+                return;
+            AppMatch match;
+            filter.@get(selected, ITEM_VIEW_COLUMN_MATCH, out match);
+            AppMatch neighbor_match;
+            filter.@get(neighbor, ITEM_VIEW_COLUMN_MATCH, out neighbor_match);
+            if (!favorite_ranks.contains(match.id) || !favorite_ranks.contains(neighbor_match.id))
+                return;
+
+            settings.set_strv("favorite-apps", move_favorite(settings.get_strv("favorite-apps"), match.id, neighbor_match.id, up));
+            GLib.Settings.sync();
+        }
+
+        /**
+         * Mark and order the rows for favorite-apps as it is now, whoever changed it. The
+         * highlighted app stays highlighted.
+         */
+        private void on_favorites_changed() {
+            favorite_ranks = rank_favorites(settings.get_strv("favorite-apps"));
+            // Rows read later are marked as they are added
+            if (!apps_loaded)
+                return;
+
+            string ? selected_id = selected_app_id();
+            // A changed row of a sorted store moves at once: leave the rows in place until all are marked
+            model.set_sort_column_id(Gtk.SortColumn.UNSORTED, SortType.ASCENDING);
+            Gtk.TreeIter row_iter;
+            for (bool next = model.get_iter_first(out row_iter); next; next = model.iter_next(ref row_iter)) {
+                AppMatch match;
+                model.@get(row_iter, ITEM_VIEW_COLUMN_MATCH, out match);
+                model.set(row_iter, ITEM_VIEW_COLUMN_FAVORITE, favorite_marker(match.id));
+            }
+            model.set_sort_column_id(1, SortType.ASCENDING);
+
+            if (selected_id != null)
+                select_app(selected_id);
+        }
+
+        // The text of the favourite column for an app
+        private string favorite_marker(string id) {
+            return favorite_ranks.contains(id) ? FAVORITE_MARKER : "";
+        }
+
+        // Highlight the row of an app, if it is shown
+        private void select_app(string id) {
+            Gtk.TreeIter row_iter;
+            for (bool next = filter.get_iter_first(out row_iter); next; next = filter.iter_next(ref row_iter)) {
+                AppMatch match;
+                filter.@get(row_iter, ITEM_VIEW_COLUMN_MATCH, out match);
+                if (match.id == id) {
+                    move_path_to(path, filter.get_path(row_iter));
+                    item_view.set_cursor(path, null, false);
+                    return;
+                }
+            }
         }
 
         /**
@@ -263,6 +421,7 @@ namespace Ilia {
             if (icon_size > 0)
                 item_view.insert_column_with_attributes(-1, "Icon", new CellRendererPixbuf(), "pixbuf", ITEM_VIEW_COLUMN_ICON);
             item_view.insert_column_with_attributes(-1, "Name", new CellRendererText(), "text", ITEM_VIEW_COLUMN_NAME);
+            item_view.insert_column_with_attributes(-1, "Favorite", new CellRendererText(), "text", ITEM_VIEW_COLUMN_FAVORITE);
 
             // Launch app on one click
             item_view.set_activate_on_single_click(true);
@@ -321,8 +480,9 @@ namespace Ilia {
         /**
          * Sort function for the application list
          *
-         * With a filter, rows go by the tiers of compare_app_matches(); without one, by
-         * the testable compare_desktop_apps utility function
+         * With a filter, rows go by the tiers of compare_app_matches(), favourites first in
+         * each; without one, favourites first and then the rest by the testable
+         * compare_desktop_apps utility function
          */
         private int app_sort_func(TreeModel model, TreeIter a, TreeIter b) {
             rank_rows();
@@ -333,7 +493,7 @@ namespace Ilia {
                 AppMatch match_b;
                 model.@get(b, ITEM_VIEW_COLUMN_MATCH, out match_b);
                 if (match_a != null && match_b != null)
-                    return compare_app_matches(match_a, match_b, launch_counts);
+                    return compare_app_matches(match_a, match_b, launch_counts, favorite_ranks);
             }
 
             string query_string = entry.get_text().down();
@@ -348,6 +508,10 @@ namespace Ilia {
 
             var app_a_id = app_a.get_id();
             var app_b_id = app_b.get_id();
+
+            int by_favorite = compare_favorites(app_a_id, app_b_id, favorite_ranks);
+            if (by_favorite != 0)
+                return by_favorite;
 
             return compare_desktop_apps(
                 app_a_name,
@@ -424,14 +588,16 @@ namespace Ilia {
                         ITEM_VIEW_COLUMN_ICON, icon_img,
                         ITEM_VIEW_COLUMN_NAME, app_info.get_name(),
                         ITEM_VIEW_COLUMN_MATCH, match,
-                        ITEM_VIEW_COLUMN_APPINFO, app_info
+                        ITEM_VIEW_COLUMN_APPINFO, app_info,
+                        ITEM_VIEW_COLUMN_FAVORITE, favorite_marker(match.id)
                     );
                 else
                     model.set(
                         iter,
                         ITEM_VIEW_COLUMN_NAME, app_info.get_name(),
                         ITEM_VIEW_COLUMN_MATCH, match,
-                        ITEM_VIEW_COLUMN_APPINFO, app_info
+                        ITEM_VIEW_COLUMN_APPINFO, app_info,
+                        ITEM_VIEW_COLUMN_FAVORITE, favorite_marker(match.id)
                     );
             }
         }
@@ -510,7 +676,60 @@ namespace Ilia {
 
             DesktopAppInfo app_info;
             filter.@get(selection, ITEM_VIEW_COLUMN_APPINFO, out app_info);
+            start_app(app_info);
+        }
 
+        /**
+         * Launch the highlighted app on the next free workspace, at most once. Nothing happens
+         * when no row is highlighted.
+         */
+        private void launch_selected_on_new_workspace() {
+            Gtk.TreeModel selected_model;
+            Gtk.TreeIter selected;
+            if (!item_view.get_selection().get_selected(out selected_model, out selected) || launching)
+                return;
+            launching = true;
+
+            DesktopAppInfo app_info;
+            filter.@get(selected, ITEM_VIEW_COLUMN_APPINFO, out app_info);
+            launch_on_new_workspace.begin(app_info);
+        }
+
+        /**
+         * Switch to the next free workspace, which the switch creates, and then start the app
+         * there as Enter does. The workspace gets the name its wm.workspace.NN.name resource
+         * gives it; under sway the resources are the ones trawl serves, elsewhere those of the
+         * X resource database.
+         */
+        private async void launch_on_new_workspace(DesktopAppInfo app_info) {
+            // Read first: no other window manager request may come between finding the free
+            // number and switching to it
+            HashTable<string, string> ? trawl_resources = null;
+            if (wm_name == "sway")
+                trawl_resources = yield read_trawl_resources();
+
+            try {
+                var ipc = new IPCClient(wm_name);
+                int[] taken = {};
+                foreach (var workspace in ipc.getWorkspaces())
+                    taken += workspace.num;
+                int number = next_free_workspace_number(taken);
+
+                string resource = workspace_name_resource(number);
+                string ? name = trawl_resources != null ? trawl_resources.get(resource) : read_x_resource(item_view.get_display(), resource);
+                if (name == null || name == "")
+                    name = number.to_string();
+
+                // The window manager answers once it has switched, so the app opens there
+                ipc.runCommand("workspace number " + quote_workspace_name(name, wm_name));
+            } catch (GLib.Error e) {
+                stderr.printf("Failed to switch to a new workspace: %s\n", e.message);
+            }
+            start_app(app_info);
+        }
+
+        // Start a desktop app as its desktop entry says, record the launch and close
+        private void start_app(DesktopAppInfo app_info) {
             string ? bus_name = get_dbus_activation_name(app_info);
             if (bus_name != null) {
                 activate_app.begin(app_info, bus_name);
@@ -543,6 +762,10 @@ namespace Ilia {
          * org.freedesktop.Application interface, as the Desktop Entry Specification describes
          */
         private async void activate_app(DesktopAppInfo app_info, string bus_name) {
+            // Keep running until the app answers, also once the window has closed on losing the
+            // focus, as it does when the launch has switched the workspace
+            var application = GLib.Application.get_default();
+            application.hold();
             try {
                 var bus = yield Bus.get(BusType.SESSION);
 
@@ -567,6 +790,7 @@ namespace Ilia {
                 stderr.printf("Failed to activate %s: %s\n", app_info.get_name(), e.message);
             }
             session_controller.quit();
+            application.release();
         }
 
         // Record a launch, for the sort order

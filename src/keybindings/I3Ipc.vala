@@ -59,6 +59,18 @@ namespace Ilia {
         }
     }
 
+    // https://i3wm.org/docs/ipc.html#_workspaces_reply
+    public class WorkspaceReply {
+        public string name { get; private set; }
+        // The number the name starts with, or -1 when it starts with none
+        public int num { get; private set; }
+
+        internal WorkspaceReply (Json.Object responseJson) {
+            name = responseJson.get_string_member_with_default("name", "");
+            num = (int) responseJson.get_int_member_with_default("num", -1);
+        }
+    }
+
     /**
      * The variables of an i3 configuration, defined as i3 defines them when no resource
      * is set. i3 first reads the set and set_from_resource lines of a file, the last
@@ -559,6 +571,23 @@ namespace Ilia {
                 throw new WM_ERROR.RPC_ERROR("No Response");
 
             return new TreeReply(response);
+        }
+
+        /**
+         * The workspaces the window manager has, on every output, in the order it gives them
+         */
+        public WorkspaceReply[] getWorkspaces() throws WM_ERROR, GLib.Error {
+            var response = wm_ipc(WM_COMMAND.GET_WORKSPACES);
+
+            if (response == null || response.get_node_type() != Json.NodeType.ARRAY)
+                throw new WM_ERROR.RPC_ERROR("No Response");
+
+            WorkspaceReply[] workspaces = {};
+            foreach (unowned Json.Node workspace in response.get_array().get_elements()) {
+                if (workspace.get_node_type() == Json.NodeType.OBJECT)
+                    workspaces += new WorkspaceReply(workspace.get_object());
+            }
+            return workspaces;
         }
 
         /**

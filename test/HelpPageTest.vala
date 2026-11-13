@@ -45,12 +45,35 @@ void test_plain_page_name() {
     assert (Ilia.HelpPage.plain_page_name("a < b") == "a < b");
 }
 
+// --no-help leaves the help page out whatever the show-help key says; the key alone can too
+void test_is_wanted() {
+    var no_options = new HashTable<string, string ?>(str_hash, str_equal);
+    no_options.set("cmd", "ilia");
+    assert (Ilia.HelpPage.is_wanted(no_options, true));
+    assert (!Ilia.HelpPage.is_wanted(no_options, false));
+
+    var no_help = new HashTable<string, string ?>(str_hash, str_equal);
+    no_help.set("cmd", "ilia");
+    no_help.set("-a", null);
+    no_help.set("--no-help", null);
+    assert (!Ilia.HelpPage.is_wanted(no_help, true));
+    assert (!Ilia.HelpPage.is_wanted(no_help, false));
+
+    // Other options, -n among them, do not hide it
+    var other = new HashTable<string, string ?>(str_hash, str_equal);
+    other.set("cmd", "ilia");
+    other.set("-n", null);
+    other.set("-p", "apps");
+    assert (Ilia.HelpPage.is_wanted(other, true));
+}
+
 public int main(string[] args) {
     Test.init(ref args);
 
     Test.add_func("/help_page/rows", test_rows);
     Test.add_func("/help_page/rows_without_page_keys", test_rows_without_page_keys);
     Test.add_func("/help_page/plain_page_name", test_plain_page_name);
+    Test.add_func("/help_page/is_wanted", test_is_wanted);
 
     return Test.run();
 }

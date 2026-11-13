@@ -221,10 +221,11 @@ namespace Ilia {
         }
 
         void print_help_and_exit() {
-            stdout.printf("Usage: ilia [-t stylesheet] [-n] [-a] [-p page]\n");
+            stdout.printf("Usage: ilia [-t stylesheet] [-n] [-a] [--no-help] [-p page]\n");
             stdout.printf("\n\t-t: specify path to custom stylesheet.\n");
             stdout.printf("\n\t-n: no custom styles\n");
             stdout.printf("\n\t-a: load all pages\n");
+            stdout.printf("\n\t--no-help: no help page, and no tabs when a single page is shown\n");
             stdout.printf("\npages:\n");
             stdout.printf("\t'apps' - launch desktop applications (default)\n");
             stdout.printf("\t'terminal' - launch a terminal command\n");

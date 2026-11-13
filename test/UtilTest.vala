@@ -431,6 +431,90 @@ public void test_clamp_path_to_rows() {
     assert (path.to_string() == "1");
 }
 
+public void test_favorite_lists() {
+    string[] stored = { "b.desktop", "gone.desktop", "a.desktop", "b.desktop", "c.desktop" };
+
+    // Each id once, at its first place; ids of apps that are not shown stay
+    assert (string.joinv(",", Ilia.unique_favorites(stored)) == "b.desktop,gone.desktop,a.desktop,c.desktop");
+    var ranks = Ilia.rank_favorites(stored);
+    assert (ranks.get("b.desktop") == 0 && ranks.get("a.desktop") == 2 && ranks.get("c.desktop") == 4);
+    assert (!ranks.contains("d.desktop"));
+
+    // Pinning adds the id at the end; unpinning takes out every entry of it
+    assert (string.joinv(",", Ilia.toggle_favorite(stored, "d.desktop")) == "b.desktop,gone.desktop,a.desktop,c.desktop,d.desktop");
+    assert (string.joinv(",", Ilia.toggle_favorite(stored, "b.desktop")) == "gone.desktop,a.desktop,c.desktop");
+    assert (string.joinv(",", Ilia.toggle_favorite(new string[] {}, "a.desktop")) == "a.desktop");
+    assert (Ilia.toggle_favorite({ "a.desktop", "a.desktop" }, "a.desktop").length == 0);
+
+    // Moving places the id directly before or after the other, and leaves the rest in order
+    assert (string.joinv(",", Ilia.move_favorite(stored, "c.desktop", "a.desktop", true)) == "b.desktop,gone.desktop,c.desktop,a.desktop");
+    assert (string.joinv(",", Ilia.move_favorite(stored, "b.desktop", "a.desktop", false)) == "gone.desktop,a.desktop,b.desktop,c.desktop");
+    assert (string.joinv(",", Ilia.move_favorite(stored, "a.desktop", "b.desktop", true)) == "a.desktop,b.desktop,gone.desktop,c.desktop");
+    assert (string.joinv(",", Ilia.move_favorite(stored, "a.desktop", "c.desktop", false)) == "b.desktop,gone.desktop,c.desktop,a.desktop");
+    // An id that is not listed moves nothing
+    assert (string.joinv(",", Ilia.move_favorite(stored, "x.desktop", "a.desktop", true)) == "b.desktop,gone.desktop,a.desktop,c.desktop");
+    assert (string.joinv(",", Ilia.move_favorite(stored, "a.desktop", "x.desktop", false)) == "b.desktop,gone.desktop,a.desktop,c.desktop");
+}
+
+public void test_compare_favorites() {
+    var ranks = Ilia.rank_favorites({ "z.desktop", "code.desktop", "firefox.desktop" });
+    assert (Ilia.compare_favorites("code.desktop", "other.desktop", ranks) < 0);
+    assert (Ilia.compare_favorites("other.desktop", "code.desktop", ranks) > 0);
+    assert (Ilia.compare_favorites("code.desktop", "z.desktop", ranks) > 0);
+    assert (Ilia.compare_favorites("code.desktop", "code.desktop", ranks) == 0);
+    assert (Ilia.compare_favorites("a.desktop", "b.desktop", ranks) == 0);
+
+    var counts = new GLib.HashTable<string, int>(GLib.str_hash, GLib.str_equal);
+    counts.insert("codec.desktop", 5);
+    var code = ranked_app("code.desktop", "Code Editor", null, "", "co");
+    var codec = ranked_app("codec.desktop", "Codec Tool", null, "", "co");
+    var z = ranked_app("z.desktop", "Copy Zone", null, "", "co");
+    // Inside a tier favourites come first, in stored order, whatever the launches
+    assert (Ilia.compare_app_matches(code, codec, counts) > 0);
+    assert (Ilia.compare_app_matches(code, codec, counts, ranks) < 0);
+    assert (Ilia.compare_app_matches(z, code, counts, ranks) < 0);
+    // The tiers come first: a favourite matched through a keyword stays after a name match
+    var firefox = ranked_app("firefox.desktop", "Firefox", null, "code", "code");
+    var barcode = ranked_app("barcode.desktop", "Barcode Reader", null, "", "code");
+    assert (Ilia.compare_app_matches(firefox, barcode, counts, ranks) > 0);
+    // Subsequence matches too: a favourite before a shorter span
+    var short_span = ranked_app("short.desktop", "Ffax Tool", null, "", "ffx", true);
+    var long_span = ranked_app("firefox.desktop", "Firefox", null, "", "ffx", true);
+    assert (Ilia.compare_app_matches(long_span, short_span, counts, ranks) < 0);
+}
+
+public void test_next_free_workspace_number() {
+    assert (Ilia.next_free_workspace_number(new int[] {}) == 1);
+    // Workspaces whose names start with no number have -1
+    assert (Ilia.next_free_workspace_number({ 1, 2, -1 }) == 3);
+    assert (Ilia.next_free_workspace_number({ 2, 2, 3 }) == 1);
+    assert (Ilia.next_free_workspace_number({ 3, 1 }) == 2);
+    assert (Ilia.next_free_workspace_number({ 1, 2, 3, 4, 5, 6, 7, 8, 9 }) == 10);
+}
+
+public void test_workspace_names() {
+    assert (Ilia.workspace_name_resource(3) == "wm.workspace.03.name");
+    assert (Ilia.workspace_name_resource(10) == "wm.workspace.10.name");
+    assert (Ilia.workspace_name_resource(123) == "wm.workspace.123.name");
+
+    // i3 takes escapes inside double quotes; sway keeps them, so it gets single quotes
+    assert (Ilia.quote_workspace_name("3: web", "i3") == "\"3: web\"");
+    assert (Ilia.quote_workspace_name("3: say \"hi\"", "i3") == "\"3: say \\\"hi\\\"\"");
+    assert (Ilia.quote_workspace_name("3: a\\b", "i3") == "\"3: a\\\\b\"");
+    assert (Ilia.quote_workspace_name("3: it's", "sway") == "\"3: it's\"");
+    assert (Ilia.quote_workspace_name("3: say \"hi\"", "sway") == "'3: say \"hi\"'");
+}
+
+public void test_lookup_x_resource() {
+    string database = "wm.workspace.03.name:\t3: Web \"main\"\n*workspace.04.name:\t4\\\\x\nwm.workspace.05.name:\n";
+    assert (Ilia.lookup_x_resource(database, "wm.workspace.03.name") == "3: Web \"main\"");
+    // Loose bindings and escapes work as Xlib reads them
+    assert (Ilia.lookup_x_resource(database, "wm.workspace.04.name") == "4\\x");
+    assert (Ilia.lookup_x_resource(database, "wm.workspace.05.name") == "");
+    assert (Ilia.lookup_x_resource(database, "wm.workspace.06.name") == null);
+    assert (Ilia.lookup_x_resource(null, "wm.workspace.03.name") == null);
+}
+
 public int main (string[] args) {
     Test.init (ref args);
 
@@ -451,6 +535,11 @@ public int main (string[] args) {
     Test.add_func ("/test_command_dirs", test_command_dirs);
     Test.add_func ("/test_move_path_to", test_move_path_to);
     Test.add_func ("/test_clamp_path_to_rows", test_clamp_path_to_rows);
+    Test.add_func ("/test_favorite_lists", test_favorite_lists);
+    Test.add_func ("/test_compare_favorites", test_compare_favorites);
+    Test.add_func ("/test_next_free_workspace_number", test_next_free_workspace_number);
+    Test.add_func ("/test_workspace_names", test_workspace_names);
+    Test.add_func ("/test_lookup_x_resource", test_lookup_x_resource);
 
     return Test.run ();
 }

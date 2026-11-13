@@ -807,15 +807,23 @@ namespace Ilia {
     /**
      * Order two apps ranked for the same, non-empty filter
      *
-     * Lower tiers first. Inside a tier the app launched more often comes first, except
-     * that subsequence matches go by span first; then the folded names in code-point
-     * order, then the desktop ids.
+     * Lower tiers first. Inside a tier favourites come first, in their stored order; then
+     * the app launched more often, except that subsequence matches go by span first; then
+     * the folded names in code-point order, then the desktop ids.
      *
+     * @param favorite_ranks The favourites' places, from rank_favorites(), or null for none
      * @return a negative value if a comes first, a positive one if b does, 0 if equal
      */
-    public static int compare_app_matches(AppMatch a, AppMatch b, HashTable<string, int> launch_counts) {
+    public static int compare_app_matches(AppMatch a, AppMatch b, HashTable<string, int> launch_counts,
+                                          HashTable<string, int> ? favorite_ranks = null) {
         if (a.tier != b.tier)
             return a.tier < b.tier ? -1 : 1;
+
+        if (favorite_ranks != null) {
+            int by_favorite = compare_favorites(a.id, b.id, favorite_ranks);
+            if (by_favorite != 0)
+                return by_favorite;
+        }
 
         if (a.tier == AppTier.SUBSEQUENCE && a.span != b.span)
             return a.span < b.span ? -1 : 1;
@@ -831,6 +839,193 @@ namespace Ilia {
 
         int by_id = strcmp(a.id, b.id);
         return by_id < 0 ? -1 : (by_id > 0 ? 1 : 0);
+    }
+
+    /**
+     * The place of each desktop id in the favorite-apps list, counted from 0; an id
+     * listed more than once has the place of its first entry
+     */
+    public static HashTable<string, int> rank_favorites(string[] favorites) {
+        var ranks = new HashTable<string, int>(str_hash, str_equal);
+        for (int i = 0; i < favorites.length; ++i) {
+            if (!ranks.contains(favorites[i]))
+                ranks.insert(favorites[i], i);
+        }
+        return ranks;
+    }
+
+    /**
+     * Order two desktop ids as favourites: a favourite before an app that is not one,
+     * and favourites in their stored order
+     *
+     * @param favorite_ranks The favourites' places, from rank_favorites()
+     * @return a negative value if a comes first, a positive one if b does, 0 if neither
+     *         is a favourite or both are the same one
+     */
+    public static int compare_favorites(string a_id, string b_id, HashTable<string, int> favorite_ranks) {
+        bool a_favorite = favorite_ranks.contains(a_id);
+        bool b_favorite = favorite_ranks.contains(b_id);
+        if (a_favorite != b_favorite)
+            return a_favorite ? -1 : 1;
+        if (!a_favorite)
+            return 0;
+
+        int a_rank = favorite_ranks.get(a_id);
+        int b_rank = favorite_ranks.get(b_id);
+        return a_rank < b_rank ? -1 : (a_rank > b_rank ? 1 : 0);
+    }
+
+    /**
+     * The favorite-apps list with each desktop id once, at the place of its first entry;
+     * the ids keep their order, including those of apps that are not shown
+     */
+    public static string[] unique_favorites(string[] favorites) {
+        var ranks = rank_favorites(favorites);
+        string[] unique = {};
+        for (int i = 0; i < favorites.length; ++i) {
+            if (ranks.get(favorites[i]) == i)
+                unique += favorites[i];
+        }
+        return unique;
+    }
+
+    /**
+     * The favorite-apps list after pinning or unpinning an app: an id that is listed
+     * leaves the list, every entry of it, and one that is not is added at the end
+     *
+     * @return the new list, with each id once, as unique_favorites() gives it
+     */
+    public static string[] toggle_favorite(string[] favorites, string id) {
+        string[] toggled = {};
+        foreach (unowned string favorite in unique_favorites(favorites)) {
+            if (favorite != id)
+                toggled += favorite;
+        }
+        if (!(id in favorites))
+            toggled += id;
+        return toggled;
+    }
+
+    /**
+     * The favorite-apps list after moving a favourite next to another: directly before
+     * it, or directly after it
+     *
+     * @param before True to place id before neighbor, false to place it after
+     * @return the new list, with each id once as unique_favorites() gives it, and the
+     *         other ids in their order; that list unchanged if either id is not listed
+     */
+    public static string[] move_favorite(string[] favorites, string id, string neighbor, bool before) {
+        string[] unique = unique_favorites(favorites);
+        if (!(id in unique) || !(neighbor in unique) || id == neighbor)
+            return unique;
+
+        string[] moved = {};
+        foreach (unowned string favorite in unique) {
+            if (favorite == id)
+                continue;
+            if (favorite == neighbor && before)
+                moved += id;
+            moved += favorite;
+            if (favorite == neighbor && !before)
+                moved += id;
+        }
+        return moved;
+    }
+
+    /**
+     * The workspace a launch on a new workspace goes to, by the rule of Regolith's
+     * next-free-workspace shortcut: the smallest positive number that no workspace has
+     *
+     * @param taken The number of each workspace the window manager reports; the
+     *              workspaces whose names start with no number have none below 1
+     */
+    public static int next_free_workspace_number(int[] taken) {
+        int number = 1;
+        while (number in taken)
+            number++;
+        return number;
+    }
+
+    /**
+     * The resource that names a workspace number in a Regolith session, with the number
+     * written with at least two digits: wm.workspace.03.name for workspace 3
+     */
+    public static string workspace_name_resource(int number) {
+        return "wm.workspace.%02d.name".printf(number);
+    }
+
+    /**
+     * A workspace name quoted as one argument of a window manager command
+     *
+     * i3 takes the name inside double quotes, with double quotes and backslashes escaped.
+     * sway keeps such backslashes in the name, so there a name holding a double quote
+     * goes inside single quotes instead.
+     */
+    public static string quote_workspace_name(string name, string wm_name) {
+        if (wm_name != "sway")
+            return "\"" + name.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+        if (name.contains("\""))
+            return "'" + name + "'";
+        return "\"" + name + "\"";
+    }
+
+    /**
+     * The resources sway-regolith reads set_from_resource values from: the trawl
+     * service on the session bus. Empty when trawl is not running, in which case
+     * sway uses each set_from_resource default.
+     */
+    public static async HashTable<string, string> read_trawl_resources() {
+        var resources = new HashTable<string, string> (str_hash, str_equal);
+        try {
+            var bus = yield Bus.get(BusType.SESSION);
+            var reply = yield bus.call(
+                "org.regolith.Trawl", "/org/regolith/Trawl",
+                "org.freedesktop.DBus.Properties", "Get",
+                new Variant("(ss)", "org.regolith.trawl1", "Resources"),
+                new VariantType("(v)"), DBusCallFlags.NO_AUTO_START, 1000, null);
+            Variant all;
+            reply.get("(v)", out all);
+            if (all.is_of_type(new VariantType("a{ss}"))) {
+                var iter = all.iterator();
+                string key;
+                string value;
+                while (iter.next("{ss}", out key, out value))
+                    resources.insert(key.strip(), value);
+            }
+        } catch (GLib.Error err) {
+            debug("No trawl resources: %s", err.message);
+        }
+        return resources;
+    }
+
+    /**
+     * The value of a resource in an X resource database, as Xlib reads it, or null
+     * when the resource is not set
+     *
+     * @param database The database text, as xrdb stores it on the display, or null
+     */
+    public static string ? lookup_x_resource(string ? database, string name) {
+        if (database == null)
+            return null;
+
+        Xrm.initialize();
+        var resources = new Xrm.Database.from_string(database);
+        unowned string ? type;
+        Xrm.Value value;
+        if (!resources.get_resource(name, name, out type, out value))
+            return null;
+        return ((string) value.addr).dup();
+    }
+
+    /**
+     * The value of a resource in the X resource database of the display, the one
+     * xrdb loads, or null when the resource is not set or the display is not X11
+     */
+    public static string ? read_x_resource(Gdk.Display display, string name) {
+        var x11_display = display as Gdk.X11.Display;
+        if (x11_display == null)
+            return null;
+        return lookup_x_resource(Xrm.resource_manager_string(x11_display.get_xdisplay()), name);
     }
 
     /**

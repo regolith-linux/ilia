@@ -163,6 +163,10 @@ namespace Ilia {
                             return true;
                         }
                     }
+                    if (key.keyval == Gdk.Key.Up || key.keyval == Gdk.Key.Down) { // Page action, else the selection moves
+                        if (dialog_pages[active_page].key_event(key))
+                            return true;
+                    }
                     if (key.keyval == '+') { // Expand dialog
                         change_size(128);
                         return true;
@@ -302,7 +306,8 @@ namespace Ilia {
         /**
          * True for the keys that ilia uses itself, which never go to the window manager:
          * Escape, Enter (without Super), list and page navigation, Backspace and Delete with any
-         * modifiers; ilia's Control and Alt combinations; Super; and keys that type a character.
+         * modifiers; ilia's Control and Alt combinations, and those of the active page; Super;
+         * and keys that type a character.
          */
         private bool is_own_key(Gdk.EventKey key) {
             bool control = (key.state & Gdk.ModifierType.CONTROL_MASK) != 0;
@@ -332,6 +337,9 @@ namespace Ilia {
                 default:
                     break;
             }
+
+            if (dialog_pages[active_page].owns_key(key))
+                return true;
 
             if (control && !alt && !super) {
                 switch (key.keyval) {

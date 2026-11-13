@@ -57,5 +57,12 @@
         Desktop file ids of applications never shown on the applications page, for example "org.gnome.Seahorse.Application.desktop". An item may be a pattern, where * stands for any run of characters and ? for exactly one character. Ctrl+Delete on the applications page adds the highlighted application.
       </description>
     </key>
+    <key name="favorite-apps" type="as">
+      <default>[]</default>
+      <summary>Applications listed first</summary>
+      <description>
+        Desktop file ids of the favourite applications, in the order the applications page lists them: first when nothing is typed, and first within each group of matches otherwise. Ids of applications that are not shown are kept. Ctrl+f on the applications page adds the highlighted application, or removes it when it is listed, and Alt+Up and Alt+Down move it.
+      </description>
+    </key>
 	</schema>
 </schemalist>

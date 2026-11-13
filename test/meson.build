@@ -16,5 +16,6 @@ unit_test_files = [
 ]
 
 foreach name : unit_test_files
-    test(name, executable(name, name + 'Test.vala', ilia_sources, dependencies: ilia_deps))
+    test(name, executable(name, name + 'Test.vala', ilia_sources, dependencies: ilia_deps),
+         env: ['ILIA_TEST_DATA=' + meson.current_source_dir() / 'data'])
 endforeach

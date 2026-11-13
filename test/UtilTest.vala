@@ -404,6 +404,55 @@ public void test_move_path_to() {
     // Already there
     Ilia.move_path_to(path, new Gtk.TreePath.first());
     assert (path.to_string() == "0");
+
+    // Into the children of a row and out again
+    Ilia.move_path_to(path, new Gtk.TreePath.from_string("2:1"));
+    assert (path.to_string() == "2:1");
+    Ilia.move_path_to(path, new Gtk.TreePath.from_string("3"));
+    assert (path.to_string() == "3");
+}
+
+// The row next to row in direction, as adjacent_row() finds it, or "none"
+private string adjacent_row_name(Gtk.TreeModel model, string row, int direction, Ilia.RowExpanded is_expanded) {
+    var next = Ilia.adjacent_row(model, new Gtk.TreePath.from_string(row), direction, is_expanded);
+    return next != null ? next.to_string() : "none";
+}
+
+// The rows of a tree as a view lists them, with the children of the expanded rows under them
+public void test_adjacent_row() {
+    var model = new Gtk.TreeStore(1, typeof (string));
+    Gtk.TreeIter app, child;
+    model.insert_with_values(out app, null, -1, 0, "0");
+    model.insert_with_values(out app, null, -1, 0, "1");
+    model.insert_with_values(out child, app, -1, 0, "1:0");
+    model.insert_with_values(out child, app, -1, 0, "1:1");
+    model.insert_with_values(out app, null, -1, 0, "2");
+    model.insert_with_values(out child, app, -1, 0, "2:0");
+
+    string ? expanded = null;
+    Ilia.RowExpanded is_expanded = (row) => row.to_string() == expanded;
+
+    // Nothing expanded: the rows of a list, and the children are skipped
+    assert (adjacent_row_name(model, "0", 1, is_expanded) == "1");
+    assert (adjacent_row_name(model, "1", 1, is_expanded) == "2");
+    assert (adjacent_row_name(model, "2", 1, is_expanded) == "none");
+    assert (adjacent_row_name(model, "2", -1, is_expanded) == "1");
+    assert (adjacent_row_name(model, "0", -1, is_expanded) == "none");
+
+    // Into the children of the expanded row, through them and out at either end
+    expanded = "1";
+    assert (adjacent_row_name(model, "0", 1, is_expanded) == "1");
+    assert (adjacent_row_name(model, "1", 1, is_expanded) == "1:0");
+    assert (adjacent_row_name(model, "1:0", 1, is_expanded) == "1:1");
+    assert (adjacent_row_name(model, "1:1", 1, is_expanded) == "2");
+    assert (adjacent_row_name(model, "2", -1, is_expanded) == "1:1");
+    assert (adjacent_row_name(model, "1:0", -1, is_expanded) == "1");
+    assert (adjacent_row_name(model, "1", -1, is_expanded) == "0");
+
+    // The last row may be expanded too
+    expanded = "2";
+    assert (adjacent_row_name(model, "2", 1, is_expanded) == "2:0");
+    assert (adjacent_row_name(model, "2:0", 1, is_expanded) == "none");
 }
 
 // After the last row is removed, the path moves to the new last row
@@ -431,6 +480,122 @@ public void test_clamp_path_to_rows() {
     assert (path.to_string() == "1");
 }
 
+// The history keeps the newest launches: once it is full, the oldest one goes
+public void test_append_launch_history() {
+    assert (string.joinv(",", Ilia.append_launch_history(null, "a.desktop", 3)) == "a.desktop");
+    assert (string.joinv(",", Ilia.append_launch_history({ "a", "b" }, "c", 3)) == "a,b,c");
+    assert (string.joinv(",", Ilia.append_launch_history({ "a", "b", "c" }, "d", 3)) == "b,c,d");
+
+    // A stored history longer than the limit is cut to the newest launches (before, it kept its length)
+    assert (string.joinv(",", Ilia.append_launch_history({ "a", "b", "c", "d" }, "e", 2)) == "d,e");
+}
+
+Ilia.AppMatch ranked_action(string app_id, string app_name, string action_id, string action_name, string ? generic,
+                            string keywords, string query, bool fuzzy = false) {
+    var app = new Ilia.AppMatch(app_id, app_name, generic, keywords, null);
+    var action = new Ilia.AppMatch.for_action(app, action_id, action_name);
+    action.rank(Ilia.query_words(query), fuzzy);
+    return action;
+}
+
+public void test_action_tiers() {
+    // One word must occur in the action name and not in the app name, ignoring case and accents
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "zzact").tier == Ilia.AppTier.NONE);
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "zzact window").tier == Ilia.AppTier.WORD_STARTS);
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "WIN").tier == Ilia.AppTier.WORD_STARTS);
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "indow").tier == Ilia.AppTier.IN_NAME);
+    assert (ranked_action("zz.desktop", "Zzact FR", "new", "Nouvelle fenêtre", null, "", "fenetre").tier == Ilia.AppTier.WORD_STARTS);
+    // ilia#173: Debian's rxvt-unicode names its action after the app; words of the app's name alone do not list it
+    assert (ranked_action("rxvt-unicode.desktop", "Rxvt Unicode Terminal", "New", "New Rxvt Unicode Terminal", null, "", "term").tier == Ilia.AppTier.NONE);
+    assert (ranked_action("rxvt-unicode.desktop", "Rxvt Unicode Terminal", "New", "New Rxvt Unicode Terminal", null, "", "rxvt unicode").tier == Ilia.AppTier.NONE);
+    assert (ranked_action("rxvt-unicode.desktop", "Rxvt Unicode Terminal", "New", "New Rxvt Unicode Terminal", null, "", "rxvt new").tier == Ilia.AppTier.WORD_STARTS);
+    assert (ranked_action("c.desktop", "Café", "new", "New Café", null, "", "CAFE").tier == Ilia.AppTier.NONE);
+    // The row text is the name: the app part and the action part both count
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "zzact app: new").tier == Ilia.AppTier.PREFIX);
+    // The row text without its colon, or the action name alone, is equal; the row text without its colon is a prefix
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "zzact app new window").tier == Ilia.AppTier.EXACT);
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "new WINDOW").tier == Ilia.AppTier.EXACT);
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "zzact app new").tier == Ilia.AppTier.PREFIX);
+    assert (ranked_action("zz.desktop", "Zzact App", "priv", "New Private Window", null, "", "zzact app new window").tier == Ilia.AppTier.WORD_STARTS);
+    assert (ranked_action("zz.desktop", "Zzact App", "priv", "New Private Window", null, "", "new window").tier == Ilia.AppTier.WORD_STARTS);
+    // Not for the app's own row
+    assert (ranked_app("zz.desktop", "Zzact: App", null, "", "zzact app").tier == Ilia.AppTier.WORD_STARTS);
+    // The app's fields count for the other words
+    assert (ranked_action("q.desktop", "Quux", "priv", "New Private Window", "Web Browser", "", "browser private").tier == Ilia.AppTier.IN_GENERIC_NAME);
+    assert (ranked_action("s.desktop", "Surf", "priv", "New Private Window", null, "web", "web private").tier == Ilia.AppTier.IN_OTHER_FIELDS);
+    // Not through the app's fields alone, and not by subsequence of the action name alone
+    assert (ranked_action("q.desktop", "Quux", "priv", "New Private Window", "Web Browser", "", "browser").tier == Ilia.AppTier.NONE);
+    assert (ranked_action("z.desktop", "Zzact App", "new", "New Window", null, "", "nwn", true).tier == Ilia.AppTier.NONE);
+    // With subsequence matching on, a word that names the action lets the others match by subsequence
+    var fuzzy = ranked_action("f.desktop", "Firefox", "priv", "New Private Window", null, "", "ffx private", true);
+    assert (fuzzy.tier == Ilia.AppTier.SUBSEQUENCE);
+    // Nothing typed: not ranked
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "  ").tier == Ilia.AppTier.NONE);
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "x").is_action);
+    assert (!ranked_app("zz.desktop", "Zzact App", null, "", "x").is_action);
+    assert (ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "x").app.id == "zz.desktop");
+
+    // Each action has its own launch count, under <desktop id>#<action id>
+    var counts = new GLib.HashTable<string, int>(GLib.str_hash, GLib.str_equal);
+    counts.insert("zz.desktop", 9);
+    counts.insert("zz.desktop#private", 2);
+    var new_window = ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "zzact window");
+    var private_window = ranked_action("zz.desktop", "Zzact App", "private", "New Private Window", null, "", "zzact window");
+    assert (new_window.id == "zz.desktop#new");
+    assert (Ilia.compare_app_matches(private_window, new_window, counts) < 0);
+    // Ranked in the same tiers as the apps
+    var app = ranked_app("zz.desktop", "Zzact App", null, "", "zzact window");
+    assert (app.tier == Ilia.AppTier.NONE);
+    var windows_app = ranked_app("w.desktop", "Windows Tool", null, "", "window");
+    var action = ranked_action("zz.desktop", "Zzact App", "new", "New Window", null, "", "window");
+    assert (Ilia.compare_app_matches(windows_app, action, counts) < 0);
+}
+
+// After a colon every word must occur in the action name: not in the app's fields, and not by subsequence
+public void test_names_action_with() {
+    var action = ranked_action("f.desktop", "Firefox", "priv", "New Private Window", "Web Browser", "private", "");
+    assert (action.names_action_with(Ilia.query_words("")));
+    assert (action.names_action_with(Ilia.query_words("private")));
+    assert (action.names_action_with(Ilia.query_words("WINDOW new  window")));
+    assert (!action.names_action_with(Ilia.query_words("private absent")));
+    assert (!action.names_action_with(Ilia.query_words("firefox")));
+    assert (!action.names_action_with(Ilia.query_words("browser")));
+    assert (!action.names_action_with(Ilia.query_words("prvt")));
+    assert (ranked_action("c.desktop", "Café", "resume", "Résumé", null, "", "").names_action_with(Ilia.query_words("RESUME")));
+    assert (ranked_action("n.desktop", "Notes", "recent", "Open: Recent", null, "", "").names_action_with(Ilia.query_words("open:")));
+    // Not for the row of an app
+    assert (!ranked_app("f.desktop", "Firefox", null, "", "").names_action_with(Ilia.query_words("")));
+}
+
+public void test_split_action_query() {
+    string[] program_words, action_words;
+    assert (!Ilia.split_action_query("firefox private", out program_words, out action_words));
+    assert (program_words.length == 0 && action_words.length == 0);
+
+    assert (Ilia.split_action_query("  Term  :  New  ", out program_words, out action_words));
+    assert (string.joinv(",", program_words) == "term");
+    assert (string.joinv(",", action_words) == "new");
+
+    // Further colons belong to the action part, as typed
+    assert (Ilia.split_action_query("notes:open: recent", out program_words, out action_words));
+    assert (string.joinv(",", program_words) == "notes");
+    assert (string.joinv(",", action_words) == "open:,recent");
+    assert (Ilia.split_action_query("term::", out program_words, out action_words));
+    assert (string.joinv(",", action_words) == ":");
+
+    // Either part may be empty
+    assert (Ilia.split_action_query(":", out program_words, out action_words));
+    assert (program_words.length == 0 && action_words.length == 0);
+    assert (Ilia.split_action_query("web browser:", out program_words, out action_words));
+    assert (string.joinv(",", program_words) == "web,browser");
+    assert (action_words.length == 0);
+}
+
+public void test_launch_history_key() {
+    assert (Ilia.launch_history_key("org.example.App.desktop", null) == "org.example.App.desktop");
+    assert (Ilia.launch_history_key("org.example.App.desktop", "new-window") == "org.example.App.desktop#new-window");
+}
+
 public int main (string[] args) {
     Test.init (ref args);
 
@@ -450,7 +615,13 @@ public int main (string[] args) {
     Test.add_func ("/test_build_command_line", test_build_command_line);
     Test.add_func ("/test_command_dirs", test_command_dirs);
     Test.add_func ("/test_move_path_to", test_move_path_to);
+    Test.add_func ("/test_adjacent_row", test_adjacent_row);
     Test.add_func ("/test_clamp_path_to_rows", test_clamp_path_to_rows);
+    Test.add_func ("/test_append_launch_history", test_append_launch_history);
+    Test.add_func ("/test_action_tiers", test_action_tiers);
+    Test.add_func ("/test_names_action_with", test_names_action_with);
+    Test.add_func ("/test_split_action_query", test_split_action_query);
+    Test.add_func ("/test_launch_history_key", test_launch_history_key);
 
     return Test.run ();
 }

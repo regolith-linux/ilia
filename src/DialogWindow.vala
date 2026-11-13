@@ -267,8 +267,11 @@ namespace Ilia {
                                 dialog_pages[active_page].show();
                             break;
                         case KEY_CODE_RIGHT:
-                        case KEY_CODE_LEFT: // Switch pages
-                            notebook.grab_focus();
+                        case KEY_CODE_LEFT: // Let the page shown use them (the apps page shows and hides actions), else switch pages
+                            if (notebook.get_current_page() == (int) active_page)
+                                key_handled = dialog_pages[active_page].key_event(key);
+                            if (!key_handled)
+                                notebook.grab_focus();
                             break;
                         default:            // Pass key event to active page for handling
                             key_handled = dialog_pages[active_page].key_event(key);

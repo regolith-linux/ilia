@@ -125,11 +125,14 @@ namespace Ilia {
         string systemd_run_path = GLib.Environment.find_program_in_path("systemd-run");
         if (systemd_run_path == null)
             return app_info;
-        string app_id = app_info.get_id();
+        string? app_id = app_info.get_id();
         string exec = app_info.get_commandline();
+        // Command lines (the terminal and commands pages) have no desktop id:
+        // name the scope after the program instead.
+        string unit_id = (app_id != null && app_id != "") ? app_id : Path.get_basename(app_info.get_executable());
 
         string random_suffix = Uuid.string_random().slice(0, 8);
-        string unit_name = "run_ilia_" + systemd_escape(app_id) + "_" + random_suffix + ".scope";
+        string unit_name = "run_ilia_" + systemd_escape(unit_id) + "_" + random_suffix + ".scope";
         string systemd_launch = "systemd-run --user --scope --unit \"" + unit_name + "\" " + exec;
         return AppInfo.create_from_commandline(systemd_launch, app_id, AppInfoCreateFlags.NONE);
     }
@@ -310,6 +313,9 @@ namespace Ilia {
      */
     public static string systemd_escape(string unescaped) {
         var escaped = new StringBuilder();
+
+        if (unescaped == "")
+            return "";
 
         if (unescaped.data[0] == '.')
             escaped.append("\\x2e");

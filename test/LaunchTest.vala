@@ -189,6 +189,25 @@ void test_command_line_without_systemd_run() {
     }
 }
 
+// The terminal and commands pages launch command lines, which have no desktop
+// id: the scope is named after the program, with no critical logged
+void test_command_line_in_scope() {
+    Environment.set_variable("PATH", bin_with_terminal, true);
+    try {
+        var app_info = AppInfo.create_from_commandline("zzgui --new-window", null, AppInfoCreateFlags.NONE);
+        string[] argv;
+        Shell.parse_argv(Ilia.get_runner_app_info(app_info).get_commandline(), out argv);
+        // GLib adds a %f to each command line it wraps; it expands to nothing at launch
+        string[] command = {};
+        foreach (var arg in scoped_command(argv, "zzgui"))
+            if (arg != "%f")
+                command += arg;
+        assert_argv(command, { "zzgui", "--new-window" });
+    } catch (Error e) {
+        error("%s", e.message);
+    }
+}
+
 public int main(string[] args) {
     setup_fixtures(); // before Test.init(), which caches the XDG directories
     Environment.unset_variable("LANGUAGE");
@@ -204,6 +223,7 @@ public int main(string[] args) {
     Test.add_func("/launch/working_directory", test_working_directory);
     Test.add_func("/launch/dbus_activation", test_dbus_activation);
     Test.add_func("/launch/command_line_without_systemd_run", test_command_line_without_systemd_run);
+    Test.add_func("/launch/command_line_in_scope", test_command_line_in_scope);
 
     return Test.run();
 }

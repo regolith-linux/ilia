@@ -61,6 +61,14 @@ namespace Ilia {
         public abstract bool key_event(Gdk.EventKey event_key);
 
         /**
+         * Offer a key event to the page before the window's own key bindings. A page that shows
+         * content of its own over its list, such as a form, returns true for the keys it takes.
+         */
+        public virtual bool capture_key_event(Gdk.EventKey event_key) {
+            return false;
+        }
+
+        /**
          * Page returns character that should cause the page to be selected if pressed
          */
         public abstract char get_keybinding();

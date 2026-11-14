@@ -390,6 +390,19 @@ namespace Ilia {
     }
 
     /**
+     * The keywords of a desktop entry, for the current locale
+     *
+     * GLib drops the localized keyword list when an item holds an escaped ";" (\;);
+     * the plain list keeps it.
+     */
+    public static string[] desktop_app_keywords(DesktopAppInfo app_info) {
+        string[] keywords = app_info.get_keywords();
+        if (keywords.length == 0 && app_info.has_key("Keywords"))
+            keywords = app_info.get_string_list("Keywords");
+        return keywords;
+    }
+
+    /**
      * The text the apps page searches besides the app name: the generic name, the
      * keywords and the comment, as the desktop file gives them for the current locale
      *
@@ -402,7 +415,7 @@ namespace Ilia {
         if (generic_name != null)
             parts += generic_name;
 
-        foreach (unowned string keyword in app_info.get_keywords())
+        foreach (unowned string keyword in desktop_app_keywords(app_info))
             parts += keyword;
 
         unowned string ? comment = app_info.get_description();

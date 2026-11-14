@@ -1,3 +1,10 @@
+ilia (0.20.1) jammy; urgency=medium
+
+  [ rego-port-bot ]
+  * fix(launch): name the scope of a command line after its program
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Fri, 13 Nov 2026 19:30:56 -0800
+
 ilia (0.20.0) jammy; urgency=medium
 
   [ rego-port-bot ]

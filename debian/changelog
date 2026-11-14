@@ -1,3 +1,21 @@
+ilia (0.20.0) jammy; urgency=medium
+
+  [ rego-port-bot ]
+  * fix(windows): log no critical for native Wayland windows
+  * fix(wayland): stay open when the seat's last keyboard goes away
+  * fix(apps): launch desktop entries as the Desktop Entry spec says
+  * feat(keybindings): show the keys the window manager actually binds
+  * fix(filter): show no page icon in the entry after a tab switch
+  * feat(filter): rank name matches first, ignore accents, optional fuzzy matching
+  * fix(keys): let window manager and desktop keys work while ilia is open
+  * fix(filter): build with the GLib bindings of older Vala releases
+  * fix(apps): show an app grid as the icon of the Applications page
+  * docs: drop the README section on window manager keys
+  * feat(help): make help a page that scrolls, in single and all-pages mode
+  * fix(a11y): don't crash when an AT-SPI client leaves during a key press
+
+ -- Regolith Linux <regolith.linux@gmail.com>  Fri, 13 Nov 2026 16:17:05 -0800
+
 ilia (0.19.2) jammy; urgency=medium
 
   [ rego-port-bot ]

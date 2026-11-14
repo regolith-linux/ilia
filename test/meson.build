@@ -12,7 +12,8 @@ unit_test_files = [
     'KeybindingsPage',
     'WmBindings',
     'HelpPage',
-    'KeyListenerGuard'
+    'KeyListenerGuard',
+    'NewDesktopEntry'
 ]
 
 foreach name : unit_test_files

@@ -33,6 +33,12 @@ ilia -p keybindings
 Ilia searches the system-configured `$XDG_DATA_DIRS` with `applications` applied at the end of each path for desktop application files.
 For example, if your system has `$HOME/.local/share` in the set of paths in `$XDG_DATA_DIRS`, the path `$HOME/.local/share/applications/` will be searched for desktop app files.
 
+The `+` button below the list, or Ctrl and the `+` key (Ctrl+= on a US layout, or the keypad's `+`), opens a form inside the window for adding an application.
+It asks for a name and a command, and optionally an icon, a comment, keywords and whether the program runs in a terminal.
+The command is split into words with shell quoting rules (no expansion), and its program must be an executable file, given as an absolute path, a `~/` path or a name found on `PATH`.
+Add writes a new desktop entry to `$XDG_DATA_HOME/applications` (`~/.local/share/applications` by default), named after the application, with `-2`, `-3`, ... added when that desktop file id is taken.
+The new application is listed and highlighted at once. Escape or Cancel closes the form without writing anything.
+
 ### Text List
 
 The `textlist` page is a bit different than the others pages.

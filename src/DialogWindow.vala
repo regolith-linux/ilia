@@ -154,6 +154,10 @@ namespace Ilia {
                 if (key_forwarder != null && !is_own_key(key) && key_forwarder.key_pressed(key))
                     return true;
 
+                // A form shown by the page takes every key, Escape included
+                if (dialog_pages[active_page].capture_key_event(key))
+                    return true;
+
                 if ((key.state & Gdk.ModifierType.MOD1_MASK) == Gdk.ModifierType.MOD1_MASK) { // ALT
                     // Enable page nav keybindings in all page mode.
                     for (int i = 0; i < total_pages; ++i) {

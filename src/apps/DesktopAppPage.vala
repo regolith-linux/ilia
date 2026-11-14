@@ -64,6 +64,16 @@ namespace Ilia {
 
         private Gtk.TreePath path;
 
+        // The strip below the list, with the button that opens the form
+        private Gtk.Button add_app_button;
+        private AddAppForm add_app_form;
+        // Covers the list while the form is shown; the list stays as it is underneath
+        private Gtk.EventBox add_app_sheet;
+        // What had the keyboard focus before the form was opened
+        private Gtk.Widget ? focus_before_form = null;
+        // The transparent icon that rows show until their own icon is loaded
+        private Gdk.Pixbuf ? blank_icon = null;
+
         // The desktop files, enumerated on a worker thread started as early as possible so that
         // the parse overlaps with GTK's own startup (theme CSS, fontconfig). Handed to the main
         // thread through an idle callback; only the main thread touches these fields.
@@ -125,6 +135,7 @@ namespace Ilia {
 
             keybindings.set("enter", "Launch Application");
             keybindings.set("ctrl+delete", "Hide Application");
+            keybindings.set("ctrl+=", "Add Application");
 
             return keybindings;
         }
@@ -155,7 +166,37 @@ namespace Ilia {
             scrolled.add(item_view);
             scrolled.expand = true;
 
-            root_widget = scrolled;
+            add_app_form = new AddAppForm();
+            add_app_form.cancelled.connect(close_add_app_form);
+            add_app_form.added.connect(on_app_added);
+            add_app_form.show_all();
+
+            // An event box of its own so that clicks on the form never reach the list below it
+            add_app_sheet = new Gtk.EventBox();
+            add_app_sheet.get_style_context().add_class("background");
+            add_app_sheet.add(add_app_form);
+            add_app_sheet.no_show_all = true;
+
+            var list_overlay = new Gtk.Overlay();
+            list_overlay.add(scrolled);
+            list_overlay.add_overlay(add_app_sheet);
+
+            // One line below the list; the + button sits at its right end
+            add_app_button = new Gtk.Button.with_label("+");
+            add_app_button.relief = Gtk.ReliefStyle.NONE;
+            add_app_button.can_focus = false; // the keys stay with the filter and the list
+            add_app_button.get_accessible().set_name("Add application");
+            add_app_button.clicked.connect(open_add_app_form);
+
+            var strip = new Gtk.Box(Gtk.Orientation.HORIZONTAL, 0);
+            strip.get_style_context().add_class("app_strip");
+            strip.pack_end(add_app_button, false, false, 0);
+
+            var page_box = new Gtk.Box(Gtk.Orientation.VERTICAL, 0);
+            page_box.pack_start(list_overlay, true, true, 0);
+            page_box.pack_start(strip, false, false, 0);
+
+            root_widget = page_box;
 
             // Keys can arrive before the list does: the navigation handler needs a path
             set_selection();
@@ -185,6 +226,10 @@ namespace Ilia {
         }
 
         public bool key_event(Gdk.EventKey key) {
+            if (is_add_app_shortcut(key)) {
+                open_add_app_form();
+                return true;
+            }
             if (!apps_loaded && is_enter_key(key.keyval)) {
                 activate_when_loaded = true;
                 return true;
@@ -233,6 +278,78 @@ namespace Ilia {
             }
         }
 
+        public bool capture_key_event(Gdk.EventKey key) {
+            if (!add_app_form_is_open())
+                return false;
+            return add_app_form.handle_key(key);
+        }
+
+        // Ctrl and the + key: the main keyboard's, shifted or not, or the keypad's
+        private static bool is_add_app_shortcut(Gdk.EventKey key) {
+            if ((key.state & Gdk.ModifierType.CONTROL_MASK) == 0)
+                return false;
+            return key.keyval == Gdk.Key.plus || key.keyval == Gdk.Key.equal || key.keyval == Gdk.Key.KP_Add;
+        }
+
+        private bool add_app_form_is_open() {
+            return add_app_sheet.visible;
+        }
+
+        // Show the add-application form over the list
+        private void open_add_app_form() {
+            if (add_app_form_is_open())
+                return;
+
+            var window = root_widget.get_toplevel() as Gtk.Window;
+            focus_before_form = window != null ? window.get_focus() : null;
+            // The filter belongs to the list: it keeps its text, and the form's keys stay out of it
+            entry.sensitive = false;
+            add_app_button.sensitive = false;
+            add_app_sheet.show();
+            add_app_form.reset();
+        }
+
+        // Show the list again, as it was before the form was opened
+        private void close_add_app_form() {
+            add_app_sheet.hide();
+            add_app_button.sensitive = true;
+            entry.sensitive = true;
+            if (focus_before_form is Gtk.Entry)
+                ((Gtk.Entry) focus_before_form).grab_focus_without_selecting();
+            else if (focus_before_form != null)
+                focus_before_form.grab_focus();
+            else
+                item_view.grab_focus();
+            focus_before_form = null;
+        }
+
+        // A desktop entry was added at file_path: list it, clear the filter and highlight it
+        private void on_app_added(string file_path) {
+            var app_info = new DesktopAppInfo.from_filename(file_path);
+            Gtk.TreeIter ? new_row = null;
+            if (read_desktop_file(app_info, blank_icon)) {
+                new_row = iter;
+            } else {
+                warning("The new desktop entry %s cannot be listed", file_path);
+            }
+
+            entry.text = "";
+            close_add_app_form();
+
+            if (new_row == null)
+                return;
+            Gtk.TreeIter filter_iter;
+            if (filter.convert_child_iter_to_iter(out filter_iter, new_row)) {
+                // The page keeps its path between key events: move it rather than replace it
+                if (path == null)
+                    path = new Gtk.TreePath.first();
+                move_path_to(path, filter.get_path(filter_iter));
+                item_view.set_cursor(path, null, false); // also selects the row and scrolls to it
+            }
+            if (icon_size > 0)
+                queue_icon(new_row);
+        }
+
         // Highlight the first row: the best match for the text typed
         private void set_selection() {
             item_view.get_selection().set_mode(SelectionMode.SINGLE);
@@ -242,7 +359,10 @@ namespace Ilia {
         }
 
         public void show() {
-            item_view.grab_focus ();
+            if (add_app_form_is_open())
+                add_app_form.take_focus();
+            else
+                item_view.grab_focus ();
             debug("DesktopAppPage ready to accept keystrokes (%.3f seconds since app start)", app_timer.elapsed());
         }
 
@@ -269,6 +389,42 @@ namespace Ilia {
 
             // Launch app on row selection
             item_view.row_activated.connect(on_row_activated);
+
+            // Under the X11 input grab the tree view doesn't activate a clicked row itself
+            item_view.button_release_event.connect(on_button_released);
+        }
+
+        // A click launches the app of the row under the pointer, whichever row is highlighted
+        private bool on_button_released(Gdk.EventButton event) {
+            if (event.button != Gdk.BUTTON_PRIMARY ||
+                (event.state & (Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.CONTROL_MASK)) != 0)
+                return false;
+            if (add_app_form_is_open())
+                return false;
+
+            var bin_window = item_view.get_bin_window();
+            if (bin_window == null)
+                return false;
+
+            double x = event.x, y = event.y;
+            if (event.window != bin_window) {
+                int origin_x, origin_y;
+                bin_window.get_origin(out origin_x, out origin_y);
+                x = event.x_root - origin_x;
+                y = event.y_root - origin_y;
+            }
+            // Only a release over the rows themselves
+            if (x < 0 || y < 0 || x >= bin_window.get_width() || y >= bin_window.get_height())
+                return false;
+
+            Gtk.TreePath ? clicked = null;
+            if (!item_view.get_path_at_pos((int) x, (int) y, out clicked, null, null, null) || clicked == null)
+                return false;
+
+            Gtk.TreeIter clicked_iter;
+            if (filter.get_iter(out clicked_iter, clicked))
+                execute_app(clicked_iter);
+            return false;
         }
 
         // called on enter from TreeView
@@ -394,7 +550,6 @@ namespace Ilia {
             icon_theme = Gtk.IconTheme.get_default();
             // Set a blank icon to avoid visual jank as real icons are loaded. It stays for apps
             // without a loadable icon, so it must be transparent (a new pixbuf is not cleared).
-            Gdk.Pixbuf ? blank_icon = null;
             if (icon_size > 0) {
                 blank_icon = new Gdk.Pixbuf(Gdk.Colorspace.RGB, true, 8, icon_size, icon_size);
                 blank_icon.fill(0x00000000);
@@ -407,33 +562,34 @@ namespace Ilia {
         }
 
         // app_info is the object from AppInfo.get_all(): creating a new DesktopAppInfo from the
-        // id would parse the desktop file a second time
-        private void read_desktop_file(DesktopAppInfo ? app_info, Gdk.Pixbuf ? icon_img) {
-            if (app_info != null && app_info.should_show() && !is_hidden_app(app_info.get_id() ?? "", hidden_apps)) {
-                var match = new AppMatch(app_info.get_id() ?? "", app_info.get_name(), app_info.get_generic_name(),
-                                         string.joinv(" ", app_info.get_keywords()), app_info.get_description(), match_fields);
-                // Text typed before the list arrived
-                if (ranked_text != null)
-                    match.rank(ranked_words, fuzzy_matching);
+        // id would parse the desktop file a second time. Returns whether the app was listed; its row is then at iter
+        private bool read_desktop_file(DesktopAppInfo ? app_info, Gdk.Pixbuf ? icon_img) {
+            if (app_info == null || !app_info.should_show() || is_hidden_app(app_info.get_id() ?? "", hidden_apps))
+                return false;
+            var match = new AppMatch(app_info.get_id() ?? "", app_info.get_name(), app_info.get_generic_name(),
+                                     string.joinv(" ", desktop_app_keywords(app_info)), app_info.get_description(), match_fields);
+            // Text typed before the list arrived
+            if (ranked_text != null)
+                match.rank(ranked_words, fuzzy_matching);
 
-                model.append(out iter);
+            model.append(out iter);
 
-                if (icon_size > 0)
-                    model.set(
-                        iter,
-                        ITEM_VIEW_COLUMN_ICON, icon_img,
-                        ITEM_VIEW_COLUMN_NAME, app_info.get_name(),
-                        ITEM_VIEW_COLUMN_MATCH, match,
-                        ITEM_VIEW_COLUMN_APPINFO, app_info
-                    );
-                else
-                    model.set(
-                        iter,
-                        ITEM_VIEW_COLUMN_NAME, app_info.get_name(),
-                        ITEM_VIEW_COLUMN_MATCH, match,
-                        ITEM_VIEW_COLUMN_APPINFO, app_info
-                    );
-            }
+            if (icon_size > 0)
+                model.set(
+                    iter,
+                    ITEM_VIEW_COLUMN_ICON, icon_img,
+                    ITEM_VIEW_COLUMN_NAME, app_info.get_name(),
+                    ITEM_VIEW_COLUMN_MATCH, match,
+                    ITEM_VIEW_COLUMN_APPINFO, app_info
+                );
+            else
+                model.set(
+                    iter,
+                    ITEM_VIEW_COLUMN_NAME, app_info.get_name(),
+                    ITEM_VIEW_COLUMN_MATCH, match,
+                    ITEM_VIEW_COLUMN_APPINFO, app_info
+                );
+            return true;
         }
 
         // Icons are looked up on the main thread (the theme cache makes that cheap) and decoded
@@ -462,6 +618,13 @@ namespace Ilia {
                     icon_queue += model_iter;
             }
             for (int i = 0; i < ICON_LOAD_PARALLELISM; ++i)
+                load_next_icon();
+        }
+
+        // Load the icon of a row added after the list was loaded
+        private void queue_icon(Gtk.TreeIter row) {
+            icon_queue += row;
+            if (icons_in_flight == 0)
                 load_next_icon();
         }
 

@@ -392,14 +392,29 @@ namespace Ilia {
     /**
      * The keywords of a desktop entry, for the current locale
      *
-     * GLib drops the localized keyword list when an item holds an escaped ";" (\;);
-     * the plain list keeps it.
+     * GLib reads an item holding an escaped ";" (\;) differently by version: older ones
+     * split it in two, newer ones drop the whole list. Such a list is read here as a
+     * plain string list of the key GLib would pick, which splits on unescaped ";" only.
      */
     public static string[] desktop_app_keywords(DesktopAppInfo app_info) {
-        string[] keywords = app_info.get_keywords();
-        if (keywords.length == 0 && app_info.has_key("Keywords"))
-            keywords = app_info.get_string_list("Keywords");
-        return keywords;
+        // The first Keywords[xx] for the message languages, as GKeyFile picks it
+        string key = "Keywords";
+        foreach (unowned string language in Intl.get_language_names_with_category("LC_MESSAGES")) {
+            var localized_key = "Keywords[%s]".printf(language);
+            if (app_info.has_key(localized_key)) {
+                key = localized_key;
+                break;
+            }
+        }
+
+        if (app_info.has_key(key)) {
+            string[] keywords = app_info.get_string_list(key);
+            foreach (unowned string keyword in keywords) {
+                if (keyword.contains(";"))
+                    return keywords;
+            }
+        }
+        return app_info.get_keywords();
     }
 
     /**

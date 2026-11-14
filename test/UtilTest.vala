@@ -335,11 +335,20 @@ public void test_desktop_app_search_text() {
     var localized = desktop_app(dir, "localized", "Name=Loc\nKeywords=plain;\nKeywords[xx]=localword;\n");
     assert (Ilia.desktop_app_search_text(localized) == "plain");
 
+    // A keyword holding an escaped ";" stays whole, untranslated and translated alike
+    // (an app reads its keywords when loaded, so it is loaded again in the language)
+    var escaped_contents = "Name=Esc\nKeywords=a\\;b;c;\nKeywords[xx]=x\\;y;z;\n";
+    assert (Ilia.desktop_app_search_text(desktop_app(dir, "escaped", escaped_contents)) == "a;b c");
+    Environment.set_variable("LANGUAGE", "xx", true);
+    assert (Ilia.desktop_app_search_text(desktop_app(dir, "localized", "Name=Loc\nKeywords=plain;\nKeywords[xx]=localword;\n")) == "localword");
+    assert (Ilia.desktop_app_search_text(desktop_app(dir, "escaped", escaped_contents)) == "x;y z");
+    Environment.unset_variable("LANGUAGE");
+
     // None of them
     var bare = desktop_app(dir, "bare", "Name=Bare\n");
     assert (Ilia.desktop_app_search_text(bare) == "");
 
-    foreach (var name in new string[] { "settings", "viewer", "all", "localized", "bare" })
+    foreach (var name in new string[] { "settings", "viewer", "all", "localized", "escaped", "bare" })
         FileUtils.unlink(Path.build_filename(dir, name + ".desktop"));
     DirUtils.remove(dir);
 }

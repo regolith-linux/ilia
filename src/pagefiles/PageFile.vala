@@ -8,7 +8,9 @@ namespace Ilia {
         // Lines of text given in the file (the Items key)
         ITEMS,
         // The lines a shell command prints (the ItemsCommand key)
-        COMMAND
+        COMMAND,
+        // A menu of entries, each described by an [Entry <id>] group (the Entries key)
+        ENTRIES
     }
 
     public errordomain PageFileError {
@@ -23,14 +25,19 @@ namespace Ilia {
      *  - Icon: the icon of the tab and of the rows (default applications-other)
      *  - Key: a letter that selects the page with Alt when all pages are shown
      *  - OnlyShowIn, NotShowIn: the window managers the page is shown under (i3, sway, other)
-     *  - exactly one of Apps (desktop file IDs), Items (lines of text) and ItemsCommand
-     *    (a shell command, each line it prints is a row)
+     *  - exactly one of Apps (desktop file IDs), Items (lines of text), ItemsCommand
+     *    (a shell command, each line it prints is a row) and Entries (the ids of the
+     *    top-level entries of a menu, see MenuEntry)
      *  - Exec: what choosing a row of Items or ItemsCommand runs, with %s replaced by the
      *    row's value; without it the value is printed
      *  - Sort: frequency puts the rows of Items or ItemsCommand chosen most often first
      *
      * A row of Items or ItemsCommand is a label, shown and searched, and a value, which
      * choosing the row acts on: the text before and after its first tab.
+     *
+     * In a menu, an entry that cannot be used is left out and reported on stderr. An id
+     * listed more than once, or a submenu that contains itself at any depth, makes the
+     * whole file unusable.
      */
     public class PageFile : GLib.Object {
         public const string GROUP = "Ilia Page";
@@ -51,6 +58,8 @@ namespace Ilia {
         public string[] apps = {};
         public string[] items = {};
         public string ? command { get; private set; default = null; }
+        // Entries: the top-level entries of the menu, in the order listed, without the unusable ones
+        public MenuEntry[] entries = {};
         // The words of the Exec key; null if the page has none, or it could not be split
         public string[] ? exec_argv = null;
         // The Exec key could not be split into words: choosing a row does nothing
@@ -89,10 +98,49 @@ namespace Ilia {
          * True if the page is shown under the window manager (sway, i3 or other)
          */
         public bool is_shown_under(string wm_name) {
+            return wm_lists_allow(only_show_in, not_show_in, wm_name);
+        }
+
+        /**
+         * True if OnlyShowIn and NotShowIn lists (lower case) allow the window manager (sway, i3 or other)
+         */
+        public static bool wm_lists_allow(string[] only_show_in, string[] not_show_in, string wm_name) {
             string wm = wm_name.down();
             if (only_show_in.length > 0 && !(wm in only_show_in))
                 return false;
             return !(wm in not_show_in);
+        }
+
+        /**
+         * The submenus a menu link names, from the top level down
+         *
+         * Each id must be, exactly, a submenu directly below the one before (the top level
+         * for the first), shown under the window manager. Conditions and bindings are not
+         * consulted.
+         *
+         * @param ids The entry ids of the link, from the top level down
+         * @return the submenus, or null if the page has no such menu
+         */
+        public MenuEntry[] ? find_menu(string[] ids, string wm_name) {
+            if (source != PageSource.ENTRIES || ids.length == 0)
+                return null;
+
+            MenuEntry[] path = {};
+            MenuEntry[] level = entries;
+            foreach (unowned string id in ids) {
+                MenuEntry ? found = null;
+                foreach (var entry in level) {
+                    if (entry.id == id) {
+                        found = entry;
+                        break;
+                    }
+                }
+                if (found == null || found.kind != MenuEntryKind.SUBMENU || !found.is_shown_under(wm_name))
+                    return null;
+                path += found;
+                level = found.children;
+            }
+            return path;
         }
 
         /**
@@ -205,32 +253,43 @@ namespace Ilia {
             if (!key_file.has_group(GROUP))
                 throw new PageFileError.INVALID("it has no [%s] group", GROUP);
 
-            string ? name_value = get_string(key_file, "Name");
+            string ? name_value = get_string(key_file, GROUP, "Name");
             if (name_value == null || name_value.strip() == "")
                 throw new PageFileError.INVALID("Name is missing or blank");
             name = name_value;
 
-            string ? icon_value = get_string(key_file, "Icon");
+            string ? icon_value = get_string(key_file, GROUP, "Icon");
             if (icon_value != null && icon_value.strip() != "")
                 icon = icon_value;
 
-            apps = get_list(key_file, "Apps");
-            items = get_list(key_file, "Items");
-            string ? command_value = get_string(key_file, "ItemsCommand");
+            apps = get_list(key_file, GROUP, "Apps");
+            items = get_list(key_file, GROUP, "Items");
+            string ? command_value = get_string(key_file, GROUP, "ItemsCommand");
             if (command_value != null && command_value.strip() != "")
                 command = command_value;
+            string[] entry_ids = get_list(key_file, GROUP, "Entries");
 
-            int sources = (apps.length > 0 ? 1 : 0) + (items.length > 0 ? 1 : 0) + (command != null ? 1 : 0);
+            int sources = (apps.length > 0 ? 1 : 0) + (items.length > 0 ? 1 : 0) + (command != null ? 1 : 0) + (entry_ids.length > 0 ? 1 : 0);
             if (sources == 0)
-                throw new PageFileError.INVALID("it gives none of Apps, Items and ItemsCommand");
+                throw new PageFileError.INVALID("it gives none of Apps, Items, ItemsCommand and Entries");
             if (sources > 1)
-                throw new PageFileError.INVALID("it gives more than one of Apps, Items and ItemsCommand");
-            source = apps.length > 0 ? PageSource.APPS : (items.length > 0 ? PageSource.ITEMS : PageSource.COMMAND);
+                throw new PageFileError.INVALID("it gives more than one of Apps, Items, ItemsCommand and Entries");
+            if (apps.length > 0)
+                source = PageSource.APPS;
+            else if (items.length > 0)
+                source = PageSource.ITEMS;
+            else if (command != null)
+                source = PageSource.COMMAND;
+            else
+                source = PageSource.ENTRIES;
 
-            only_show_in = get_wm_list(key_file, "OnlyShowIn");
-            not_show_in = get_wm_list(key_file, "NotShowIn");
+            only_show_in = get_wm_list(key_file, GROUP, "OnlyShowIn");
+            not_show_in = get_wm_list(key_file, GROUP, "NotShowIn");
 
-            string ? key_value = get_string(key_file, "Key");
+            if (source == PageSource.ENTRIES)
+                entries = read_menu(key_file, entry_ids);
+
+            string ? key_value = get_string(key_file, GROUP, "Key");
             if (key_value != null) {
                 if (key_value.length == 1 && key_value[0].isalpha())
                     key = key_value[0].tolower();
@@ -238,9 +297,9 @@ namespace Ilia {
                     report_problem("Key '%s' is not a single ASCII letter, ignoring it".printf(key_value));
             }
 
-            // Rows of desktop entries always start the app, in the order listed
-            if (source != PageSource.APPS) {
-                string ? sort_value = get_string(key_file, "Sort");
+            // Rows of desktop entries always start the app, in the order listed; menu rows act as their entries say
+            if (source == PageSource.ITEMS || source == PageSource.COMMAND) {
+                string ? sort_value = get_string(key_file, GROUP, "Sort");
                 if (sort_value != null && sort_value.strip() != "") {
                     if (sort_value.strip().ascii_down() == "frequency")
                         sort_by_frequency = true;
@@ -248,7 +307,7 @@ namespace Ilia {
                         report_problem("Sort '%s' is not recognised, keeping the listed order".printf(sort_value));
                 }
 
-                string ? exec_value = get_string(key_file, "Exec");
+                string ? exec_value = get_string(key_file, GROUP, "Exec");
                 if (exec_value != null && exec_value.strip() != "") {
                     try {
                         string[] argv;
@@ -262,19 +321,19 @@ namespace Ilia {
             }
         }
 
-        // The value of a key of the page group, or null if the key is absent
-        private static string ? get_string(KeyFile key_file, string key) throws KeyFileError {
-            if (!key_file.has_key(GROUP, key))
+        // The value of a key of a group, or null if the key is absent
+        private static string ? get_string(KeyFile key_file, string group, string key) throws KeyFileError {
+            if (!key_file.has_key(group, key))
                 return null;
-            return key_file.get_string(GROUP, key);
+            return key_file.get_string(group, key);
         }
 
         // The entries of a ;-separated list, without the empty ones; none if the key is absent
-        private static string[] get_list(KeyFile key_file, string key) throws KeyFileError {
+        private static string[] get_list(KeyFile key_file, string group, string key) throws KeyFileError {
             string[] entries = {};
-            if (!key_file.has_key(GROUP, key))
+            if (!key_file.has_key(group, key))
                 return entries;
-            foreach (unowned string entry in key_file.get_string_list(GROUP, key)) {
+            foreach (unowned string entry in key_file.get_string_list(group, key)) {
                 if (entry != "")
                     entries += entry;
             }
@@ -282,14 +341,145 @@ namespace Ilia {
         }
 
         // A list of window manager names, without surrounding blank space, in lower case
-        private static string[] get_wm_list(KeyFile key_file, string key) throws KeyFileError {
+        private static string[] get_wm_list(KeyFile key_file, string group, string key) throws KeyFileError {
             string[] names = {};
-            foreach (unowned string entry in get_list(key_file, key)) {
+            foreach (unowned string entry in get_list(key_file, group, key)) {
                 string name = entry.strip().down();
                 if (name != "")
                     names += name;
             }
             return names;
+        }
+
+        /**
+         * Read the menu whose top level lists entry_ids
+         *
+         * Each entry that cannot be used is left out and reported on stderr, once the whole
+         * menu is known to be usable.
+         *
+         * @throws PageFileError.INVALID if an id is listed more than once, or a submenu
+         * contains itself
+         */
+        private MenuEntry[] read_menu(KeyFile key_file, string[] entry_ids) throws GLib.Error {
+            var listed = new HashTable<string, bool>(str_hash, str_equal);
+            var problems = new GenericArray<string> ();
+            var menu = read_entries(key_file, entry_ids, {}, listed, problems);
+            foreach (unowned string problem in problems.data)
+                report_problem(problem);
+            return menu;
+        }
+
+        // The usable entries of a list, depth first; enclosing holds the ids of the submenus the list is in
+        private MenuEntry[] read_entries(KeyFile key_file, string[] ids, string[] enclosing,
+                                         HashTable<string, bool> listed, GenericArray<string> problems) throws GLib.Error {
+            MenuEntry[] menu = {};
+            foreach (unowned string id in ids) {
+                if (id in enclosing)
+                    throw new PageFileError.INVALID("the submenu of entry '%s' leads back to it", id);
+                if (listed.contains(id))
+                    throw new PageFileError.INVALID("entry '%s' is listed more than once", id);
+                listed.insert(id, true);
+
+                string ? problem = null;
+                var entry = read_entry(key_file, id, out problem);
+                if (entry == null) {
+                    problems.add("leaving out entry '%s': %s".printf(id, problem));
+                    continue;
+                }
+                if (problem != null)
+                    problems.add("entry '%s': %s".printf(id, problem));
+                if (entry.kind == MenuEntryKind.SUBMENU) {
+                    string[] inner = enclosing;
+                    inner += id;
+                    entry.children = read_entries(key_file, get_list(key_file, entry.group, "Entries"), inner, listed, problems);
+                }
+                menu += entry;
+            }
+            return menu;
+        }
+
+        /**
+         * Read the group of an entry, without its children
+         *
+         * @param problem Why the entry is not usable; or, for a usable one, a key that is ignored
+         * @return null if the entry is not usable
+         */
+        private static MenuEntry ? read_entry(KeyFile key_file, string id, out string ? problem) throws KeyFileError {
+            problem = null;
+            if (!is_valid_id(id)) {
+                problem = "an entry id may only contain ASCII letters, digits, '-' and '_'";
+                return null;
+            }
+            var entry = new MenuEntry(id);
+            if (!key_file.has_group(entry.group)) {
+                problem = "there is no [%s] group".printf(entry.group);
+                return null;
+            }
+
+            bool has_entries = key_file.has_key(entry.group, "Entries");
+            bool has_binding = key_file.has_key(entry.group, "Binding");
+            bool has_exec = key_file.has_key(entry.group, "Exec");
+            int kinds = (has_entries ? 1 : 0) + (has_binding ? 1 : 0) + (has_exec ? 1 : 0);
+            if (kinds == 0) {
+                problem = "it gives none of Entries, Binding and Exec";
+                return null;
+            }
+            if (kinds > 1) {
+                problem = "it gives more than one of Entries, Binding and Exec";
+                return null;
+            }
+
+            string ? name_value = get_string(key_file, entry.group, "Name");
+            if (name_value == null || name_value.strip() == "") {
+                problem = "Name is missing or blank";
+                return null;
+            }
+            entry.name = name_value;
+
+            string ? icon_value = get_string(key_file, entry.group, "Icon");
+            if (icon_value != null && icon_value.strip() != "")
+                entry.icon = icon_value;
+
+            if (has_entries) {
+                entry.kind = MenuEntryKind.SUBMENU;
+            } else if (has_binding) {
+                entry.kind = MenuEntryKind.BINDING;
+                entry.binding = get_string(key_file, entry.group, "Binding");
+            } else {
+                entry.kind = MenuEntryKind.EXEC;
+                try {
+                    entry.exec_argv = MenuEntry.parse_exec(get_string(key_file, entry.group, "Exec"));
+                } catch (ShellError e) {
+                    problem = "Exec cannot be split into words: %s".printf(e.message);
+                    return null;
+                }
+            }
+
+            entry.only_show_in = get_wm_list(key_file, entry.group, "OnlyShowIn");
+            entry.not_show_in = get_wm_list(key_file, entry.group, "NotShowIn");
+
+            string ? when_value = get_string(key_file, entry.group, "When");
+            if (when_value != null) {
+                entry.has_condition = true;
+                try {
+                    entry.when_argv = MenuEntry.parse_command(when_value);
+                } catch (ShellError e) {
+                    // A condition that cannot run never succeeds
+                    problem = "When cannot be split into words, the entry is not shown: %s".printf(e.message);
+                }
+            }
+
+            string ? state_value = get_string(key_file, entry.group, "State");
+            if (state_value != null) {
+                try {
+                    entry.state_argv = MenuEntry.parse_command(state_value);
+                } catch (ShellError e) {
+                    // Both When and State may be wrong: report both on the entry's one line
+                    string state_problem = "State cannot be split into words, ignoring it: %s".printf(e.message);
+                    problem = problem == null ? state_problem : problem + "; " + state_problem;
+                }
+            }
+            return entry;
         }
 
         /**

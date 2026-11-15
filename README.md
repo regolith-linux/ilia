@@ -17,7 +17,7 @@ Ilia provides pages to view and select from the following types of things:
 - Text List (`textlist`)
 - File Search (`tracker`)
 - Open Windows (`windows`)
-- Pages defined in files: favourite apps, fixed lines, or the lines a command prints (see [Pages from files](#pages-from-files))
+- Pages defined in files: favourite apps, fixed lines, the lines a command prints, or a menu of actions (see [Pages from files](#pages-from-files))
 
 ## Usage
 
@@ -83,6 +83,7 @@ The keys of the `[Ilia Page]` group:
   - `Apps`: desktop file IDs, listed in the order given. Choosing one launches it as the Applications page does; entries that are not installed or not shown on this desktop are left out.
   - `Items`: lines of text, separated by `;`.
   - `ItemsCommand`: a shell command, each line it prints is a row. It runs when the page is first shown, rows appear as they are printed, and it is stopped when Ilia closes.
+  - `Entries`: the entries of a menu, see [Menus](#menus).
 - `Exec`: for `Items` and `ItemsCommand`, the command that choosing a row runs, with each `%s` replaced by the row's value as one argument (`%%` is a `%`; without `%s` the value is added as the last argument). The command is not run by a shell. Without `Exec`, the value is printed, as with `textlist`.
 - `Sort=frequency`: for `Items` and `ItemsCommand`, the rows chosen most often come first. Choices are recorded as `<name>#<value>` in the `app-launch-counts` setting, the launch history the Applications page ranks by, which keeps the latest 32 launches.
 - `OnlyShowIn`, `NotShowIn`: window managers the page is or is not shown under: `i3`, `sway`, or `other` for any other.
@@ -90,6 +91,88 @@ The keys of the `[Ilia Page]` group:
 A row of `Items` or `ItemsCommand` may be `label<tab>value`: the label is shown and searched, and choosing the row uses the value (in a key file, a tab is written `\t`).
 Rows are matched as on the other pages, following the `fuzzy-matching` setting; rows of `Apps` are matched as on the Applications page, following `match-fields` too, but keep their order.
 Files that cannot be used are reported on standard error and skipped.
+
+#### Menus
+
+A page with `Entries` is a menu: a short tree of rows that open submenus, run one of the window manager's bindings, or run a command.
+For jobs that are only needed now and then, it saves remembering a key for each.
+
+```
+[Ilia Page]
+Name=Actions
+Icon=system-run
+Key=i
+Entries=capture;toggles;system
+
+[Entry capture]
+Name=Capture
+Icon=camera-photo
+Entries=area;window
+
+[Entry area]
+Name=Screenshot of an area
+Binding=Session // Screenshot Selection
+
+[Entry window]
+Name=Screenshot of a window
+Binding=Window Snapshot
+
+[Entry toggles]
+Name=Toggles
+Icon=preferences-system
+Entries=banners
+
+[Entry banners]
+Name=Notification banners
+Exec=sh -c 'b=$(gsettings get org.gnome.desktop.notifications show-banners); gsettings set org.gnome.desktop.notifications show-banners $([ "$b" = true ] && echo false || echo true)'
+State=gsettings get org.gnome.desktop.notifications show-banners
+
+[Entry system]
+Name=System
+Icon=system-shutdown
+Entries=lock;sleep;hibernate
+
+[Entry lock]
+Name=Lock screen
+Binding=Session // Lock Screen
+
+[Entry sleep]
+Name=Suspend
+Binding=Session // Sleep
+
+[Entry hibernate]
+Name=Hibernate
+Exec=systemctl hibernate
+When=grep -qw disk /sys/power/state
+```
+
+`Entries` lists the ids of the top-level rows, in order; `Sort` and `Exec` of the page are not used.
+Each id (ASCII letters, digits, `-` and `_`) is described by an `[Entry <id>]` group:
+
+- `Name` (required): the row's text, as plain text.
+- `Icon`: the row's icon; the page's icon by default.
+- Exactly one of:
+  - `Entries`: the ids of a submenu's rows, in order. The row shows `›`.
+  - `Binding`: a binding of the window manager, by its description on the Keybindings page: `Action` or `Category // Action`, ignoring letter case and the spaces around `//`. The row shows the binding's keys, and choosing it runs the binding's command in the window manager, as choosing it on the Keybindings page does; if several bindings have that description, the one the Keybindings page lists first. The row is hidden when no binding has the description, and under window managers other than i3 and sway.
+  - `Exec`: a command, split into words as a shell would do it but not run by a shell; `%%` is a `%`. It runs as `Exec` of a page does, in its own `systemd-run --user --scope` unit when `systemd-run` is available.
+- `When`: a command; the row is shown only once it has exited with status 0.
+- `State`: a command; the first line it prints, `on`, `true` or `1`, or `off`, `false` or `0` (in any letter case), shows the row as `On` or `Off`.
+- `OnlyShowIn`, `NotShowIn`: as for a page.
+
+A submenu is shown only if some row below it is shown.
+When the page is first shown, the bindings are read before the rows are listed, and the `When` and `State` commands all start, without a shell and with standard input from `/dev/null`.
+Ilia does not wait for them: rows appear, and `On` or `Off` is filled in, as they finish, and the highlighted row stays highlighted.
+A command still running after 2 seconds is stopped, which leaves its row hidden (`When`) or without `On` or `Off` (`State`).
+
+Enter or a click opens a submenu or runs the row. BackSpace, with nothing typed, and Alt+Left go back up, to the row of the submenu that was open.
+Typing searches every row below the open submenu: a row deeper down is shown with its path, such as `Capture › Screenshot of an area`, and matches when every typed word occurs in that text, compared as on the other pages (ignoring letter case and accents).
+
+`ilia -p <page>/<id>[/<id>...]` opens the menu at a submenu, for example `ilia -p actions/system` from a key binding or a script.
+The ids must be exact, each a submenu of the one before, shown under the current window manager; `When` and bindings are not checked, so such a submenu may open empty.
+For any other path, Ilia prints `ilia: page '<page>' has no menu '<path>'` and exits with status 1.
+
+An entry that cannot be used (no group, no `Name`, none or several of `Entries`, `Binding` and `Exec`, or an id with other characters) is left out with a warning on standard error, and the rest of the menu works.
+An id listed twice anywhere in the file, or a submenu that leads back to itself, makes the whole file unusable.
 
 The `keybindings` and `windows` pages need i3 or sway: under other window managers they are not shown, and `ilia -p keybindings` exits with an error.
 

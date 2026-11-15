@@ -2,6 +2,31 @@ using Gtk;
 using Gee;
 
 namespace Ilia {
+    /**
+     * A binding as the keybindings page lists it
+     */
+    public class KeybindingRow : GLib.Object {
+        // The category and the description of the binding's comment
+        public string category { get; private set; }
+        public string label { get; private set; }
+        // The key text the page shows
+        public string keys { get; private set; }
+        // The command the window manager runs for it
+        public string ? exec { get; private set; }
+        // The text the page shows: category - label
+        public string summary { get; private set; }
+
+        public KeybindingRow (string category, string label, string keys, string ? exec) {
+            this.category = category;
+            this.label = label;
+            this.keys = keys;
+            this.exec = exec;
+            this.summary = category + " - " + label;
+        }
+    }
+
+    public delegate bool KeybindingRowFilter(KeybindingRow row);
+
     class KeybingingsPage : DialogPage, GLib.Object {
         private const int ITEM_VIEW_COLUMNS = 5;
         private const int ITEM_VIEW_COLUMN_KEYBINDING = 0;
@@ -212,44 +237,18 @@ namespace Ilia {
         // Read the active configuration and populate the model with keybindings
         private async void read_config() {
             try {
-                var ipc_client = new IPCClient(this.wm_name);
-                var reply = ipc_client.getConfig();
-                // sway hands over its files as written; i3 has already replaced the variables
-                bool is_sway = this.wm_name == "sway";
-                ConfigParser parser;
-                // The same configuration with no resource set, every set_from_resource at its fallback
-                ConfigParser unset_parser;
-                if (is_sway) {
-                    parser = new ConfigParser.from_files(reply.configs, "", true, yield read_trawl_resources());
-                    unset_parser = new ConfigParser.from_files(reply.configs, "", true);
-                } else {
-                    parser = new ConfigParser.from_files(reply.configs, "");
-                    unset_parser = new ConfigParser.from_files(reply.unset_resources_configs, "");
-                }
-
-                Map<string, ArrayList<Keybinding> > kbmodel = parser.parse();
-                Map<string, ArrayList<Keybinding> > unset_model = unset_parser.parse();
-
-                foreach (var entry in kbmodel.entries) {
-                    var category = entry.key;
-                    var bindings = entry.value;
-                    var unset_bindings = unset_model.has_key(category) ? unset_model.get(category) : null;
-
-                    for (int i = 0; i < bindings.size; i++) {
-                        var binding = bindings[i];
-                        var unset_binding = unset_bindings != null && i < unset_bindings.size ? unset_bindings[i] : null;
-                        var formatted_spec = row_keys_label(binding, unset_binding);
-                        var summary = category + " - " + binding.label;
-                        model.append(out iter);
-                        model.set(
-                            iter,
-                            ITEM_VIEW_COLUMN_KEYBINDING, formatted_spec,
-                            ITEM_VIEW_COLUMN_SUMMARY, summary,
-                            ITEM_VIEW_COLUMN_EXEC, binding.exec,
-                            ITEM_VIEW_COLUMN_FOLDED_KEYBINDING, fold_text(formatted_spec),
-                            ITEM_VIEW_COLUMN_FOLDED_SUMMARY, fold_text(summary)
-                        );
-                    }
+                // sway hands over its files as written, set_from_resource values included
+                var resources = this.wm_name == "sway" ? yield read_trawl_resources() : null;
+                foreach (var row in read_binding_rows(this.wm_name, resources)) {
+                    model.append(out iter);
+                    model.set(
+                        iter,
+                        ITEM_VIEW_COLUMN_KEYBINDING, row.keys,
+                        ITEM_VIEW_COLUMN_SUMMARY, row.summary,
+                        ITEM_VIEW_COLUMN_EXEC, row.exec,
+                        ITEM_VIEW_COLUMN_FOLDED_KEYBINDING, fold_text(row.keys),
+                        ITEM_VIEW_COLUMN_FOLDED_SUMMARY, fold_text(row.summary)
+                    );
                 }
             } catch (GLib.Error err) {
                 // TODO consistent error handling
@@ -258,12 +257,65 @@ namespace Ilia {
         }
 
         /**
+         * The bindings of the running window manager (i3 or sway) as this page lists them,
+         * in the order of the configuration; the page shows them sorted by summary
+         *
+         * @param resources For sway, the trawl resources (see read_trawl_resources())
+         */
+        public static KeybindingRow[] read_binding_rows(string wm_name, HashTable<string, string> ? resources) throws GLib.Error {
+            var ipc_client = new IPCClient(wm_name);
+            var reply = ipc_client.getConfig();
+            // sway hands over its files as written; i3 has already replaced the variables
+            bool is_sway = wm_name == "sway";
+            ConfigParser parser;
+            // The same configuration with no resource set, every set_from_resource at its fallback
+            ConfigParser unset_parser;
+            if (is_sway) {
+                parser = new ConfigParser.from_files(reply.configs, "", true, resources);
+                unset_parser = new ConfigParser.from_files(reply.configs, "", true);
+            } else {
+                parser = new ConfigParser.from_files(reply.configs, "");
+                unset_parser = new ConfigParser.from_files(reply.unset_resources_configs, "");
+            }
+
+            Map<string, ArrayList<Keybinding> > kbmodel = parser.parse();
+            Map<string, ArrayList<Keybinding> > unset_model = unset_parser.parse();
+
+            KeybindingRow[] rows = {};
+            foreach (var entry in kbmodel.entries) {
+                var category = entry.key;
+                var bindings = entry.value;
+                var unset_bindings = unset_model.has_key(category) ? unset_model.get(category) : null;
+
+                for (int i = 0; i < bindings.size; i++) {
+                    var binding = bindings[i];
+                    var unset_binding = unset_bindings != null && i < unset_bindings.size ? unset_bindings[i] : null;
+                    rows += new KeybindingRow(category, binding.label, row_keys_label(binding, unset_binding), binding.exec);
+                }
+            }
+            return rows;
+        }
+
+        /**
+         * Of the rows that satisfy matches, the one this page lists first when nothing is
+         * typed: by summary, as GTK sorts strings, and in configuration order among equal
+         * summaries; null if none does
+         */
+        public static KeybindingRow ? first_listed(KeybindingRow[] rows, KeybindingRowFilter matches) {
+            KeybindingRow ? first = null;
+            foreach (var row in rows) {
+                if (matches(row) && (first == null || row.summary.collate(first.summary) < 0))
+                    first = row;
+            }
+            return first;
+        }
+
+        /**
          * The resources sway-regolith reads set_from_resource values from: the trawl
          * service on the session bus. Empty when trawl is not running, in which case
          * sway uses each set_from_resource default too.
          */
-        private async HashTable<string, string> read_trawl_resources() {
-            var resources = new HashTable<string, string> (str_hash, str_equal);
+        private static async HashTable<string, string> read_trawl_resources() {
             try {
                 var bus = yield Bus.get(BusType.SESSION);
                 var reply = yield bus.call(
@@ -271,17 +323,41 @@ namespace Ilia {
                     "org.freedesktop.DBus.Properties", "Get",
                     new Variant("(ss)", "org.regolith.trawl1", "Resources"),
                     new VariantType("(v)"), DBusCallFlags.NO_AUTO_START, 1000, null);
-                Variant all;
-                reply.get("(v)", out all);
-                if (all.is_of_type(new VariantType("a{ss}"))) {
-                    var iter = all.iterator();
-                    string key;
-                    string value;
-                    while (iter.next("{ss}", out key, out value))
-                        resources.insert(key.strip(), value);
-                }
+                return trawl_resources_from_reply(reply);
             } catch (GLib.Error err) {
                 debug("No trawl resources: %s", err.message);
+            }
+            return new HashTable<string, string> (str_hash, str_equal);
+        }
+
+        /**
+         * The same as read_trawl_resources(), waiting for the answer
+         */
+        public static HashTable<string, string> read_trawl_resources_sync() {
+            try {
+                var bus = Bus.get_sync(BusType.SESSION);
+                var reply = bus.call_sync(
+                    "org.regolith.Trawl", "/org/regolith/Trawl",
+                    "org.freedesktop.DBus.Properties", "Get",
+                    new Variant("(ss)", "org.regolith.trawl1", "Resources"),
+                    new VariantType("(v)"), DBusCallFlags.NO_AUTO_START, 1000, null);
+                return trawl_resources_from_reply(reply);
+            } catch (GLib.Error err) {
+                debug("No trawl resources: %s", err.message);
+            }
+            return new HashTable<string, string> (str_hash, str_equal);
+        }
+
+        private static HashTable<string, string> trawl_resources_from_reply(Variant reply) {
+            var resources = new HashTable<string, string> (str_hash, str_equal);
+            Variant all;
+            reply.get("(v)", out all);
+            if (all.is_of_type(new VariantType("a{ss}"))) {
+                var iter = all.iterator();
+                string key;
+                string value;
+                while (iter.next("{ss}", out key, out value))
+                    resources.insert(key.strip(), value);
             }
             return resources;
         }

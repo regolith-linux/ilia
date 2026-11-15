@@ -57,6 +57,8 @@ namespace Ilia {
 
         private string wm_name;
         private bool is_wayland;
+        // The submenu path given with -p page/path, as given; null for none
+        private string ? menu_path = null;
 
         // The desktop's layout-switch shortcuts; on X11 ilia switches the layout itself, as its keyboard grab keeps them from the desktop
         private InputSourceSwitcher ? layout_switcher = null;
@@ -90,7 +92,11 @@ namespace Ilia {
             notebook.get_style_context().add_class("notebook");
             notebook.set_tab_pos(PositionType.BOTTOM);
 
-            var focus_page = arg_map.get("-p") ?? "Apps";
+            // A page, or page/entry/... for a submenu of a menu page
+            string page_arg = arg_map.get("-p") ?? "Apps";
+            int slash = page_arg.index_of_char('/');
+            string focus_page = slash < 0 ? page_arg : page_arg.substring(0, slash);
+            menu_path = slash < 0 ? null : page_arg.substring(slash + 1);
             bool all_page_mode = arg_map.contains("-a");
 
             init_pages(arg_map, focus_page, all_page_mode);
@@ -265,7 +271,12 @@ namespace Ilia {
                                 dialog_pages[active_page].show();
                             break;
                         case KEY_CODE_RIGHT:
-                        case KEY_CODE_LEFT: // Switch pages
+                        case KEY_CODE_LEFT: // Switch pages; a menu page goes up a level with Alt+Left
+                            if (key.keyval == KEY_CODE_LEFT && (key.state & Gdk.ModifierType.MOD1_MASK) != 0) {
+                                key_handled = dialog_pages[active_page].key_event(key);
+                                if (key_handled)
+                                    break;
+                            }
                             notebook.grab_focus();
                             break;
                         default:            // Pass key event to active page for handling
@@ -462,11 +473,33 @@ namespace Ilia {
             }
         }
 
-        // A page for a page file, using key as its letter (0 for none)
-        private DialogPage new_file_page(PageFile file, char key) {
-            if (file.source == PageSource.APPS)
-                return new PageFileAppsPage(file, key);
-            return new PageFileTextPage(file, key);
+        // A page for a page file, using key as its letter (0 for none); a menu opens at start_path
+        private DialogPage new_file_page(PageFile file, char key, MenuEntry[] ? start_path = null) {
+            switch (file.source) {
+                case PageSource.APPS:
+                    return new PageFileAppsPage(file, key);
+                case PageSource.ENTRIES:
+                    return new PageFileMenuPage(file, key, start_path);
+                default:
+                    return new PageFileTextPage(file, key);
+            }
+        }
+
+        /**
+         * The submenus that -p page/path names in a page file; exits if it names none
+         *
+         * @param file The page, or null if it is not a page file
+         * @return null when -p names no submenu
+         */
+        private MenuEntry[] ? start_menu(string page_name, PageFile ? file) {
+            if (menu_path == null)
+                return null;
+            MenuEntry[] ? path = file != null ? file.find_menu(menu_path.split("/"), wm_name) : null;
+            if (path == null) {
+                stderr.printf("ilia: page '%s' has no menu '%s'\n", page_name, menu_path);
+                Process.exit(1);
+            }
+            return path;
         }
 
         private DialogPage begin_page(DialogPage page, HashTable<string, string ?> arg_map) {
@@ -489,6 +522,7 @@ namespace Ilia {
                     exit_page_not_available(focus_page);
                 // The page files are read, and problems with them reported, whichever page is opened
                 PageFile.load_all();
+                start_menu(focus_page, null);
                 // Null if this build leaves the page out
                 var page = new_builtin_page(page_id);
                 if (page != null)
@@ -499,7 +533,7 @@ namespace Ilia {
                         continue;
                     if (!file.is_shown_under(wm_name))
                         exit_page_not_available(focus_page);
-                    dialog_pages[0] = begin_page(new_file_page(file, file.key), arg_map);
+                    dialog_pages[0] = begin_page(new_file_page(file, file.key, start_menu(focus_page, file)), arg_map);
                     break;
                 }
             }
@@ -528,7 +562,16 @@ namespace Ilia {
             }
 
             bool focus_exists = PageFile.is_builtin_page(focus_page);
-            foreach (var file in PageFile.load_all()) {
+            // -p page/path: the page must be a menu shown here, with that submenu
+            PageFile ? focus_file = null;
+            var files = PageFile.load_all();
+            foreach (var file in files) {
+                if (file.id.ascii_down() == focus_page.ascii_down() && file.is_shown_under(wm_name))
+                    focus_file = file;
+            }
+            MenuEntry[] ? start_path = start_menu(focus_page, focus_file);
+
+            foreach (var file in files) {
                 focus_exists = focus_exists || file.id.ascii_down() == focus_page.ascii_down();
                 if (!file.is_shown_under(wm_name))
                     continue;
@@ -541,7 +584,7 @@ namespace Ilia {
                 if (key != 0)
                     used_keys += key.to_string();
 
-                pages += begin_page(new_file_page(file, key), arg_map);
+                pages += begin_page(new_file_page(file, key, file == focus_file ? start_path : null), arg_map);
                 page_ids += file.id.ascii_down();
             }
             // last page, help, will be initialized later in init

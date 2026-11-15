@@ -105,6 +105,94 @@ void test_unusable() {
     assert (!is_unusable("[Ilia Page]\nName=X\nItems=a\nApps=;\nItemsCommand= \n"));
 }
 
+// The ids of a menu level, with each submenu's ids in parentheses
+string menu_ids(Ilia.MenuEntry[] entries) {
+    string[] ids = {};
+    foreach (var entry in entries)
+        ids += entry.children.length > 0 ? entry.id + "(" + menu_ids(entry.children) + ")" : entry.id;
+    return string.joinv(" ", ids);
+}
+
+void test_menu() {
+    var page = read_usable("[Ilia Page]\nName=Actions\nIcon=page-icon\nEntries=capture;run;\nSort=frequency\nExec=wrong %s\n"
+                           + "[Entry capture]\nName=<b>Capture</b>\nEntries=area;\nState=probe on\nNotShowIn=Other\n"
+                           + "[Entry area]\nName=Area\nIcon=area-icon\nBinding= Session // Screenshot Selection \nWhen=test -e '/a b'\n"
+                           + "[Entry run]\nName=Run\nExec=probe 'two words' 100%% %s %f\n"
+                           + "[Entry unlisted]\nEntries=missing;\n");
+    assert (page.source == Ilia.PageSource.ENTRIES);
+    // Exec and Sort of the page have no effect on a menu
+    assert (page.exec_argv == null && !page.exec_invalid && !page.sort_by_frequency);
+    assert (menu_ids(page.entries) == "capture(area) run");
+
+    var capture = page.entries[0];
+    assert (capture.kind == Ilia.MenuEntryKind.SUBMENU);
+    assert (capture.name == "<b>Capture</b>" && capture.icon == null);
+    assert (string.joinv("|", capture.state_argv) == "probe|on" && !capture.has_condition);
+    assert (capture.is_shown_under("i3") && !capture.is_shown_under("other"));
+
+    var area = capture.children[0];
+    assert (area.kind == Ilia.MenuEntryKind.BINDING && area.icon == "area-icon");
+    assert (area.binding.strip() == "Session // Screenshot Selection");
+    assert (area.has_condition && string.joinv("|", area.when_argv) == "test|-e|/a b");
+
+    var run = page.entries[1];
+    assert (run.kind == Ilia.MenuEntryKind.EXEC);
+    // %% is a literal %, nothing else is replaced
+    assert (string.joinv("|", run.exec_argv) == "probe|two words|100%|%s|%f");
+
+    // Entries that cannot be used are left out on their own
+    page = read_usable("[Ilia Page]\nName=X\nEntries=a;missing;both;none;noname;bad id;b;\n"
+                       + "[Entry a]\nName=A\nExec=a\n"
+                       + "[Entry both]\nName=Both\nExec=b\nBinding=b\n"
+                       + "[Entry none]\nName=None\n"
+                       + "[Entry noname]\nExec=n\n"
+                       + "[Entry bad id]\nName=Bad\nExec=bad\n"
+                       + "[Entry b]\nName=B\nEntries=\n");
+    assert (menu_ids(page.entries) == "a b");
+    assert (page.entries[1].kind == Ilia.MenuEntryKind.SUBMENU && page.entries[1].children.length == 0);
+
+    // An id listed twice, or a submenu that contains itself, makes the file unusable
+    assert (is_unusable("[Ilia Page]\nName=X\nEntries=a;a;\n[Entry a]\nName=A\nExec=a\n"));
+    assert (is_unusable("[Ilia Page]\nName=X\nEntries=s;t;\n[Entry s]\nName=S\nEntries=a;\n[Entry t]\nName=T\nEntries=a;\n[Entry a]\nName=A\nExec=a\n"));
+    assert (is_unusable("[Ilia Page]\nName=X\nEntries=loop;\n[Entry loop]\nName=L\nEntries=loop;\n"));
+    assert (is_unusable("[Ilia Page]\nName=X\nEntries=a;\n[Entry a]\nName=A\nEntries=b;\n[Entry b]\nName=B\nEntries=a;\n"));
+    // Entries is a source like the others
+    assert (is_unusable("[Ilia Page]\nName=X\nEntries=a;\nItems=x\n[Entry a]\nName=A\nExec=a\n"));
+    assert (is_unusable("[Ilia Page]\nName=X\nEntries=;\n"));
+}
+
+void test_find_menu() {
+    var page = read_usable("[Ilia Page]\nName=X\nEntries=outer;leaf;sway;\n"
+                           + "[Entry outer]\nName=Outer\nEntries=inner;\nWhen=false\n"
+                           + "[Entry inner]\nName=Inner\nEntries=\n"
+                           + "[Entry leaf]\nName=Leaf\nExec=leaf\n"
+                           + "[Entry sway]\nName=Sway\nOnlyShowIn=sway\nEntries=leaf2;\n"
+                           + "[Entry leaf2]\nName=Leaf 2\nExec=leaf\n");
+    var path = page.find_menu({ "outer", "inner" }, "i3");
+    assert (path != null && path.length == 2 && path[1].id == "inner");
+    assert (page.find_menu({ "Outer" }, "i3") == null);
+    assert (page.find_menu({ "inner" }, "i3") == null);
+    assert (page.find_menu({ "leaf" }, "i3") == null);
+    assert (page.find_menu({ "sway" }, "i3") == null);
+    assert (page.find_menu({ "sway" }, "sway") != null);
+}
+
+void test_menu_values() {
+    assert (Ilia.MenuEntry.state_text("  TrUe ") == "On");
+    assert (Ilia.MenuEntry.state_text("1") == "On");
+    assert (Ilia.MenuEntry.state_text(" off\t") == "Off");
+    assert (Ilia.MenuEntry.state_text("0") == "Off");
+    assert (Ilia.MenuEntry.state_text("") == null);
+    assert (Ilia.MenuEntry.state_text("trueish") == null);
+    assert (Ilia.MenuEntry.state_text(null) == null);
+
+    assert (Ilia.MenuEntry.binding_matches("  tIe aCtIoN ", "Session", "Tie Action"));
+    assert (Ilia.MenuEntry.binding_matches(" sEsSiOn  //  Tie Action", "Session", "Tie Action"));
+    assert (!Ilia.MenuEntry.binding_matches("Capture // Tie Action", "Session", "Tie Action"));
+    assert (!Ilia.MenuEntry.binding_matches("Tie", "Session", "Tie Action"));
+    assert (!Ilia.MenuEntry.binding_matches("a // b // c", "a", "b"));
+}
+
 void test_split_row() {
     string label, value;
     assert (Ilia.PageFile.split_row("plain text", out label, out value));
@@ -190,6 +278,9 @@ public int main(string[] args) {
     Test.add_func("/pagefile/ids", test_ids);
     Test.add_func("/pagefile/parse", test_parse);
     Test.add_func("/pagefile/unusable", test_unusable);
+    Test.add_func("/pagefile/menu", test_menu);
+    Test.add_func("/pagefile/find_menu", test_find_menu);
+    Test.add_func("/pagefile/menu_values", test_menu_values);
     Test.add_func("/pagefile/split_row", test_split_row);
     Test.add_func("/pagefile/expand_exec", test_expand_exec);
     Test.add_func("/pagefile/load_all", test_load_all);

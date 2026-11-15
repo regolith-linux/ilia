@@ -232,6 +232,7 @@ namespace Ilia {
             stdout.printf("\t'windows' - navigate to a window\n");
             stdout.printf("\t'tracker' - search for files by content\n");
             stdout.printf("\t'<name>' - a page defined in the file ilia/pages/<name>.page of an XDG configuration directory\n");
+            stdout.printf("\t'<name>/<id>[/<id>...]' - the submenu <id> of the menu that the page file <name> defines\n");
             Process.exit(0);
         }
 

@@ -193,6 +193,31 @@ public void test_run_command() {
     }
 }
 
+// The workspaces come with the number their names start with, -1 for none, and the same
+// connection then takes a command, as for a launch on a new workspace
+public void test_workspaces() {
+    try {
+        var wm = new FakeWm({
+            "[{\"num\":1,\"name\":\"1\",\"focused\":true},{\"num\":2,\"name\":\"2:web\"},{\"num\":-1,\"name\":\"music\"}]",
+            "[{\"success\":true}]"
+        });
+        Environment.set_variable("I3SOCK", wm.socket_path, true);
+        var ipc = new Ilia.IPCClient("i3");
+        var workspaces = ipc.getWorkspaces();
+        ipc.runCommand("workspace number 3");
+        wm.join();
+        assert(workspaces.length == 3);
+        assert(workspaces[0].name == "1" && workspaces[0].num == 1);
+        assert(workspaces[1].name == "2:web" && workspaces[1].num == 2);
+        assert(workspaces[2].name == "music" && workspaces[2].num == -1);
+        // GET_WORKSPACES, then RUN_COMMAND
+        assert(wm.request_types[0] == 1 && wm.request_types[1] == 0);
+        assert(wm.requests[1] == "workspace number 3");
+    } catch (GLib.Error e) {
+        error("getWorkspaces failed: %s", e.message);
+    }
+}
+
 // A command the window manager rejects is reported as an error
 public void test_run_command_failure() {
     try {
@@ -286,6 +311,7 @@ public int main(string[] args) {
     Test.add_func("/i3ipc/missing_socket", test_missing_socket);
     Test.add_func("/i3ipc/run_command", test_run_command);
     Test.add_func("/i3ipc/run_command_failure", test_run_command_failure);
+    Test.add_func("/i3ipc/workspaces", test_workspaces);
     Test.add_func("/i3ipc/binding_state", test_binding_state);
     Test.add_func("/i3ipc/sway_binding_events", test_sway_binding_events);
 

@@ -61,6 +61,14 @@ namespace Ilia {
         public abstract bool key_event(Gdk.EventKey event_key);
 
         /**
+         * Page returns true for a key it acts on that the launcher would otherwise pass to
+         * the window manager, as it does on X11 with the keys it has no use for itself
+         */
+        public virtual bool owns_key(Gdk.EventKey event_key) {
+            return false;
+        }
+
+        /**
          * Page returns character that should cause the page to be selected if pressed
          */
         public abstract char get_keybinding();

@@ -56,6 +56,7 @@ ilia_sources += files([
     'tracker/SparqlLibrary.vala',
     'tracker/TrackerPage.vala',
     'windows/WindowPage.vala',
+    'xresource.vapi',
     ])
     
 ilia_link_args = ['-rdynamic']

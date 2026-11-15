@@ -258,35 +258,6 @@ namespace Ilia {
         }
 
         /**
-         * The resources sway-regolith reads set_from_resource values from: the trawl
-         * service on the session bus. Empty when trawl is not running, in which case
-         * sway uses each set_from_resource default too.
-         */
-        private async HashTable<string, string> read_trawl_resources() {
-            var resources = new HashTable<string, string> (str_hash, str_equal);
-            try {
-                var bus = yield Bus.get(BusType.SESSION);
-                var reply = yield bus.call(
-                    "org.regolith.Trawl", "/org/regolith/Trawl",
-                    "org.freedesktop.DBus.Properties", "Get",
-                    new Variant("(ss)", "org.regolith.trawl1", "Resources"),
-                    new VariantType("(v)"), DBusCallFlags.NO_AUTO_START, 1000, null);
-                Variant all;
-                reply.get("(v)", out all);
-                if (all.is_of_type(new VariantType("a{ss}"))) {
-                    var iter = all.iterator();
-                    string key;
-                    string value;
-                    while (iter.next("{ss}", out key, out value))
-                        resources.insert(key.strip(), value);
-                }
-            } catch (GLib.Error err) {
-                debug("No trawl resources: %s", err.message);
-            }
-            return resources;
-        }
-
-        /**
          * The key text of a row: the one its comment gives while the row binds the keys it
          * has with no resource set, or binds none at all; otherwise the keys it binds.
          */

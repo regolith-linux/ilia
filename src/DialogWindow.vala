@@ -229,8 +229,9 @@ namespace Ilia {
 
                 bool key_handled = false;
                 switch (key.keyval) {
-                        case KEY_CODE_ESCAPE: // Explicit exit
-                            quit();
+                        case KEY_CODE_ESCAPE: // Explicit exit, unless the page has something to cancel
+                            if (!dialog_pages[active_page].cancel())
+                                quit();
                             break;
                         case KEY_CODE_SUPER:
                         case KEY_CODE_SUPER_R: // Explicit exit, unless Super is pressed to complete a held layout-switch shortcut
@@ -456,6 +457,19 @@ namespace Ilia {
                     break;
                 case "tracker":
                     dialog_pages[0] = new TrackerPage();
+                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+                    break;
+                // The quick panels are shown on their own only: with -a they are unknown pages
+                case "wifi":
+                    dialog_pages[0] = new WifiPage();
+                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+                    break;
+                case "bluetooth":
+                    dialog_pages[0] = new BluetoothPage();
+                    dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
+                    break;
+                case "power":
+                    dialog_pages[0] = new PowerPage();
                     dialog_pages[0].initialize.begin(settings, arg_map, entry, this, this.wm_name, this.is_wayland);
                     break;
                 default:

@@ -17,6 +17,9 @@ Ilia provides pages to view and select from the following types of things:
 - Text List (`textlist`)
 - File Search (`tracker`)
 - Open Windows (`windows`)
+- Wi-Fi Networks (`wifi`)
+- Bluetooth Devices (`bluetooth`)
+- Power Profiles (`power`)
 
 ## Usage
 
@@ -45,6 +48,16 @@ The `textlist` page supports two additional parameters for more customization:
         -l: page label
         -i: page icon
 ```
+
+### Wi-Fi, Bluetooth and Power
+
+The `wifi`, `bluetooth` and `power` pages are quick panels for the system services behind them, reached on the system bus. Each is shown on its own with `-p` (it is not one of the pages `-a` shows) and lists one row per network, device or profile, with a detail and a state. The window opens at once and the rows fill in as the service answers; they follow changes while the page is open. Enter acts on the highlighted row and closes ilia once the service accepts; if the service returns an error, or no reply within five seconds, ilia prints `ilia: <row>: <message>` on standard error and stays open.
+
+- `wifi` (NetworkManager) lists the networks the Wi-Fi devices see, connected ones first, then by signal strength. Enter disconnects a connected network, activates a saved one, joins an open one, and asks for the password of a WPA/WPA3 personal network (Escape leaves the prompt). Enterprise (802.1X) networks are listed but not joined from here.
+- `bluetooth` (BlueZ) lists paired, connected and named devices, with their battery level when known. Enter disconnects a connected device, connects a paired one, and pairs, trusts and connects any other. Discovery runs while the page is open, on the adapters that were not already discovering.
+- `power` (power-profiles-daemon, at `org.freedesktop.UPower.PowerProfiles` or the older `net.hadess.PowerProfiles`) lists the profiles and marks the active one. Enter makes the highlighted profile active.
+
+When a service is missing, or its radio is off, the page says so in a single row; Enter on the "is off" row turns the Wi-Fi radio or the Bluetooth adapters on.
 
 ## Configuration
 

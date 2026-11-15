@@ -9,6 +9,10 @@ namespace Ilia {
 
         // Exit the app
         public abstract void quit();
+
+        // While shared, ilia lets go of the keyboard and pointer so another window can take them, as the
+        // authorisation prompt of a package change must; unshared, ilia takes them back
+        public abstract void share_input(bool shared);
     }
 
     /**
@@ -69,5 +73,20 @@ namespace Ilia {
          * Called after initialize completes. Used for final UI state setup post model load.
          */
         public abstract void show();
+
+        /**
+         * Called on Escape. Page returns true if it handled the key, and the dialog stays open; false to exit.
+         */
+        public virtual bool cancel() {
+            return false;
+        }
+
+        /**
+         * Page returns true while it needs the dialog to stay open when the focus leaves it, as when it
+         * waits for a change that may ask for authorisation in a window of its own.
+         */
+        public virtual bool keeps_open() {
+            return false;
+        }
     }
 }

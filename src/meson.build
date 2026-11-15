@@ -26,6 +26,7 @@ ilia_deps += [glib_2_0_dep]
 ilia_deps += [gobject_2_0_dep]
 ilia_deps += [gtk_3_0_dep]
 ilia_deps += [pango_dep]
+ilia_deps += [packagekit_dep]
 ilia_deps += [x11_dep]
 ilia_deps += [gdk_x11_dep]
 ilia_deps += [xtst_dep]
@@ -44,6 +45,8 @@ ilia_sources += files([
     'apps/DesktopAppPage.vala',
     'help/HelpPage.vala',
     'commands/CommandPage.vala',
+    'features/FeatureCatalogue.vala',
+    'features/FeaturesPage.vala',
     'keybindings/ConfigParser.vala',
     'keybindings/I3Ipc.vala',
     'keybindings/KeybindingsPage.vala',

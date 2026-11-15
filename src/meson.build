@@ -37,8 +37,10 @@ ilia_sources += files([
     'Application.vala',
     'KeyListenerGuard.vala',
     'atk-util-class.vapi',
+    'ClipboardKeeper.vala',
     'IconLoader.vala',
     'InputSourceSwitcher.vala',
+    'PathWatcher.vala',
     'Util.vala',
     'WmKeys.vala',
     'apps/DesktopAppPage.vala',
@@ -58,10 +60,35 @@ ilia_sources += files([
     'windows/WindowPage.vala',
     ])
     
+ilia_vala_args = []
+
+# The clipboard keeper serves Wayland clipboards with the ext-data-control protocol (in
+# wayland-protocols from 1.39); without it, copied text is kept on Wayland only by the desktop
+wayland_client_dep = dependency('wayland-client', required: false)
+wayland_protocols_dep = dependency('wayland-protocols', version: '>= 1.39', required: false)
+wayland_scanner_dep = dependency('wayland-scanner', native: true, required: false)
+if wayland_client_dep.found() and wayland_protocols_dep.found() and wayland_scanner_dep.found()
+    wayland_scanner = find_program(wayland_scanner_dep.get_variable(pkgconfig: 'wayland_scanner'))
+    data_control_xml = join_paths(wayland_protocols_dep.get_variable(pkgconfig: 'pkgdatadir'),
+        'staging', 'ext-data-control', 'ext-data-control-v1.xml')
+    ilia_sources += custom_target('ext-data-control-v1-client-protocol.h',
+        input: data_control_xml,
+        output: 'ext-data-control-v1-client-protocol.h',
+        command: [wayland_scanner, 'client-header', '@INPUT@', '@OUTPUT@'])
+    ilia_sources += custom_target('ext-data-control-v1-protocol.c',
+        input: data_control_xml,
+        output: 'ext-data-control-v1-protocol.c',
+        command: [wayland_scanner, 'private-code', '@INPUT@', '@OUTPUT@'])
+    ilia_sources += files(['WaylandClipboard.c'])
+    ilia_deps += [wayland_client_dep]
+    ilia_vala_args += ['--define=WAYLAND_CLIPBOARD']
+endif
+
 ilia_link_args = ['-rdynamic']
 
 executable('ilia',ilia_sources + files(['Main.vala']),
     dependencies: ilia_deps,
+    vala_args: ilia_vala_args,
     link_args: ilia_link_args,
     install: true)
 

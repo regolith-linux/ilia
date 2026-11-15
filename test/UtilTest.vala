@@ -431,6 +431,223 @@ public void test_clamp_path_to_rows() {
     assert (path.to_string() == "1");
 }
 
+// Exec values split into words as the Desktop Entry Specification says, without field codes
+public void test_split_desktop_exec() {
+    assert (string.joinv("|", Ilia.split_desktop_exec("firefox %u")) == "firefox");
+    assert (string.joinv("|", Ilia.split_desktop_exec("\"/opt/my app/run\" --new-window %F")) == "/opt/my app/run|--new-window");
+    assert (string.joinv("|", Ilia.split_desktop_exec("\"a\\\"b\\`c\\$d\\\\e\"")) == "a\"b`c$d\\e");
+    assert (string.joinv("|", Ilia.split_desktop_exec("env  %f\tFOO=1 date +%%s")) == "env|FOO=1|date|+%s");
+    assert (Ilia.split_desktop_exec("").length == 0);
+    assert (Ilia.split_desktop_exec(" %U ").length == 0);
+}
+
+// A new directory for a test's files
+private string make_test_dir(string name) {
+    try {
+        return DirUtils.make_tmp(name + "-XXXXXX");
+    } catch (FileError e) {
+        error("%s", e.message);
+    }
+}
+
+private void write_test_file(string path, int mode) {
+    try {
+        FileUtils.set_contents(path, "#!/bin/sh\n");
+    } catch (FileError e) {
+        error("%s", e.message);
+    }
+    FileUtils.chmod(path, mode);
+}
+
+// The program an Exec value starts: found on PATH, unwrapped from env, shown with its link target
+public void test_lookup_exec_program() {
+    var dir = make_test_dir("ilia-exec-test");
+    var first = Path.build_filename(dir, "first");
+    var second = Path.build_filename(dir, "second");
+    DirUtils.create(first, 0755);
+    DirUtils.create(second, 0755);
+    write_test_file(Path.build_filename(first, "plain"), 0644);  // not executable: skipped
+    write_test_file(Path.build_filename(second, "plain"), 0755);
+    write_test_file(Path.build_filename(second, "tool"), 0755);
+    DirUtils.create(Path.build_filename(first, "tool"), 0755);   // a directory: skipped
+    FileUtils.symlink("tool", Path.build_filename(second, "alias"));
+    var path = first + ":" + second;
+    var tool = Path.build_filename(second, "tool");
+    var alias = Path.build_filename(second, "alias");
+
+    var lookup = Ilia.lookup_exec_program("tool %U", path);
+    assert (lookup.text == tool);
+    assert (lookup.path == tool);
+    assert (string.joinv("|", lookup.candidates) == Path.build_filename(first, "tool") + "|" + tool);
+    assert (Ilia.lookup_exec_program("plain", path).text == Path.build_filename(second, "plain"));
+    assert (Ilia.lookup_exec_program("\"" + tool + "\" --flag", path).text == tool);
+    // A link is shown with its target, and its own path is the one copied
+    lookup = Ilia.lookup_exec_program("alias", path);
+    assert (lookup.text == alias + " → " + Posix.realpath(tool));
+    assert (lookup.path == alias);
+    // Nothing found: every directory was tried
+    lookup = Ilia.lookup_exec_program("missing", path);
+    assert (lookup.text == "missing (not found)");
+    assert (lookup.path == null);
+    assert (lookup.candidates.length == 2);
+    // Other launchers are not unwrapped
+    assert (Ilia.lookup_exec_program("sh -c \"tool\"", "/bin").text.has_prefix("/bin/sh"));
+    // No program at all
+    lookup = Ilia.lookup_exec_program(" %U", path);
+    assert (lookup.text == "" && lookup.path == null && lookup.candidates.length == 0);
+
+    // env: unset options, --, assignments and nesting; PATH= changes the lookup
+    assert (Ilia.lookup_exec_program("env -u LANG -- FOO=1 \"BAR=a b\" tool --x", path).text == tool);
+    assert (Ilia.lookup_exec_program("env A=1 /usr/bin/env B=2 tool", path).text == tool);
+    lookup = Ilia.lookup_exec_program("env PATH=" + second + " plain", path);
+    assert (lookup.text == Path.build_filename(second, "plain"));
+    assert (string.joinv("|", lookup.candidates) == Path.build_filename(second, "plain"));
+    assert (Ilia.lookup_exec_program("env PATH=" + first + " tool", path).text == "tool (not found)");
+    // env itself: nothing to run, or an option env is not unwrapped for
+    assert (Ilia.lookup_exec_program("env FOO=1", path).text == "env (not found)");
+    assert (Ilia.lookup_exec_program("env PATH=/usr/bin:/bin", path).text.has_prefix("/usr/bin/env"));
+    assert (Ilia.lookup_exec_program("/usr/bin/env -C /tmp tool", path).text.has_prefix("/usr/bin/env"));
+
+    FileUtils.unlink(alias);
+    DirUtils.remove(Path.build_filename(first, "tool"));
+    foreach (var file in new string[] { Path.build_filename(first, "plain"), tool, Path.build_filename(second, "plain") })
+        FileUtils.unlink(file);
+    DirUtils.remove(first);
+    DirUtils.remove(second);
+    DirUtils.remove(dir);
+}
+
+// An app activated over D-Bus without an Exec key is named by its desktop id, and has no path
+public void test_lookup_desktop_app_program() {
+    var dir = make_test_dir("ilia-dbus-test");
+    var filename = Path.build_filename(dir, "org.example.Service.desktop");
+    try {
+        FileUtils.set_contents(filename, "[Desktop Entry]\nType=Application\nName=Service\nDBusActivatable=true\n");
+    } catch (FileError e) {
+        error("%s", e.message);
+    }
+    var app_info = new DesktopAppInfo.from_filename(filename);
+    assert (app_info != null);
+    var lookup = Ilia.lookup_desktop_app_program(app_info, "/usr/bin:/bin");
+    assert (lookup.text == "D-Bus: org.example.Service");
+    assert (lookup.path == null);
+    assert (lookup.candidates.length == 0);
+
+    FileUtils.unlink(filename);
+    DirUtils.remove(dir);
+}
+
+// The items sorted, joined by separator
+private string sorted_join(string[] items, string separator) {
+    var list = new Gee.ArrayList<string>();
+    list.add_all_array(items);
+    list.sort((a, b) => strcmp(a, b));
+    return string.joinv(separator, list.to_array());
+}
+
+// The names each directory on the way to the paths holds, through links
+private string path_dependencies(string[] paths) {
+    var entries = new HashTable<string, GenericSet<string> >(str_hash, str_equal);
+    foreach (var path in paths)
+        Ilia.add_path_dependencies(path, entries);
+    string[] lines = {};
+    entries.foreach((dir, names) => {
+        string[] dir_names = {};
+        names.foreach((name) => dir_names += name);
+        lines += dir + ":" + sorted_join(dir_names, ",");
+    });
+    return sorted_join(lines, " ");
+}
+
+// Every directory on the way, the links followed from where they are, a missing entry ending the walk
+public void test_add_path_dependencies() {
+    var dir = Posix.realpath(make_test_dir("ilia-watch-test"));
+    var bin = Path.build_filename(dir, "bin");
+    var real = Path.build_filename(dir, "real");
+    DirUtils.create(bin, 0755);
+    DirUtils.create(real, 0755);
+    write_test_file(Path.build_filename(real, "prog"), 0755);
+    FileUtils.symlink("../real/prog", Path.build_filename(bin, "inner"));
+    FileUtils.symlink("inner", Path.build_filename(bin, "outer"));
+    FileUtils.symlink(real, Path.build_filename(dir, "linkdir"));
+
+    // The directories above the test directory, with the entry leading on
+    string above = "";
+    for (string parent = Path.get_dirname(dir), child = Path.get_basename(dir); ; child = Path.get_basename(parent), parent = Path.get_dirname(parent)) {
+        above = parent + ":" + child + (above == "" ? "" : " " + above);
+        if (parent == "/")
+            break;
+    }
+    string[] expected = above.split(" ");
+    expected += bin + ":inner,outer";
+    expected += dir + ":bin,real";
+    expected += real + ":prog";
+    assert (path_dependencies({ Path.build_filename(bin, "outer") }) == sorted_join(expected, " "));
+
+    // A link to a directory part way, and a missing entry: nothing below it is looked at
+    string[] missing = above.split(" ");
+    missing += dir + ":linkdir,real";
+    missing += real + ":nodir";
+    assert (path_dependencies({ Path.build_filename(dir, "linkdir", "nodir", "prog") }) == sorted_join(missing, " "));
+
+    // Relative paths are not followed
+    assert (path_dependencies({ "bin/prog" }) == "");
+
+    FileUtils.unlink(Path.build_filename(dir, "linkdir"));
+    FileUtils.unlink(Path.build_filename(bin, "outer"));
+    FileUtils.unlink(Path.build_filename(bin, "inner"));
+    FileUtils.unlink(Path.build_filename(real, "prog"));
+    DirUtils.remove(real);
+    DirUtils.remove(bin);
+    DirUtils.remove(dir);
+}
+
+// Run the main loop until changed() was emitted count times, or for at most timeout_ms
+private int wait_for_changes(Ilia.PathWatcher watcher, int count, uint timeout_ms) {
+    var loop = new MainLoop();
+    int changes = 0;
+    var handler = watcher.changed.connect(() => {
+        if (++changes == count)
+            loop.quit();
+    });
+    var timeout = Timeout.add(timeout_ms, () => {
+        loop.quit();
+        return Source.REMOVE;
+    });
+    loop.run();
+    if (changes == count)
+        Source.remove(timeout);
+    watcher.disconnect(handler);
+    return changes;
+}
+
+// A change on the way to a watched path is reported once; other entries are not watched
+public void test_path_watcher() {
+    var dir = make_test_dir("ilia-watcher-test");
+    var prog = Path.build_filename(dir, "prog");
+    var watcher = new Ilia.PathWatcher();
+    watcher.watch({ prog });
+
+    write_test_file(Path.build_filename(dir, "other"), 0755);
+    assert (wait_for_changes(watcher, 1, 300) == 0);
+
+    // Created, written and made executable: one change
+    write_test_file(prog, 0755);
+    assert (wait_for_changes(watcher, 1, 5000) == 1);
+    assert (wait_for_changes(watcher, 1, 300) == 0);
+
+    FileUtils.chmod(prog, 0644);
+    assert (wait_for_changes(watcher, 1, 5000) == 1);
+
+    // Once stopped, nothing is reported
+    watcher.stop();
+    FileUtils.unlink(prog);
+    assert (wait_for_changes(watcher, 1, 300) == 0);
+
+    FileUtils.unlink(Path.build_filename(dir, "other"));
+    DirUtils.remove(dir);
+}
+
 public int main (string[] args) {
     Test.init (ref args);
 
@@ -451,6 +668,11 @@ public int main (string[] args) {
     Test.add_func ("/test_command_dirs", test_command_dirs);
     Test.add_func ("/test_move_path_to", test_move_path_to);
     Test.add_func ("/test_clamp_path_to_rows", test_clamp_path_to_rows);
+    Test.add_func ("/test_split_desktop_exec", test_split_desktop_exec);
+    Test.add_func ("/test_lookup_exec_program", test_lookup_exec_program);
+    Test.add_func ("/test_lookup_desktop_app_program", test_lookup_desktop_app_program);
+    Test.add_func ("/test_add_path_dependencies", test_add_path_dependencies);
+    Test.add_func ("/test_path_watcher", test_path_watcher);
 
     return Test.run ();
 }

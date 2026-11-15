@@ -13,13 +13,16 @@ Build-Depends: debhelper (>= 10),
                libgtk-layer-shell0,
                gir1.2-gtklayershell-0.1,
                libgtk-layer-shell-dev,
+               libwayland-bin,
+               libwayland-dev,
                libgirepository1.0-dev,
                libxtst-dev,
                gobject-introspection,
                meson,
                po-debconf, 
                valac-0.56-vapi,
-               valac-bin
+               valac-bin,
+               wayland-protocols
 Standards-Version: 4.1.2
 Homepage: https://github.com/regolith-linux/ilia
 

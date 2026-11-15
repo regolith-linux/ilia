@@ -17,6 +17,7 @@ Ilia provides pages to view and select from the following types of things:
 - Text List (`textlist`)
 - File Search (`tracker`)
 - Open Windows (`windows`)
+- Optional Regolith Features (`features`)
 
 ## Usage
 
@@ -70,6 +71,10 @@ gsettings reset org.regolith-linux.ilia window-width
 ### Notifications
 
 This page communicates with the [Rofication](https://github.com/regolith-linux/regolith-rofication) daemon for managing desktop notifications.
+
+### Features
+
+This page lists Regolith's optional packages for the running session (looks, i3xrocks bar blocks, compositors and window manager extensions), marks the installed ones, and installs or removes the selected one through PackageKit. PackageKit first reports what the change would do: when other packages would be removed, the page asks for confirmation. When PackageKit asks for authorisation, ilia lets the authorisation window have the keyboard and stays open until the change ends. Escape cancels a running change where PackageKit allows it. Filtering on this page matches the typed text within package names and summaries, ignoring case.
 
 ### Keybindings
 

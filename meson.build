@@ -37,6 +37,8 @@ gobject_2_0_dep = dependency('gobject-2.0')
 gtk_3_0_dep = dependency('gtk+-3.0')
 gtk_layer_shell_dep = meson.get_compiler('c').find_library('gtk-layer-shell', required: false)
 pango_dep = dependency('pango')
+# The Features page installs and removes packages through PackageKit
+packagekit_dep = dependency('packagekit-glib2')
 x11_dep = dependency('x11')
 gdk_x11_dep = dependency('gdk-x11-3.0')
 # XTEST, to pass keys ilia does not use on to the programs that grab them

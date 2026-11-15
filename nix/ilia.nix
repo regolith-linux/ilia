@@ -10,6 +10,7 @@
 , libgee
 , meson
 , ninja
+, packagekit
 , pkg-config
 , stdenv
 , tinysparql
@@ -40,6 +41,7 @@ stdenv.mkDerivation {
     gtk-layer-shell
     json-glib
     libgee
+    packagekit
     tinysparql
     xorg.libXtst
   ];

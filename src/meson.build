@@ -56,6 +56,10 @@ ilia_sources += files([
     'tracker/SparqlLibrary.vala',
     'tracker/TrackerPage.vala',
     'windows/WindowPage.vala',
+    'quickpanels/QuickPanelPage.vala',
+    'quickpanels/WifiPage.vala',
+    'quickpanels/BluetoothPage.vala',
+    'quickpanels/PowerPage.vala',
     ])
     
 ilia_link_args = ['-rdynamic']

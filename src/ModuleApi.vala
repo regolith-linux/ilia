@@ -69,5 +69,12 @@ namespace Ilia {
          * Called after initialize completes. Used for final UI state setup post model load.
          */
         public abstract void show();
+
+        /**
+         * Called on Escape. Page returns true if it handled the key, and the dialog stays open; false to exit.
+         */
+        public virtual bool cancel() {
+            return false;
+        }
     }
 }

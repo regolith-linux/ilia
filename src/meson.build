@@ -6,6 +6,7 @@ cfg_ilia.set('RELEASE_NAME', 'ilia')
 cfg_ilia.set('PREFIX', get_option('prefix'))
 cfg_ilia.set('VERSION', '0.12')
 cfg_ilia.set('TESTSRCDIR', meson.project_source_root())
+cfg_ilia.set('SPARQL_LIBDIR', sparql_libdir)
 
 cfgfile_1 = configure_file(
 	input: 'Config.vala.base',
@@ -14,7 +15,7 @@ cfgfile_1 = configure_file(
 
 ilia_deps = [gio_unix_2_0_dep]
 ilia_deps += [json_glib_1_0_dep]
-ilia_deps += [tracker_sparql_3_0_dep]
+ilia_deps += [gmodule_2_0_dep]
 ilia_deps += [atk_dep]
 ilia_deps += [cairo_gobject_dep]
 ilia_deps += [gdk_3_0_dep]
@@ -42,6 +43,7 @@ ilia_sources += files([
     'notifications/RoficationClient.vala',
     'notifications/RoficationPage.vala',
     'textlist/TextListPage.vala',
+    'tracker/SparqlLibrary.vala',
     'tracker/TrackerPage.vala',
     'windows/WindowPage.vala',
     ])

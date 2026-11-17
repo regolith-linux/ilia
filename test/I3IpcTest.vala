@@ -105,6 +105,26 @@ string config_reply(string config) {
     return generator.to_data(null);
 }
 
+// A GET_VERSION reply naming the configuration file the window manager started from
+string version_reply(string config_path) {
+    var builder = new Json.Builder();
+    builder.begin_object();
+    builder.set_member_name("human_readable");
+    builder.add_string_value("1.11");
+    builder.set_member_name("major");
+    builder.add_int_value(1);
+    builder.set_member_name("minor");
+    builder.add_int_value(11);
+    builder.set_member_name("patch");
+    builder.add_int_value(0);
+    builder.set_member_name("loaded_config_file_name");
+    builder.add_string_value(config_path);
+    builder.end_object();
+    var generator = new Json.Generator();
+    generator.set_root(builder.get_root());
+    return generator.to_data(null);
+}
+
 string make_config(int lines) {
     var config = new StringBuilder("set $mod Mod4\n");
     for (int i = 0; i < lines; i++)
@@ -146,20 +166,48 @@ public void test_consecutive_replies() {
     }
 }
 
-// Under sway the socket is read from SWAYSOCK, which may be the only one set
+// Under sway the socket is read from SWAYSOCK, which may be the only one set. sway sends its
+// first file only, so its path is asked for first: the files it includes are found from there.
 public void test_sway_socket() {
-    var config = make_config(2);
+    string dir;
+    try {
+        dir = DirUtils.make_tmp("ilia-ipc-test-XXXXXX");
+        FileUtils.set_contents(dir + "/part", "bindsym Mod4+p exec part\n");
+    } catch (GLib.Error e) {
+        error("cannot write the included file: %s", e.message);
+    }
+    var config = make_config(2) + "include part\n";
 
     try {
-        var wm = new FakeWm({ config_reply(config) });
+        var wm = new FakeWm({ version_reply(dir + "/config"), config_reply(config) });
         Environment.unset_variable("I3SOCK");
         Environment.set_variable("SWAYSOCK", wm.socket_path, true);
         var reply = new Ilia.IPCClient("sway").getConfig();
         wm.join();
-        // followed by the included files, none here
-        assert(reply.config.has_prefix(config));
+        // GET_VERSION, then GET_CONFIG
+        assert(wm.request_types.length == 2 && wm.request_types[0] == 7 && wm.request_types[1] == 9);
+        // followed by the included file, found beside the file sway reports
+        assert(reply.config == config + "bindsym Mod4+p exec part\n");
     } catch (GLib.Error e) {
         error("getConfig failed: %s", e.message);
+    }
+}
+
+// The version numbers are integers; the configuration file is null when none is reported
+public void test_version() {
+    try {
+        var wm = new FakeWm({ version_reply("/etc/sway/config"), "{\"human_readable\":\"4.25.1\",\"major\":4,\"minor\":25,\"patch\":1}" });
+        Environment.set_variable("I3SOCK", wm.socket_path, true);
+        var ipc = new Ilia.IPCClient("i3");
+        var version = ipc.getVersion();
+        var without_file = ipc.getVersion();
+        wm.join();
+        assert(version.major == 1 && version.minor == 11 && version.patch == 0);
+        assert(version.human_readable == "1.11" && version.loaded_config_file_name == "/etc/sway/config");
+        assert(without_file.major == 4 && without_file.minor == 25 && without_file.patch == 1);
+        assert(without_file.loaded_config_file_name == null);
+    } catch (GLib.Error e) {
+        error("getVersion failed: %s", e.message);
     }
 }
 
@@ -283,6 +331,7 @@ public int main(string[] args) {
     Test.add_func("/i3ipc/large_config_reply", test_large_config_reply);
     Test.add_func("/i3ipc/consecutive_replies", test_consecutive_replies);
     Test.add_func("/i3ipc/sway_socket", test_sway_socket);
+    Test.add_func("/i3ipc/version", test_version);
     Test.add_func("/i3ipc/missing_socket", test_missing_socket);
     Test.add_func("/i3ipc/run_command", test_run_command);
     Test.add_func("/i3ipc/run_command_failure", test_run_command_failure);

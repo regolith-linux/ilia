@@ -45,17 +45,19 @@ namespace Ilia {
     // https://i3wm.org/docs/ipc.html#_version_reply
     public class VersionReply {
         public string human_readable { get; private set; }
-        public string loaded_config_file_name { get; private set; }
-        public string minor { get; private set; }
-        public string patch { get; private set; }
-        public string major { get; private set; }
+        // The path of the configuration file the window manager started from, null if it reports none
+        public string ? loaded_config_file_name { get; private set; }
+        public int64 minor { get; private set; }
+        public int64 patch { get; private set; }
+        public int64 major { get; private set; }
 
-        internal VersionReply (Json.Node responseJson) {
-            human_readable = responseJson.get_object().get_string_member("human_readable");
-            loaded_config_file_name = responseJson.get_object().get_string_member("loaded_config_file_name");
-            minor = responseJson.get_object().get_string_member("minor");
-            patch = responseJson.get_object().get_string_member("patch");
-            major = responseJson.get_object().get_string_member("major");
+        internal VersionReply (Json.Object responseJson) {
+            human_readable = responseJson.get_string_member_with_default("human_readable", "");
+            if (responseJson.has_member("loaded_config_file_name"))
+                loaded_config_file_name = responseJson.get_string_member("loaded_config_file_name");
+            minor = responseJson.get_int_member_with_default("minor", 0);
+            patch = responseJson.get_int_member_with_default("patch", 0);
+            major = responseJson.get_int_member_with_default("major", 0);
         }
     }
 
@@ -177,6 +179,258 @@ namespace Ilia {
         }
     }
 
+    /**
+     * A sway configuration read as sway reads it: the first file, with each file an
+     * include line names read in place of the line. Like sway, the reading keeps its
+     * variables and the files it has read from one file to the next, so a variable
+     * set in an included file holds for the lines after the include, and no file is
+     * read twice, the first file included.
+     */
+    internal class SwayConfigReader {
+        // Characters the shell takes as syntax: sway's wordexp(3) loads nothing for a path holding one
+        private const string SHELL_SYNTAX = "{}()|&;<>";
+        // Characters that make a path a pattern
+        private const string PATTERN_CHARACTERS = "*?[\\";
+
+        // Names with their '$', longest first, so that a name wins over its prefixes
+        private ArrayList<string> names = new ArrayList<string> ();
+        private HashMap<string, string> values = new HashMap<string, string> ();
+        // The files read so far, by the path they resolve to
+        private HashSet<string> visited = new HashSet<string> ();
+
+        // The text read, in pieces, each from a single file: a file includes another in between pieces
+        public ArrayList<string> pieces { get; private set; default = new ArrayList<string> (); }
+
+        /**
+         * @param text The first file, as sway hands it over
+         * @param path The path of the first file, as sway reports it, or null when unknown.
+         * Its directory is where the first file's relative paths are looked for.
+         */
+        public SwayConfigReader (string text, string ? path) {
+            string ? dir = null;
+            if (path != null && path != "") {
+                dir = Path.get_dirname(path);
+                string ? real_path = Posix.realpath(path);
+                if (real_path != null)
+                    visited.add(real_path);
+            }
+            read_file(text, dir);
+        }
+
+        // The next word of text at or after pos, delimited by spaces and tabs; pos moves past it
+        private static string ? next_word(string text, ref int pos) {
+            while (pos < text.length && (text[pos] == ' ' || text[pos] == '\t')) pos++;
+            if (pos >= text.length) return null;
+            int start = pos;
+            while (pos < text.length && text[pos] != ' ' && text[pos] != '\t') pos++;
+            return text.substring(start, pos - start);
+        }
+
+        /**
+         * Read the lines of a file. Like sway, a line ending in a backslash runs on into
+         * the next one, unless it is a comment. Relative paths are looked for in dir.
+         */
+        private void read_file(string text, string ? dir) {
+            var piece = new StringBuilder();
+            var line = new StringBuilder();
+            string[] lines = text.split("\n");
+            for (int n = 0; n < lines.length; n++) {
+                // the last element is what follows the final newline, if any
+                piece.append(n < lines.length - 1 ? lines[n] + "\n" : lines[n]);
+
+                line.append(lines[n]);
+                bool followed = n + 2 < lines.length || (n + 2 == lines.length && lines[n + 1] != "");
+                if (followed && lines[n].has_suffix("\\") && line.str[0] != '#') {
+                    line.truncate(line.len - 1);
+                    continue;
+                }
+                read_line(line.str, dir, piece);
+                line.truncate(0);
+            }
+            pieces.add(piece.str);
+        }
+
+        /**
+         * A set line defines its variable, with the variables in its value replaced; an
+         * include line that matches ends the piece and reads the files it names.
+         */
+        private void read_line(string line, string ? dir, StringBuilder piece) {
+            string text = line.strip();
+            if (text.has_prefix("#"))
+                return;
+            int pos = 0;
+            string ? command = next_word(text, ref pos);
+            if (command == null)
+                return;
+
+            if (command.ascii_down() == "set") {
+                string ? name = next_word(text, ref pos);
+                string value = text.substring(pos).strip();
+                if (name != null && value != "")
+                    define(name.has_prefix("$") ? name : "$" + name, replace(value));
+                return;
+            }
+            if (command.ascii_down() != "include")
+                return;
+
+            var files = find_files(replace(text.substring(pos)), dir);
+            // An include that matches ends the piece, even when it reads no file because each
+            // was read before or cannot be read: a row before it never takes a binding after it
+            if (files.size > 0) {
+                pieces.add(piece.str);
+                piece.truncate(0);
+            }
+            foreach (var path in files) {
+                string ? real_path = Posix.realpath(path);
+                if (real_path == null || visited.contains(real_path))
+                    continue;
+                visited.add(real_path);
+                if (!FileUtils.test(real_path, FileTest.IS_REGULAR))
+                    continue;
+
+                string contents;
+                try {
+                    FileUtils.get_contents(real_path, out contents);
+                } catch (GLib.Error err) {
+                    continue;
+                }
+                // a file reached through a link has its relative paths beside the file linked to
+                read_file(contents, Path.get_dirname(real_path));
+            }
+        }
+
+        private void define(string name, string value) {
+            if (!values.has_key(name)) {
+                int i = 0;
+                while (i < names.size && names[i].length >= name.length)
+                    i++;
+                names.insert(i, name);
+            }
+            values.set(name, value);
+        }
+
+        // Replace each variable defined so far in text, as sway does; any other $name is left as written
+        private string replace(string text) {
+            if (!text.contains("$"))
+                return text;
+
+            var result = new StringBuilder();
+            int i = 0;
+            while (i < text.length) {
+                string ? name = null;
+                if (text[i] == '$') {
+                    foreach (var candidate in names) {
+                        if (text.offset(i).has_prefix(candidate)) {
+                            name = candidate;
+                            break;
+                        }
+                    }
+                }
+                if (name == null) {
+                    result.append_c(text[i]);
+                    i++;
+                } else {
+                    result.append(values.get(name));
+                    i += name.length;
+                }
+            }
+            return result.str;
+        }
+
+        /**
+         * The files an include line names, found as sway finds them with wordexp(3):
+         * "~" at the start of a word is the home directory, $NAME and ${NAME} take their
+         * values from the environment (empty when unset), the text is split into words at
+         * whitespace, and each word is a pattern whose matches come in sorted order.
+         * Relative paths are looked for in dir.
+         */
+        private static ArrayList<string> find_files(string text, string ? dir) {
+            var files = new ArrayList<string> ();
+            if (has_shell_syntax(text))
+                return files;
+
+            int pos = 0;
+            string ? word;
+            while ((word = next_word(text, ref pos)) != null) {
+                if (word == "~" || word.has_prefix("~/"))
+                    word = Environment.get_home_dir() + word.substring(1);
+                string expanded = expand_environment(word);
+
+                int field_pos = 0;
+                string ? field;
+                while ((field = next_word(expanded, ref field_pos)) != null) {
+                    string pattern = field;
+                    if (!Path.is_absolute(field) && dir != null)
+                        pattern = escape_pattern(dir) + "/" + field;
+
+                    // sorted as wordexp(3) sorts them, in the collation order of the locale
+                    Posix.Glob matcher = Posix.Glob();
+                    if (matcher.glob(pattern, 0) != 0)
+                        continue;
+                    foreach (unowned string matched_path in matcher.pathv)
+                        files.add(matched_path);
+                }
+            }
+            return files;
+        }
+
+        // Whether text holds shell syntax outside a ${NAME}, or a ${ that is not closed
+        private static bool has_shell_syntax(string text) {
+            for (int i = 0; i < text.length; i++) {
+                if (text[i] == '$' && i + 1 < text.length && text[i + 1] == '{') {
+                    int end = text.index_of_char('}', i + 2);
+                    if (end < 0)
+                        return true;
+                    i = end;
+                } else if (SHELL_SYNTAX.contains(text[i].to_string())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Expand $NAME and ${NAME} from the environment; an unset variable becomes empty
+        private static string expand_environment(string text) {
+            if (!text.contains("$"))
+                return text;
+
+            var result = new StringBuilder();
+            int i = 0;
+            while (i < text.length) {
+                char c = text[i];
+                int start = i + 1;
+                bool braced = c == '$' && start < text.length && text[start] == '{';
+                if (braced)
+                    start++;
+                int end = start;
+                if (c == '$' && end < text.length && (text[end].isalpha() || text[end] == '_')) {
+                    while (end < text.length && (text[end].isalnum() || text[end] == '_'))
+                        end++;
+                }
+                if (end == start || (braced && (end >= text.length || text[end] != '}'))) {
+                    result.append_c(c);
+                    i++;
+                    continue;
+                }
+
+                result.append(Environment.get_variable(text.substring(start, end - start)) ?? "");
+                i = braced ? end + 1 : end;
+            }
+            return result.str;
+        }
+
+        // dir written as a pattern that matches only dir
+        private static string escape_pattern(string dir) {
+            var escaped = new StringBuilder();
+            for (int i = 0; i < dir.length; i++) {
+                if (PATTERN_CHARACTERS.contains(dir[i].to_string()))
+                    escaped.append_c('\\');
+                escaped.append_c(dir[i]);
+            }
+            return escaped.str;
+        }
+    }
+
     // https://i3wm.org/docs/ipc.html#_config_reply
     public class ConfigReply {
         public string config { get; private set; }
@@ -192,97 +446,11 @@ namespace Ilia {
          */
         public string[] ? unset_resources_configs { get; private set; }
 
-        // Expand $NAME and ${NAME} from the environment; unknown variables are left as written
-        private static string expand_path_vars(string path) {
-            if (!path.contains("$"))
-                return path;
-
-            var result = new StringBuilder();
-            int i = 0;
-            while (i < path.length) {
-                char c = path[i];
-                int start = i + 1;
-                bool braced = c == '$' && start < path.length && path[start] == '{';
-                if (braced)
-                    start++;
-                int end = start;
-                if (c == '$' && end < path.length && (path[end].isalpha() || path[end] == '_')) {
-                    while (end < path.length && (path[end].isalnum() || path[end] == '_'))
-                        end++;
-                }
-                if (end == start || (braced && (end >= path.length || path[end] != '}'))) {
-                    result.append_c(c);
-                    i++;
-                    continue;
-                }
-
-                string ? value = Environment.get_variable(path.substring(start, end - start));
-                int next = braced ? end + 1 : end;
-                result.append(value ?? path.substring(i, next - i));
-                i = next;
-            }
-            return result.str;
-        }
-
         // Append text to builder, keeping the files' lines apart when one does not end with a newline
         private static void append_file(StringBuilder builder, string text) {
             if (builder.len > 0 && builder.str[builder.len - 1] != '\n')
                 builder.append_c('\n');
             builder.append(text);
-        }
-
-        /**
-         * Read a sway configuration as sway does: each "include" is read in place, its
-         * matches in sorted order, each file once. Relative paths are relative to the
-         * including file. The order matters, as sway sets and uses variables in it.
-         * The text is added to pieces as it is read, a new piece after each include.
-         */
-        private static void read_sway_config(string text, string ? dir, HashSet<string> visited, ArrayList<string> pieces) {
-            var piece = new StringBuilder();
-            string[] lines = text.split("\n");
-            for (int n = 0; n < lines.length; n++) {
-                unowned string line = lines[n];
-                // the last element is what follows the final newline, if any
-                piece.append(n < lines.length - 1 ? line + "\n" : line);
-
-                string stripped_line = line.strip();
-                if (!stripped_line.has_prefix("include "))
-                    continue;
-
-                string path = expand_path_vars(stripped_line.substring("include ".length).strip());
-                if (path.has_prefix("~/"))
-                    path = Path.build_filename(Environment.get_home_dir(), path.substring(2));
-                if (!Path.is_absolute(path) && dir != null)
-                    path = Path.build_filename(dir, path);
-
-                Posix.Glob matcher = Posix.Glob();
-                if (matcher.glob(path, Posix.GLOB_NOSORT) != 0)
-                    continue;
-                var matches = new ArrayList<string> ();
-                foreach (unowned string matched_path in matcher.pathv)
-                    matches.add(matched_path);
-                matches.sort((a, b) => strcmp(a, b));
-
-                pieces.add(piece.str);
-                piece.truncate(0);
-                foreach (var matched_path in matches) {
-                    if (!FileUtils.test(matched_path, FileTest.IS_REGULAR))
-                        continue;
-                    string real_path = Posix.realpath(matched_path) ?? matched_path;
-                    if (visited.contains(real_path))
-                        continue;
-                    visited.add(real_path);
-
-                    string partial;
-                    try {
-                        FileUtils.get_contents(matched_path, out partial);
-                    } catch (GLib.Error err) {
-                        continue;
-                    }
-                    read_sway_config(partial, Path.get_dirname(matched_path), visited, pieces);
-                }
-            }
-            pieces.add(piece.str);
         }
 
         private string get_i3_config(Json.Node responseJson) {
@@ -310,10 +478,9 @@ namespace Ilia {
             return configBuilder.str;
         }
 
-        private string get_sway_config(Json.Node responseJson) {
+        private string get_sway_config(Json.Node responseJson, string ? main_path) {
             string baseConfig = responseJson.get_object().get_string_member("config");
-            var pieces = new ArrayList<string> ();
-            read_sway_config(baseConfig, null, new HashSet<string> (), pieces);
+            var pieces = new SwayConfigReader(baseConfig, main_path).pieces;
             configs = pieces.to_array();
 
             var configBuilder = new StringBuilder("");
@@ -322,9 +489,13 @@ namespace Ilia {
             return configBuilder.str;
         }
 
-        internal ConfigReply (Json.Node responseJson, string wm_name) throws GLib.FileError {
+        /**
+         * @param main_path sway: the path of the file sway started from, as sway
+         * reports it; the files it includes are looked for from there
+         */
+        internal ConfigReply (Json.Node responseJson, string wm_name, string ? main_path = null) throws GLib.FileError {
             if (wm_name == "sway") {
-                config = get_sway_config(responseJson);
+                config = get_sway_config(responseJson, main_path);
                 unset_resources_configs = null;
             } else {
                 config = get_i3_config(responseJson);
@@ -517,19 +688,26 @@ namespace Ilia {
         public VersionReply getVersion() throws WM_ERROR, GLib.Error {
             var response = wm_ipc(WM_COMMAND.GET_VERSION);
 
-            if (response == null)
+            if (response == null || response.get_node_type() != Json.NodeType.OBJECT)
                 throw new WM_ERROR.RPC_ERROR("No Response");
 
-            return new VersionReply(response);
+            return new VersionReply(response.get_object());
         }
 
         public ConfigReply getConfig() throws WM_ERROR, GLib.Error {
+            // sway hands over its first file only; the path it reports locates the others
+            string ? main_path = null;
+            if (wm_name == "sway") {
+                var version = getVersion();
+                main_path = version.loaded_config_file_name;
+            }
+
             var response = wm_ipc(WM_COMMAND.GET_CONFIG);
 
             if (response == null)
                 throw new WM_ERROR.RPC_ERROR("No Response");
 
-            return new ConfigReply(response, this.wm_name);
+            return new ConfigReply(response, this.wm_name, main_path);
         }
 
         /**

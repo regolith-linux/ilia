@@ -42,6 +42,7 @@ ilia_sources += files([
     'Util.vala',
     'WmKeys.vala',
     'apps/DesktopAppPage.vala',
+    'apps/SwitcherooGpus.vala',
     'help/HelpPage.vala',
     'commands/CommandPage.vala',
     'keybindings/ConfigParser.vala',

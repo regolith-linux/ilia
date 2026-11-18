@@ -33,6 +33,10 @@ ilia -p keybindings
 Ilia searches the system-configured `$XDG_DATA_DIRS` with `applications` applied at the end of each path for desktop application files.
 For example, if your system has `$HOME/.local/share` in the set of paths in `$XDG_DATA_DIRS`, the path `$HOME/.local/share/applications/` will be searched for desktop app files.
 
+On a laptop with two GPUs, apps whose desktop file sets `PrefersNonDefaultGPU=true` (or KDE's `X-KDE-RunOnDiscreteGpu=true`) are started on the GPU that is not the default, usually the discrete one.
+Shift+Enter or Shift+click does the opposite: it starts other apps on that GPU, and apps that prefer it on the default one.
+ilia asks [switcheroo-control](https://gitlab.freedesktop.org/hadess/switcheroo-control) on the system bus which GPUs there are and which environment variables (such as `DRI_PRIME`) select them. Without switcheroo-control, apps start as usual.
+
 ### Text List
 
 The `textlist` page is a bit different than the others pages.

@@ -225,6 +225,39 @@ namespace Ilia {
         return path != null && path != "" ? path : null;
     }
 
+    /* True if the desktop entry has an Exec key that is not empty */
+    public static bool has_desktop_exec(DesktopAppInfo app_info) {
+        unowned string ? exec = app_info.get_commandline();
+        return exec != null && exec != "";
+    }
+
+    /*
+     * True if the desktop entry would rather run on the GPU that is not the default one:
+     * PrefersNonDefaultGPU=true, or KDE's X-KDE-RunOnDiscreteGpu=true
+     */
+    public static bool prefers_non_default_gpu(DesktopAppInfo app_info) {
+        return app_info.get_boolean("PrefersNonDefaultGPU") || app_info.get_boolean("X-KDE-RunOnDiscreteGpu");
+    }
+
+    /* True if name can be the name of an environment variable */
+    public static bool is_environment_name(string name) {
+        return name != "" && !name.contains("=");
+    }
+
+    /*
+     * envp with the variables of environment (names and values in turn) set, replacing any
+     * of the same name. Names that cannot be variable names are left out.
+     */
+    public static string[] environ_with_variables(string[] envp, string[] environment) {
+        string[] result = envp;
+        for (int i = 0; i + 1 < environment.length; i += 2) {
+            if (!is_environment_name(environment[i]))
+                continue;
+            result = Environ.set_variable(result, environment[i], environment[i + 1], true);
+        }
+        return result;
+    }
+
     /*
      * The well-known D-Bus name of a desktop entry that is started over the session bus
      * (DBusActivatable=true): its desktop file ID without .desktop. Null for other

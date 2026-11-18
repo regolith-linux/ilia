@@ -20,6 +20,8 @@ namespace Ilia {
         private const string DBUS_PATH = "/org/freedesktop/DBus";
         // Time a running app has to answer an activation request before the page closes
         private const int ACTIVATE_TIMEOUT_MS = 3000;
+        // Longest a launch waits for the GPU information, from the key press or click
+        private const int GPU_INFO_TIMEOUT_MS = 2000;
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
@@ -76,6 +78,11 @@ namespace Ilia {
         private bool apps_loaded = false;
         // Enter was pressed before the list arrived: launch the best match once it has
         private bool activate_when_loaded = false;
+        // ... and Shift was held with it
+        private bool activate_shifted_when_loaded = false;
+
+        // The GPUs and the environment that starts a program on the other one
+        private SwitcherooGpus gpus = new SwitcherooGpus();
 
         public static void prefetch_apps() {
             if (prefetch_started) return;
@@ -113,7 +120,7 @@ namespace Ilia {
         }
 
         public string get_help() {
-            return "This dialog allows for the launching of desktop applications. Initially all desktop apps are presented. The user may filter the list in the top text box. The arrow keys may be used to select from the list, and enter or clicking on an item will launch it.";
+            return "This dialog allows for the launching of desktop applications. Initially all desktop apps are presented. The user may filter the list in the top text box. The arrow keys may be used to select from the list, and enter or clicking on an item will launch it. Apps that prefer the discrete GPU are launched on it, and with shift held, the item is launched on the other GPU of a machine with two.";
         }
 
         public char get_keybinding() {
@@ -124,6 +131,7 @@ namespace Ilia {
             var keybindings = new HashTable<string, string ?>(str_hash, str_equal);
 
             keybindings.set("enter", "Launch Application");
+            keybindings.set("shift+enter", "Launch on Other GPU");
             keybindings.set("ctrl+delete", "Hide Application");
 
             return keybindings;
@@ -132,6 +140,8 @@ namespace Ilia {
         public async void initialize(GLib.Settings settings, HashTable<string, string ?> arg_map, Gtk.Entry entry, SessionContoller sessionController, string wm_name, bool is_wayland) throws GLib.Error {
             app_timer = new GLib.Timer();
             app_timer.start();
+            // Ask about the GPUs now, so the answer is there when a launch needs it
+            gpus.start.begin();
             this.settings = settings;
             this.entry = entry;
             this.session_controller = sessionController;
@@ -171,7 +181,7 @@ namespace Ilia {
             set_selection();
             apps_loaded = true;
             if (activate_when_loaded)
-                on_entry_activated();
+                activate_highlighted(activate_shifted_when_loaded);
 
             // Load app icons once the list is on screen. The model must only be
             // accessed from the GTK main thread: walking it from another thread races
@@ -185,8 +195,9 @@ namespace Ilia {
         }
 
         public bool key_event(Gdk.EventKey key) {
-            if (!apps_loaded && is_enter_key(key.keyval)) {
-                activate_when_loaded = true;
+            if (is_enter_key(key.keyval) && (!apps_loaded || only_shift(key.state))) {
+                // Shift+Enter launches the highlighted app on the other GPU
+                activate_highlighted(only_shift(key.state));
                 return true;
             }
             if (key.keyval == Gdk.Key.Delete && (key.state & Gdk.ModifierType.CONTROL_MASK) != 0) {
@@ -269,6 +280,48 @@ namespace Ilia {
 
             // Launch app on row selection
             item_view.row_activated.connect(on_row_activated);
+
+            // A click launches the row it was pressed and released on, and Shift+click launches it
+            // on the other GPU. The tree view does not activate rows for clicks with Shift held,
+            // which it takes to extend the selection, and its own single-click activation needs
+            // the row to be highlighted under the pointer, which it may not be under an X11
+            // pointer grab; so clicks are followed here as well.
+            item_view.button_press_event.connect(on_button_pressed);
+            item_view.button_release_event.connect(on_button_released);
+        }
+
+        // The row the primary button was pressed on, and whether Shift was held
+        private Gtk.TreePath ? clicked_path = null;
+        private bool clicked_shifted = false;
+
+        private Gtk.TreePath ? row_at(Gdk.EventButton event) {
+            if (event.window != item_view.get_bin_window())
+                return null;
+            Gtk.TreePath ? row_path = null;
+            if (!item_view.get_path_at_pos((int) event.x, (int) event.y, out row_path, null, null, null))
+                return null;
+            return row_path;
+        }
+
+        private bool on_button_pressed(Gdk.EventButton event) {
+            if (event.button != Gdk.BUTTON_PRIMARY || event.type != Gdk.EventType.BUTTON_PRESS)
+                return false;
+
+            clicked_path = row_at(event);
+            clicked_shifted = only_shift(event.state);
+            // Shift+click does not change the selection
+            return clicked_shifted;
+        }
+
+        private bool on_button_released(Gdk.EventButton event) {
+            if (event.button != Gdk.BUTTON_PRIMARY || clicked_path == null)
+                return false;
+
+            var pressed_path = (owned) clicked_path;
+            var released_path = row_at(event);
+            if (released_path != null && released_path.compare(pressed_path) == 0 && filter.get_iter(out iter, released_path))
+                execute_app(iter, clicked_shifted);
+            return false;
         }
 
         // called on enter from TreeView
@@ -289,12 +342,30 @@ namespace Ilia {
 
         // called on enter when in text box
         void on_entry_activated() {
+            activate_highlighted(false);
+        }
+
+        /*
+         * Launch the highlighted app, on the other GPU when shifted; once the list has loaded
+         * if it has not yet
+         */
+        private void activate_highlighted(bool shifted) {
             if (!apps_loaded) {
                 activate_when_loaded = true;
+                activate_shifted_when_loaded = shifted;
                 return;
             }
             if (filter.get_iter(out iter, path))
-                execute_app(iter);
+                execute_app(iter, shifted);
+        }
+
+        // True when Shift is the only modifier held, of those that make a different shortcut
+        // (Super is MOD4 in X11 key events)
+        private static bool only_shift(Gdk.ModifierType state) {
+            var modifiers = state & (Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.CONTROL_MASK
+                                     | Gdk.ModifierType.MOD1_MASK | Gdk.ModifierType.MOD4_MASK
+                                     | Gdk.ModifierType.SUPER_MASK);
+            return modifiers == Gdk.ModifierType.SHIFT_MASK;
         }
 
         /**
@@ -502,18 +573,57 @@ namespace Ilia {
                 debug("Finished loading all icons (%.3f seconds since app start)", app_timer.elapsed());
         }
 
-        // Launch a desktop app, at most once: a double click activates the row twice
-        public void execute_app(Gtk.TreeIter selection) {
+        /*
+         * Launch a desktop app, at most once: a double click activates the row twice
+         *
+         * An app that prefers the other GPU is started with the variables that select it.
+         * A shifted launch (Shift+Enter, Shift+click) does the opposite on a machine with two
+         * GPUs, and is a plain launch when that is not known to be the case.
+         */
+        public void execute_app(Gtk.TreeIter selection, bool shifted = false) {
             if (launching)
                 return;
             launching = true;
+            int64 pressed_at = get_monotonic_time();
 
             DesktopAppInfo app_info;
             filter.@get(selection, ITEM_VIEW_COLUMN_APPINFO, out app_info);
 
+            bool prefers = prefers_non_default_gpu(app_info);
+            // The variables never apply to an app that is only started over the bus
+            bool can_take_variables = get_dbus_activation_name(app_info) == null || has_desktop_exec(app_info);
+            if ((!prefers && !shifted) || !can_take_variables) {
+                start_app(app_info, null, ACTIVATE_TIMEOUT_MS);
+                return;
+            }
+            launch_with_gpu_choice.begin(app_info, prefers, shifted, pressed_at);
+        }
+
+        private async void launch_with_gpu_choice(DesktopAppInfo app_info, bool prefers, bool shifted, int64 pressed_at) {
+            bool known = yield gpus.wait(pressed_at + GPU_INFO_TIMEOUT_MS * 1000);
+            // The time waited counts towards the time the page stays open after the key press or click
+            int waited_ms = (int) ((get_monotonic_time() - pressed_at) / 1000);
+
+            bool other_gpu = prefers;
+            if (shifted && known && gpus.has_dual_gpu() == true)
+                other_gpu = !prefers;
+
+            string[] ? environment = null;
+            if (other_gpu && known && gpus.other_gpu_env().length > 0)
+                environment = gpus.other_gpu_env();
+            start_app(app_info, environment, int.max(ACTIVATE_TIMEOUT_MS - waited_ms, 1));
+        }
+
+        /*
+         * Start an app, with the variables in environment (names and values in turn) added to
+         * its environment when that is not null. An app started over the bus is activated,
+         * unless it gets variables and has an Exec key, which is then used instead; a running
+         * app has activate_timeout_ms to answer.
+         */
+        private void start_app(DesktopAppInfo app_info, string[] ? environment, int activate_timeout_ms) {
             string ? bus_name = get_dbus_activation_name(app_info);
-            if (bus_name != null) {
-                activate_app.begin(app_info, bus_name);
+            if (bus_name != null && (environment == null || !has_desktop_exec(app_info))) {
+                activate_app.begin(app_info, bus_name, activate_timeout_ms);
                 return;
             }
 
@@ -521,11 +631,21 @@ namespace Ilia {
                 bool launched = true;
                 if (needs_terminal(app_info) && GLib.Environment.find_program_in_path("x-terminal-emulator") == null) {
                     // GLib picks a terminal it knows, and runs the entry outside a scope
-                    launched = app_info.launch(null, null);
+                    AppLaunchContext ? context = null;
+                    if (environment != null) {
+                        context = new AppLaunchContext();
+                        for (int i = 0; i + 1 < environment.length; i += 2)
+                            if (is_environment_name(environment[i]))
+                                context.setenv(environment[i], environment[i + 1]);
+                    }
+                    launched = app_info.launch(null, context);
                 } else {
+                    string[] ? envp = null;
+                    if (environment != null)
+                        envp = environ_with_variables(Environ.get(), environment);
                     Pid pid;
                     Process.spawn_async(get_desktop_working_directory(app_info), get_desktop_launch_argv(app_info),
-                                        null, SpawnFlags.SEARCH_PATH, null, out pid);
+                                        envp, SpawnFlags.SEARCH_PATH, null, out pid);
                 }
 
                 if (launched)
@@ -542,7 +662,7 @@ namespace Ilia {
          * Start a DBusActivatable app over the session bus, with Activate on its
          * org.freedesktop.Application interface, as the Desktop Entry Specification describes
          */
-        private async void activate_app(DesktopAppInfo app_info, string bus_name) {
+        private async void activate_app(DesktopAppInfo app_info, string bus_name, int timeout_ms) {
             try {
                 var bus = yield Bus.get(BusType.SESSION);
 
@@ -560,7 +680,7 @@ namespace Ilia {
                 var platform_data = new VariantBuilder(new VariantType("a{sv}"));
                 yield bus.call(bus_name, get_dbus_activation_path(bus_name), "org.freedesktop.Application",
                                "Activate", new Variant("(a{sv})", platform_data),
-                               null, DBusCallFlags.NO_AUTO_START, ACTIVATE_TIMEOUT_MS);
+                               null, DBusCallFlags.NO_AUTO_START, timeout_ms);
 
                 add_to_launch_history(app_info.get_id());
             } catch (GLib.Error e) {

@@ -55,6 +55,15 @@ void setup_fixtures() {
                        "[Desktop Entry]\nType=Application\nName=Zz App\nDBusActivatable=true\nExec=zzgui\n");
     write_desktop_file("zzdbus.desktop",
                        "[Desktop Entry]\nType=Application\nName=Zzdbus\nDBusActivatable=true\nExec=zzgui\n");
+    write_desktop_file("zzgpu.desktop",
+                       "[Desktop Entry]\nType=Application\nName=Zzgpu\nPrefersNonDefaultGPU=true\nExec=zzgui\n");
+    write_desktop_file("zzkde.desktop",
+                       "[Desktop Entry]\nType=Application\nName=Zzkde\nPrefersNonDefaultGPU=false\n"
+                       + "X-KDE-RunOnDiscreteGpu=true\nExec=zzgui\n");
+    write_desktop_file("zznogpu.desktop",
+                       "[Desktop Entry]\nType=Application\nName=Zznogpu\nPrefersNonDefaultGPU=false\nExec=zzgui\n");
+    write_desktop_file("org.example.ZzNoExec.desktop",
+                       "[Desktop Entry]\nType=Application\nName=Zz No Exec\nDBusActivatable=true\n");
 
     // PATH variants: with systemd-run and x-terminal-emulator, with systemd-run only,
     // and with neither. GIO ignores entries whose Exec program is not in PATH.
@@ -178,6 +187,142 @@ void test_dbus_activation() {
     assert (Ilia.get_dbus_activation_name(app_info_for("zzdbus.desktop", bin_apps_only)) == null);
 }
 
+// PrefersNonDefaultGPU and X-KDE-RunOnDiscreteGpu both ask for the other GPU
+void test_prefers_non_default_gpu() {
+    assert (Ilia.prefers_non_default_gpu(app_info_for("zzgpu.desktop", bin_apps_only)));
+    assert (Ilia.prefers_non_default_gpu(app_info_for("zzkde.desktop", bin_apps_only)));
+    assert (!Ilia.prefers_non_default_gpu(app_info_for("zznogpu.desktop", bin_apps_only)));
+    assert (!Ilia.prefers_non_default_gpu(app_info_for("zzgui.desktop", bin_apps_only)));
+
+    assert (Ilia.has_desktop_exec(app_info_for("org.example.Zz-App.desktop", bin_apps_only)));
+    assert (!Ilia.has_desktop_exec(app_info_for("org.example.ZzNoExec.desktop", bin_apps_only)));
+}
+
+// A GPU as switcheroo-control describes it; null leaves a key out
+Variant gpu(bool ? is_default, bool ? discrete, string[] ? environment) {
+    var builder = new VariantBuilder(new VariantType("a{sv}"));
+    if (is_default != null)
+        builder.add("{sv}", "Default", new Variant.boolean(is_default));
+    if (discrete != null)
+        builder.add("{sv}", "Discrete", new Variant.boolean(discrete));
+    if (environment != null)
+        builder.add("{sv}", "Environment", new Variant.strv(environment));
+    return builder.end();
+}
+
+string gpu_environment_of(Variant[] gpus) {
+    var list = new Variant.array(new VariantType("a{sv}"), gpus);
+    return string.joinv("|", Ilia.other_gpu_environment(list));
+}
+
+// The other GPU: discrete and not the default, else discrete, else not the default;
+// GPUs without an Environment are passed over, an empty one gives no variables
+void test_other_gpu_environment() {
+    assert (Ilia.other_gpu_environment(null).length == 0);
+    assert (gpu_environment_of({}) == "");
+    assert (gpu_environment_of({ gpu(true, false, { "DRI_PRIME", "0" }), gpu(false, true, { "DRI_PRIME", "1" }) })
+            == "DRI_PRIME|1");
+    assert (gpu_environment_of({ gpu(true, true, { "A", "x" }), gpu(false, false, { "A", "y" }),
+                                 gpu(false, true, { "A", "z" }) }) == "A|z");
+    assert (gpu_environment_of({ gpu(true, true, { "A", "x" }), gpu(false, false, { "A", "y" }) }) == "A|x");
+    assert (gpu_environment_of({ gpu(true, null, { "A", "d" }), gpu(null, null, { "A", "n" }) }) == "A|n");
+    assert (gpu_environment_of({ gpu(false, true, null), gpu(true, true, { "A", "next" }) }) == "A|next");
+    assert (gpu_environment_of({ gpu(true, true, null), gpu(false, false, { "A", "third" }) }) == "A|third");
+    assert (gpu_environment_of({ gpu(true, false, { "A", "default" }) }) == "");
+    assert (gpu_environment_of({ gpu(false, true, {}), gpu(true, true, { "A", "later" }) }) == "");
+    assert (gpu_environment_of({ gpu(false, true, { "A", "1", "B" }) }) == "A|1");
+    assert (gpu_environment_of({ gpu(false, true, { "A", "a b=c $HOME 'q'" }) }) == "A|a b=c $HOME 'q'");
+}
+
+// The variables are added to the environment, replacing those of the same name
+void test_environ_with_variables() {
+    string[] envp = { "KEEP=1", "DRI_PRIME=0" };
+    envp = Ilia.environ_with_variables(envp, { "DRI_PRIME", "1", "NEW", "a=b", "BAD=NAME", "x" });
+    assert (Environ.get_variable(envp, "KEEP") == "1");
+    assert (Environ.get_variable(envp, "DRI_PRIME") == "1");
+    assert (Environ.get_variable(envp, "NEW") == "a=b");
+    assert (envp.length == 3);
+}
+
+// A PropertiesChanged signal's parameters
+Variant properties_changed(string interface_name, Variant changed, string[] invalidated) {
+    return new Variant.tuple({ new Variant.string(interface_name), changed, new Variant.strv(invalidated) });
+}
+
+Variant properties_dict(bool ? has_dual_gpu, Variant[] ? gpus) {
+    var builder = new VariantBuilder(new VariantType("a{sv}"));
+    if (has_dual_gpu != null)
+        builder.add("{sv}", "HasDualGpu", new Variant.boolean(has_dual_gpu));
+    if (gpus != null)
+        builder.add("{sv}", "GPUs", new Variant.array(new VariantType("a{sv}"), gpus));
+    return builder.end();
+}
+
+const string SWITCHEROO = "net.hadess.SwitcherooControl";
+
+// The GPU information starts unknown, is filled in by a read, and follows PropertiesChanged:
+// values sent with the signal are taken, invalidated-only properties become unknown and are
+// returned to be read again, and a read started before a newer change does not undo it
+void test_gpu_state() {
+    string[] both = { "HasDualGpu", "GPUs" };
+    var state = new Ilia.GpuState();
+    assert (state.has_dual_gpu == null);
+    assert (state.other_gpu_env.length == 0);
+
+    state.apply_read(properties_dict(true, { gpu(true, false, { "A", "0" }), gpu(false, true, { "A", "1" }) }),
+                     both, state.serials_of(both));
+    assert (state.has_dual_gpu == true);
+    assert (string.joinv("|", state.other_gpu_env) == "A|1");
+
+    // New values in the signal
+    string[] to_read = state.properties_changed(
+        properties_changed(SWITCHEROO, properties_dict(null, { gpu(false, true, { "B", "2" }) }), {}), SWITCHEROO);
+    assert (to_read.length == 0);
+    assert (string.joinv("|", state.other_gpu_env) == "B|2");
+    assert (state.has_dual_gpu == true);
+    to_read = state.properties_changed(properties_changed(SWITCHEROO, properties_dict(false, null), {}), SWITCHEROO);
+    assert (to_read.length == 0);
+    assert (state.has_dual_gpu == false);
+
+    // Another interface changes nothing
+    to_read = state.properties_changed(properties_changed("org.example.Other", properties_dict(true, {}), { "GPUs" }),
+                                       SWITCHEROO);
+    assert (to_read.length == 0);
+    assert (state.has_dual_gpu == false);
+    assert (string.joinv("|", state.other_gpu_env) == "B|2");
+
+    // Invalidated only: unknown until read again; other names are ignored
+    to_read = state.properties_changed(properties_changed(SWITCHEROO, properties_dict(null, null),
+                                                          { "NumGPUs", "GPUs", "HasDualGpu", "GPUs" }), SWITCHEROO);
+    assert (string.joinv("|", to_read) == "GPUs|HasDualGpu");
+    assert (state.has_dual_gpu == null);
+    assert (state.other_gpu_env.length == 0);
+    state.apply_read(properties_dict(true, { gpu(false, true, { "C", "3" }) }), to_read, state.serials_of(to_read));
+    assert (state.has_dual_gpu == true);
+    assert (string.joinv("|", state.other_gpu_env) == "C|3");
+
+    // A property sent with its value as well as invalidated takes the value and is not read again
+    to_read = state.properties_changed(properties_changed(SWITCHEROO, properties_dict(false, null), { "HasDualGpu" }),
+                                       SWITCHEROO);
+    assert (to_read.length == 0);
+    assert (state.has_dual_gpu == false);
+
+    // A read started before a newer change leaves the newer value
+    string[] gpus_only = { "GPUs" };
+    state.properties_changed(properties_changed(SWITCHEROO, properties_dict(null, null), gpus_only), SWITCHEROO);
+    var serials = state.serials_of(gpus_only);
+    state.properties_changed(properties_changed(SWITCHEROO, properties_dict(null, { gpu(false, true, { "D", "4" }) }), {}),
+                             SWITCHEROO);
+    state.apply_read(properties_dict(null, { gpu(false, true, { "OLD", "x" }) }), gpus_only, serials);
+    assert (string.joinv("|", state.other_gpu_env) == "D|4");
+
+    // A read that does not return a property leaves it unknown
+    string[] dual_only = { "HasDualGpu" };
+    state.apply_read(properties_dict(null, null), dual_only, state.serials_of(dual_only));
+    assert (state.has_dual_gpu == null);
+    assert (string.joinv("|", state.other_gpu_env) == "D|4");
+}
+
 // Without systemd-run the commands page launches its command line as it is
 void test_command_line_without_systemd_run() {
     Environment.set_variable("PATH", bin_apps_only, true);
@@ -222,6 +367,10 @@ public int main(string[] args) {
     Test.add_func("/launch/quoting", test_quoting);
     Test.add_func("/launch/working_directory", test_working_directory);
     Test.add_func("/launch/dbus_activation", test_dbus_activation);
+    Test.add_func("/launch/prefers_non_default_gpu", test_prefers_non_default_gpu);
+    Test.add_func("/launch/other_gpu_environment", test_other_gpu_environment);
+    Test.add_func("/launch/environ_with_variables", test_environ_with_variables);
+    Test.add_func("/launch/gpu_state", test_gpu_state);
     Test.add_func("/launch/command_line_without_systemd_run", test_command_line_without_systemd_run);
     Test.add_func("/launch/command_line_in_scope", test_command_line_in_scope);
 

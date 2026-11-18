@@ -30,6 +30,7 @@ Depends:
   ${misc:Depends},
   libgee-0.8-2,
   libtinysparql-3.0-0 | libtracker-sparql-3.0-0
+Suggests: switcheroo-control
 Description: General purpose desktop executor
  Invoke actions upon apps, commands, notifications, 
  and keybindings via a simple filterable menu.

@@ -209,7 +209,7 @@ namespace Ilia {
         private void execute_app(string id) {
             try {
                 var uri = GLib.Filename.to_uri(id);
-                if (!AppInfo.launch_default_for_uri(uri, null))
+                if (!AppInfo.launch_default_for_uri(uri, CallerEnvironment.create_launch_context()))
                     stderr.printf("Error: execute_app failed\n");
             } catch (GLib.Error err) {
                 stderr.printf("Error: execute_app failed: %s\n", err.message);

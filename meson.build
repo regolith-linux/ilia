@@ -8,7 +8,8 @@ project('ilia',
 
 add_global_arguments('-DGETTEXT_PACKAGE="ilia"',language: 'c')
 
-add_project_arguments(['--pkg', 'GtkLayerShell-0.1'], language: 'vala')
+# Only for the code that uses GTK: the program itself does not load the toolkit
+ilia_vala_args = ['--pkg', 'GtkLayerShell-0.1']
 add_project_arguments(['--pkg', 'posix'], language: 'vala')
 
 find_program ('glib-compile-schemas')

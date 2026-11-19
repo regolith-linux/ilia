@@ -1,6 +1,8 @@
 cfg_ilia = configuration_data()
 cfg_ilia.set('DATADIR', join_paths(get_option('prefix'),get_option('datadir')))
 cfg_ilia.set('PKGDATADIR', join_paths(get_option('prefix'),get_option('datadir'),'ilia'))
+pkglibdir = join_paths(get_option('prefix'),get_option('libdir'),'ilia')
+cfg_ilia.set('PKGLIBDIR', pkglibdir)
 cfg_ilia.set('GETTEXT_PACKAGE', 'ilia')
 cfg_ilia.set('RELEASE_NAME', 'ilia')
 cfg_ilia.set('PREFIX', get_option('prefix'))
@@ -35,10 +37,15 @@ ilia_sources += files([
     'ModuleApi.vala',
     'DialogWindow.vala',
     'Application.vala',
+    'CallerEnvironment.vala',
+    'CommandLine.vala',
     'KeyListenerGuard.vala',
     'atk-util-class.vapi',
     'IconLoader.vala',
     'InputSourceSwitcher.vala',
+    'ResidentCall.vala',
+    'ResidentServer.vala',
+    'UiMain.vala',
     'Util.vala',
     'WmKeys.vala',
     'apps/DesktopAppPage.vala',
@@ -60,8 +67,20 @@ ilia_sources += files([
     
 ilia_link_args = ['-rdynamic']
 
-executable('ilia',ilia_sources + files(['Main.vala']),
+# Everything that needs GTK, loaded by the program when it shows a window itself or
+# becomes the background copy
+ilia_ui = shared_module('ilia-ui', ilia_sources,
     dependencies: ilia_deps,
+    vala_args: ilia_vala_args,
     link_args: ilia_link_args,
+    name_prefix: '',
+    install: true,
+    install_dir: pkglibdir)
+
+# The program: the command line and the calls to the background copy, without the toolkit,
+# so that a call answered by the background copy starts quickly
+executable('ilia', [cfgfile_1] + files(['Main.vala', 'CommandLine.vala', 'ResidentCall.vala']),
+    dependencies: [gio_unix_2_0_dep, gmodule_2_0_dep],
+    link_depends: ilia_ui,
     install: true)
 

@@ -272,6 +272,11 @@ namespace Ilia {
             });
         }
 
+        // Stop following the bindings, and close the connection to sway
+        public void stop() {
+            ipc.close();
+        }
+
         // Split a command list at the separators "," and ";" that are not quoted
         private static string[] split_commands(string commands) {
             string[] result = {};

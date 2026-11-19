@@ -6,8 +6,6 @@ namespace Ilia {
         private const int ITEM_VIEW_COLUMNS = 1;
         private const int ITEM_VIEW_COLUMN_NAME = 0;
 
-        // Max number of files to read in sequence before yeilding
-        private const int FS_FILE_READ_COUNT = 64;
         // The widget to display list of available options
         private Gtk.TreeView item_view;
         // Model for selections
@@ -26,6 +24,18 @@ namespace Ilia {
         private Gtk.TreePath path;
 
         private bool quiet = false;
+
+        // The window was closed while the page was still loading: in the background copy the
+        // process goes on, so what arrives later is dropped
+        private bool closed = false;
+
+        // The commands listed last, kept by the background copy for the next call: the model, the
+        // commands in it, and the PATH directories with their modification times when they were
+        // read. A later call with the same directories, unchanged, shows this list at once, and
+        // the directories are read again to catch any other change.
+        private static Gtk.ListStore ? listed_model = null;
+        private static string[] listed_commands = {};
+        private static string ? listed_signature = null;
 
         public string get_name() {
             return "<u>C</u>ommands";
@@ -58,18 +68,41 @@ namespace Ilia {
             if (arg_map.contains("-q"))
                 this.quiet = true;
 
-            model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (string), typeof (string));
+            string[] dirs = command_dirs(CallerEnvironment.get_variable("PATH"));
+            string signature = directories_signature(dirs);
+            if (listed_model != null && signature == listed_signature)
+                model = listed_model;
+            else
+                model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (string), typeof (string));
 
             filter = new Gtk.TreeModelFilter(model, null);
             filter.set_visible_func(filter_func);
 
             create_item_view();
 
-            load_commands_from_path.begin((obj, res) => {
-                load_commands_from_path.end(res);
+            read_commands.begin(dirs, (obj, res) => {
+                string[] commands = read_commands.end(res);
+                if (closed || (model == listed_model && commands_equal(commands, listed_commands)))
+                    return;
 
-                model.set_sort_column_id(0, SortType.ASCENDING);
+                // The commands are listed and sorted apart from the view, then shown at once: the view
+                // and its accessible do not follow every row, which keeps the window responsive
+                var listed = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (string), typeof (string));
+                foreach (unowned string command in commands) {
+                    Gtk.TreeIter row;
+                    listed.append(out row);
+                    listed.set(row, ITEM_VIEW_COLUMN_NAME, command);
+                }
+                listed.set_sort_column_id(0, SortType.ASCENDING);
+                model = listed;
+                filter = new Gtk.TreeModelFilter(model, null);
+                filter.set_visible_func(filter_func);
+                item_view.set_model(filter);
                 set_selection();
+
+                listed_model = listed;
+                listed_commands = commands;
+                listed_signature = signature;
             });
 
             var scrolled = new Gtk.ScrolledWindow(null, null);
@@ -86,6 +119,13 @@ namespace Ilia {
         // Initialize the view displaying selections
         private void create_item_view() {
             item_view = new Gtk.TreeView.with_model(filter);
+            item_view.destroy.connect(() => {
+                closed = true;
+                // The filter and the model call back into the page, and so keep it: drop them,
+                // as the background copy goes on after the window
+                filter = null;
+                model = null;
+            });
 
             // Do not show column headers
             item_view.headers_visible = false;
@@ -145,7 +185,7 @@ namespace Ilia {
             if (queryString.length > 0) {
                 GLib.Value app_info;
                 string strval;
-                model.get_value(iter, ITEM_VIEW_COLUMN_NAME, out app_info);
+                m.get_value(iter, ITEM_VIEW_COLUMN_NAME, out app_info);
                 strval = app_info.get_string();
 
                 // Match the whole query, not each word: here a space starts the command's arguments
@@ -155,39 +195,72 @@ namespace Ilia {
             }
         }
 
-        private async void load_commands_from_path() {
-            foreach (unowned string path in command_dirs(Environment.get_variable("PATH")))
-                yield load_commands_from_dir(File.new_for_path(path));
+        /*
+         * The directories of PATH with their modification times, which change when a command is
+         * added, removed or renamed in them
+         */
+        private static string directories_signature(string[] dirs) {
+            var signature = new StringBuilder();
+            foreach (unowned string dir in dirs) {
+                signature.append(dir);
+                try {
+                    var info = File.new_for_path(dir).query_info(FileAttribute.TIME_MODIFIED + "," + FileAttribute.TIME_MODIFIED_USEC,
+                                                                 FileQueryInfoFlags.NONE);
+                    var modified = info.get_modification_date_time();
+                    if (modified != null)
+                        signature.append_printf("\n%" + int64.FORMAT + "\n", modified.to_unix() * 1000000 + modified.get_microsecond());
+                } catch (GLib.Error e) {
+                    signature.append("\n?\n");
+                }
+            }
+            return signature.str;
         }
 
-        private async void load_commands_from_dir(File app_dir) {
-            try {
-                // Follow links: most commands are links (alternatives), and is_command() needs their targets
-                var attributes = FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.ACCESS_CAN_EXECUTE;
-                var enumerator = yield app_dir.enumerate_children_async(attributes, FileQueryInfoFlags.NONE, Priority.DEFAULT);
+        private static bool commands_equal(string[] a, string[] b) {
+            if (a.length != b.length)
+                return false;
+            for (int i = 0; i < a.length; i++) {
+                if (a[i] != b[i])
+                    return false;
+            }
+            return true;
+        }
 
-                while (true) {
-                    var app_files = yield enumerator.next_files_async(FS_FILE_READ_COUNT, Priority.DEFAULT);
+        /*
+         * The commands in the directories, as full paths in a fixed order. They are read on a
+         * worker thread, so that the window stays responsive meanwhile. The call keeps its own
+         * copy of the directories: the caller's may be freed while the thread still reads them.
+         */
+        private static async string[] read_commands(owned string[] dirs) {
+            var commands = new GenericArray<string>();
+            SourceFunc callback = read_commands.callback;
 
-                    if (app_files == null)
-                        break;
-
-                    foreach (var info in app_files) {
-                        if (!is_command(info))
-                            continue;
-
-                        string file_path = app_dir.get_child(info.get_name()).get_path();
-
-                        model.append(out iter);
-                        model.set(
-                            iter,
-                            ITEM_VIEW_COLUMN_NAME, file_path
-                        );
+            new Thread<void *>("ilia-commands", () => {
+                foreach (unowned string dir in dirs) {
+                    var app_dir = File.new_for_path(dir);
+                    try {
+                        // Follow links: most commands are links (alternatives), and is_command() needs their targets
+                        var attributes = FileAttribute.STANDARD_NAME + "," + FileAttribute.STANDARD_TYPE + "," + FileAttribute.ACCESS_CAN_EXECUTE;
+                        var enumerator = app_dir.enumerate_children(attributes, FileQueryInfoFlags.NONE);
+                        FileInfo ? info;
+                        while ((info = enumerator.next_file()) != null) {
+                            if (is_command(info))
+                                commands.add(app_dir.get_child(info.get_name()).get_path());
+                        }
+                    } catch (Error err) {
+                        stderr.printf("Error: list_files failed: %s\n", err.message);
                     }
                 }
-            } catch (Error err) {
-                stderr.printf("Error: list_files failed: %s\n", err.message);
-            }
+                commands.sort(strcmp);
+                Idle.add((owned) callback);
+                return null;
+            });
+
+            yield;
+            string[] result = new string[commands.length];
+            for (int i = 0; i < commands.length; i++)
+                result[i] = commands[i];
+            return result;
         }
 
         // Highlight the first row: the best match for the text typed
@@ -223,7 +296,7 @@ namespace Ilia {
                 var app_info = AppInfo.create_from_commandline(commandline, null, GLib.AppInfoCreateFlags.NONE);
                 var runner = get_runner_app_info(app_info);
 
-                if (!runner.launch(null, null))
+                if (!runner.launch(null, CallerEnvironment.create_launch_context()))
                     stderr.printf("Error: execute_command failed\n");
 
                 session_controller.quit();

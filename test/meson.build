@@ -12,9 +12,10 @@ unit_test_files = [
     'KeybindingsPage',
     'WmBindings',
     'HelpPage',
-    'KeyListenerGuard'
+    'KeyListenerGuard',
+    'ResidentMode'
 ]
 
 foreach name : unit_test_files
-    test(name, executable(name, name + 'Test.vala', ilia_sources, dependencies: ilia_deps))
+    test(name, executable(name, name + 'Test.vala', ilia_sources, dependencies: ilia_deps, vala_args: ilia_vala_args))
 endforeach

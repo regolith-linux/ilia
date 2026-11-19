@@ -19,6 +19,11 @@ namespace Ilia {
      * While GTK handles a key event, removing a key listener is put off until GTK is done.
      */
     namespace KeyListenerGuard {
+        // AtkUtilClass.remove_key_event_listener. Declared here rather than in the vapi: valac
+        // declares no C type for a vapi delegate in a module's sources
+        [CCode(has_target = false)]
+        public delegate void RemoveKeyListenerFunc(uint listener_id);
+
         private bool installed;
         private RemoveKeyListenerFunc gtk_remove_key_listener;
         private int key_event_depth;

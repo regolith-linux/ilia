@@ -133,6 +133,15 @@ namespace Ilia {
                 }
             }
 
+            // In the background copy the process goes on after the window: let go of what the
+            // window holds, so that it and its pages, which hold it in turn, are freed
+            destroy.connect(() => {
+                if (binding_watcher != null)
+                    binding_watcher.stop();
+                dialog_pages = {};
+                help_page = null;
+            });
+
             // Route keys based on function
             key_press_event.connect((key) => {
                 if (layout_switcher != null && !is_wayland) {
@@ -635,6 +644,13 @@ namespace Ilia {
         public void quit() {
             release_input();
             close();
+        }
+
+        // Go at once, without the delete event that close() sends from the main loop: a window
+        // the background copy replaces is gone before the next one shows
+        public void dismiss() {
+            release_input();
+            destroy();
         }
     }
 }

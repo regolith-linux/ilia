@@ -13,6 +13,9 @@ namespace Ilia {
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
+        // The window was closed while the page was still loading: in the background copy the
+        // process goes on, so what arrives later is dropped
+        private bool closed = false;
         // Model for selections
         private Gtk.ListStore model;
         // Access state from model
@@ -77,9 +80,13 @@ namespace Ilia {
             load_notifications.begin((obj, res) => {
                 try {
                     load_notifications.end(res);
+                    if (closed)
+                        return;
 
                     set_selection();
                 } catch (GLib.Error err) {
+                    if (closed)
+                        return;
                     stderr.printf("Error: load_notifications failed: %s\n", err.message);
                     show_load_error(err);
                 }
@@ -101,6 +108,13 @@ namespace Ilia {
         // Initialize the view displaying selections
         private void create_item_view() {
             item_view = new Gtk.TreeView.with_model(filter);
+            item_view.destroy.connect(() => {
+                closed = true;
+                // The filter and the model call back into the page, and so keep it: drop them,
+                // as the background copy goes on after the window
+                filter = null;
+                model = null;
+            });
 
             // Do not show column headers
             item_view.headers_visible = false;
@@ -310,7 +324,7 @@ namespace Ilia {
             filter.@get(selection, ITEM_VIEW_COLUMN_APP_INFO, out app_info);
 
             try {
-                app_info.launch_uris(null, null);
+                app_info.launch_uris(null, CallerEnvironment.create_launch_context());
 
                 GLib.Thread.usleep(post_launch_sleep);
                 session_controller.quit();

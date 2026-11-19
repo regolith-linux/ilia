@@ -99,6 +99,12 @@ namespace Ilia {
         // Initialize the view displaying selections
         private void create_item_view() {
             item_view = new Gtk.TreeView.with_model(filter);
+            item_view.destroy.connect(() => {
+                // The filter and the model call back into the page, and so keep it: drop them,
+                // as the background copy goes on after the window
+                filter = null;
+                model = null;
+            });
 
             // Do not show column headers
             item_view.headers_visible = false;

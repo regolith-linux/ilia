@@ -122,7 +122,7 @@ namespace Ilia {
      * with get_desktop_launch_argv() instead, which keeps what the entry asks for.
      */
     public static AppInfo get_runner_app_info(AppInfo app_info) throws GLib.Error {
-        string systemd_run_path = GLib.Environment.find_program_in_path("systemd-run");
+        string systemd_run_path = CallerEnvironment.find_program("systemd-run");
         if (systemd_run_path == null)
             return app_info;
         string? app_id = app_info.get_id();
@@ -202,7 +202,7 @@ namespace Ilia {
     public static string[] get_desktop_launch_argv(DesktopAppInfo app_info) throws ShellError {
         string[] argv = {};
 
-        if (GLib.Environment.find_program_in_path("systemd-run") != null) {
+        if (CallerEnvironment.find_program("systemd-run") != null) {
             string random_suffix = Uuid.string_random().slice(0, 8);
             string unit_name = "run_ilia_" + systemd_escape(app_info.get_id()) + "_" + random_suffix + ".scope";
             argv = { "systemd-run", "--user", "--scope", "--unit", unit_name };

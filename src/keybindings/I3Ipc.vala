@@ -38,6 +38,9 @@ namespace Ilia {
     // Called with each event the window manager sends after a subscription
     public delegate void WmEventHandler(WM_EVENT event, Json.Node payload);
 
+    // The window manager closed an event connection: it exited or restarted
+    public delegate void WmClosedHandler();
+
     public errordomain WM_ERROR {
         RPC_ERROR
     }
@@ -430,6 +433,22 @@ namespace Ilia {
             socket.set_blocking(true);
         }
 
+        /**
+         * Stop reading events and close the connection. A subscribed client stays alive, and
+         * connected, until this is called: the main loop holds it for its events.
+         */
+        public void close() {
+            if (event_source != null) {
+                event_source.destroy();
+                event_source = null;
+            }
+            try {
+                socket.close();
+            } catch (GLib.Error err) {
+                stderr.printf("Failed to close %s socket: %s\n", wm_name, err.message);
+            }
+        }
+
         ~IPCClient () {
             if (event_source != null)
                 event_source.destroy();
@@ -562,6 +581,30 @@ namespace Ilia {
         }
 
         /**
+         * The rectangle of the focused workspace, on the output that has focus, in the window
+         * manager's layout coordinates
+         */
+        public Gdk.Rectangle getFocusedWorkspaceRect() throws WM_ERROR, GLib.Error {
+            var workspaces = wm_ipc(WM_COMMAND.GET_WORKSPACES);
+            if (workspaces == null || workspaces.get_node_type() != Json.NodeType.ARRAY)
+                throw new WM_ERROR.RPC_ERROR("No Response");
+
+            foreach (unowned Json.Node workspace in workspaces.get_array().get_elements()) {
+                var obj = workspace.get_object();
+                if (obj == null || !obj.get_boolean_member_with_default("focused", false) || !obj.has_member("rect"))
+                    continue;
+                var rect = obj.get_object_member("rect");
+                return Gdk.Rectangle() {
+                           x = (int) rect.get_int_member_with_default("x", 0),
+                           y = (int) rect.get_int_member_with_default("y", 0),
+                           width = (int) rect.get_int_member_with_default("width", 0),
+                           height = (int) rect.get_int_member_with_default("height", 0)
+                };
+            }
+            throw new WM_ERROR.RPC_ERROR("No focused workspace");
+        }
+
+        /**
          * The name of the current binding mode ("default" outside any mode)
          */
         public string getBindingState() throws WM_ERROR, GLib.Error {
@@ -578,8 +621,9 @@ namespace Ilia {
          * event that arrives. The connection is then used for events only.
          *
          * @param events Event names, such as "binding"
+         * @param closed Called once from the main loop if the window manager closes the connection
          */
-        public void subscribe(string[] events, owned WmEventHandler handler) throws WM_ERROR, GLib.Error {
+        public void subscribe(string[] events, owned WmEventHandler handler, owned WmClosedHandler ? closed = null) throws WM_ERROR, GLib.Error {
             var names = new Json.Builder();
             names.begin_array();
             foreach (unowned string name in events)
@@ -596,6 +640,8 @@ namespace Ilia {
             event_source.set_callback((source_socket, condition) => {
                 if ((condition & IOCondition.IN) == 0) {
                     event_source = null;
+                    if (closed != null)
+                        closed();
                     return Source.REMOVE;
                 }
                 try {
@@ -607,6 +653,8 @@ namespace Ilia {
                 } catch (GLib.Error err) {
                     stderr.printf("Stopped reading %s events: %s\n", wm_name, err.message);
                     event_source = null;
+                    if (closed != null)
+                        closed();
                     return Source.REMOVE;
                 }
                 return Source.CONTINUE;

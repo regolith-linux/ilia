@@ -12,6 +12,9 @@ namespace Ilia {
 
         // The widget to display list of available options
         private Gtk.TreeView item_view;
+        // The window was closed while the page was still loading: in the background copy the
+        // process goes on, so what arrives later is dropped
+        private bool closed = false;
         // Model for selections
         private Gtk.ListStore model;
         // Access state from model
@@ -76,6 +79,8 @@ namespace Ilia {
 
             read_config.begin((obj, res) => {
                 read_config.end(res);
+                if (closed)
+                    return;
 
                 item_view.columns_autosize();
                 if (fuzzy_matching)
@@ -103,6 +108,13 @@ namespace Ilia {
         // Initialize the view displaying selections
         private void create_item_view() {
             item_view = new Gtk.TreeView.with_model(filter);
+            item_view.destroy.connect(() => {
+                closed = true;
+                // The filter and the model call back into the page, and so keep it: drop them,
+                // as the background copy goes on after the window
+                filter = null;
+                model = null;
+            });
             item_view.get_style_context().add_class("keybindings");
 
             // Do not show column headers
@@ -227,6 +239,8 @@ namespace Ilia {
                     unset_parser = new ConfigParser.from_files(reply.unset_resources_configs, "");
                 }
 
+                if (closed)
+                    return;
                 Map<string, ArrayList<Keybinding> > kbmodel = parser.parse();
                 Map<string, ArrayList<Keybinding> > unset_model = unset_parser.parse();
 

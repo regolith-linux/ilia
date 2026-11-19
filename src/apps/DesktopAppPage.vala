@@ -72,6 +72,9 @@ namespace Ilia {
         private static GLib.List<AppInfo> ? prefetched_apps = null;
         private static SourceFunc ? prefetch_waiter = null;
 
+        // The window was closed while the page was still loading: in the background copy the
+        // process goes on, so what arrives later is dropped
+        private bool closed = false;
         // Set once the desktop files are in the model
         private bool apps_loaded = false;
         // Enter was pressed before the list arrived: launch the best match once it has
@@ -101,6 +104,10 @@ namespace Ilia {
                 prefetch_waiter = get_app_list.callback;
                 yield;
             }
+            // Each list is used once: the next window, shown by the background copy, reads the
+            // desktop files again, so that it lists them as they are then
+            prefetch_started = false;
+            prefetch_done = false;
             return (owned) prefetched_apps;
         }
 
@@ -163,10 +170,17 @@ namespace Ilia {
             // The window is built and shown while the desktop files are still being read
             var app_list = yield get_app_list();
 
+            if (closed)
+                return;
+
+            // The rows are added and sorted apart from the view, then shown at once: the view and
+            // its accessible do not follow every row, which keeps the window responsive
+            item_view.set_model(null);
             load_apps(app_list);
 
             model.set_sort_func(1, app_sort_func);
             model.set_sort_column_id(1, SortType.ASCENDING);
+            item_view.set_model(filter);
 
             set_selection();
             apps_loaded = true;
@@ -249,6 +263,13 @@ namespace Ilia {
         // Initialize the view displaying selections
         private void create_item_view() {
             item_view = new Gtk.TreeView.with_model(filter);
+            item_view.destroy.connect(() => {
+                closed = true;
+                // The filter and the model call back into the page, and so keep it: drop them,
+                // as the background copy goes on after the window
+                filter = null;
+                model = null;
+            });
             item_view.get_style_context().add_class("item_view");
             // Do not show column headers
             item_view.headers_visible = false;
@@ -447,6 +468,8 @@ namespace Ilia {
         // Queue every row: the ones visible through the filter first, then the rest, so
         // that rows hidden by text typed before the list arrived still get their icons
         private void start_icon_loading() {
+            if (closed)
+                return;
             var queued = new bool[model.iter_n_children(null)];
             TreeIter filter_iter;
             for (bool next = filter.get_iter_first(out filter_iter); next; next = filter.iter_next(ref filter_iter)) {
@@ -466,6 +489,8 @@ namespace Ilia {
         }
 
         private void load_next_icon() {
+            if (closed)
+                return;
             while (icon_queue_next < icon_queue.length) {
                 var iter = icon_queue[icon_queue_next++];
 
@@ -488,6 +513,8 @@ namespace Ilia {
                 icon_info.load_icon_async.begin(null, (obj, res) => {
                     try {
                         var pixbuf = icon_info.load_icon_async.end(res);
+                        if (closed)
+                            return;
                         // GtkListStore iterators persist across re-sorting and rows are never removed
                         model.set(iter, ITEM_VIEW_COLUMN_ICON, pixbuf);
                     } catch (Error e) {
@@ -519,13 +546,13 @@ namespace Ilia {
 
             try {
                 bool launched = true;
-                if (needs_terminal(app_info) && GLib.Environment.find_program_in_path("x-terminal-emulator") == null) {
+                if (needs_terminal(app_info) && CallerEnvironment.find_program("x-terminal-emulator") == null) {
                     // GLib picks a terminal it knows, and runs the entry outside a scope
-                    launched = app_info.launch(null, null);
+                    launched = app_info.launch(null, CallerEnvironment.create_launch_context());
                 } else {
                     Pid pid;
                     Process.spawn_async(get_desktop_working_directory(app_info), get_desktop_launch_argv(app_info),
-                                        null, SpawnFlags.SEARCH_PATH, null, out pid);
+                                        CallerEnvironment.get_environ(), CallerEnvironment.search_path_flags(), null, out pid);
                 }
 
                 if (launched)

@@ -1,0 +1,1 @@
+option('calculator', type: 'feature', value: 'auto', description: 'Calculator page, which evaluates expressions with libqalculate')

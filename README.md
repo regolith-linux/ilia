@@ -17,6 +17,7 @@ Ilia provides pages to view and select from the following types of things:
 - Text List (`textlist`)
 - File Search (`tracker`)
 - Open Windows (`windows`)
+- Calculator (`calculator`)
 
 ## Usage
 
@@ -32,6 +33,13 @@ ilia -p keybindings
 
 Ilia searches the system-configured `$XDG_DATA_DIRS` with `applications` applied at the end of each path for desktop application files.
 For example, if your system has `$HOME/.local/share` in the set of paths in `$XDG_DATA_DIRS`, the path `$HOME/.local/share/applications/` will be searched for desktop app files.
+
+### Calculator
+
+The `calculator` page evaluates the expression in the filter box as you type and shows its value below it.
+Expressions use numbers (`1.5`, `1,5` or `1e15`), the operators `+ - * / ^` and `!` (factorial), brackets, the functions `sqrt`, `sin`, `cos`, `tan`, `ln`, `exp` and `abs` (angles in radians), and the constants `pi` and `e`.
+Enter prints the value and puts it on the clipboard.
+Unless a clipboard manager takes the value over, Ilia keeps running in the background to serve it until something else is copied; a script or terminal that waits for `ilia` to exit waits until then too.
 
 ### Text List
 
@@ -74,6 +82,11 @@ This page communicates with the [Rofication](https://github.com/regolith-linux/r
 ### Keybindings
 
 This page uses the comment format specified by [Remontoire](https://github.com/regolith-linux/remontoire) and reads the i3 config via it's local socket.
+
+### Calculator
+
+This page works out values with [libqalculate](https://github.com/Qalculate/libqalculate), in a helper program (`ilia-calculator`, installed in `libexecdir/ilia`).
+Ilia is built without the page when libqalculate is not found; build with `-Dcalculator=enabled` to require it, or `-Dcalculator=disabled` to leave the page out.
 
 ## Build
 

@@ -7,6 +7,7 @@ cfg_ilia.set('PREFIX', get_option('prefix'))
 cfg_ilia.set('VERSION', '0.19')
 cfg_ilia.set('TESTSRCDIR', meson.project_source_root())
 cfg_ilia.set('SPARQL_LIBDIR', sparql_libdir)
+cfg_ilia.set('PKGLIBEXECDIR', join_paths(get_option('prefix'),get_option('libexecdir'),'ilia'))
 
 cfgfile_1 = configure_file(
 	input: 'Config.vala.base',
@@ -57,6 +58,17 @@ ilia_sources += files([
     'tracker/TrackerPage.vala',
     'windows/WindowPage.vala',
     ])
+if with_calculator
+    ilia_sources += files([
+        'calculator/Calculator.vala',
+        'calculator/CalculatorPage.vala',
+        'calculator/ClipboardHolder.vala',
+        ])
+    calculator_helper = executable('ilia-calculator', 'calculator/ilia-calculator.cc',
+        dependencies: [qalculate_dep],
+        install: true,
+        install_dir: join_paths(get_option('libexecdir'),'ilia'))
+endif
     
 ilia_link_args = ['-rdynamic']
 

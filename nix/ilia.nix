@@ -8,6 +8,7 @@
 , json-glib
 , lib
 , libgee
+, libqalculate
 , meson
 , ninja
 , pkg-config
@@ -40,6 +41,7 @@ stdenv.mkDerivation {
     gtk-layer-shell
     json-glib
     libgee
+    libqalculate
     tinysparql
     xorg.libXtst
   ];

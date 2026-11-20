@@ -6,7 +6,8 @@ namespace Ilia {
         private const int ITEM_VIEW_COLUMNS = 5;
         private const int ITEM_VIEW_COLUMN_KEYBINDING = 0;
         private const int ITEM_VIEW_COLUMN_SUMMARY = 1;
-        private const int ITEM_VIEW_COLUMN_EXEC = 2;
+        // The row's index in rows
+        private const int ITEM_VIEW_COLUMN_ROW = 2;
         private const int ITEM_VIEW_COLUMN_FOLDED_KEYBINDING = 3;
         private const int ITEM_VIEW_COLUMN_FOLDED_SUMMARY = 4;
 
@@ -28,6 +29,9 @@ namespace Ilia {
         private Gtk.TreePath path;
 
         private string wm_name;
+
+        // The rows listed, by ITEM_VIEW_COLUMN_ROW
+        private ArrayList<Keybinding> rows = new ArrayList<Keybinding> ();
 
         // The binding has been run; ilia is closing
         private bool executed = false;
@@ -67,7 +71,7 @@ namespace Ilia {
             this.wm_name = wm_name;
             fuzzy_matching = settings.get_boolean("fuzzy-matching");
 
-            model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (string), typeof (string), typeof (string), typeof (string), typeof (string));
+            model = new Gtk.ListStore(ITEM_VIEW_COLUMNS, typeof (string), typeof (string), typeof (int), typeof (string), typeof (string));
 
             filter = new Gtk.TreeModelFilter(model, null);
             filter.set_visible_func(filter_func);
@@ -245,10 +249,11 @@ namespace Ilia {
                             iter,
                             ITEM_VIEW_COLUMN_KEYBINDING, formatted_spec,
                             ITEM_VIEW_COLUMN_SUMMARY, summary,
-                            ITEM_VIEW_COLUMN_EXEC, binding.exec,
+                            ITEM_VIEW_COLUMN_ROW, rows.size,
                             ITEM_VIEW_COLUMN_FOLDED_KEYBINDING, fold_text(formatted_spec),
                             ITEM_VIEW_COLUMN_FOLDED_SUMMARY, fold_text(summary)
                         );
+                        rows.add(binding);
                     }
                 }
             } catch (GLib.Error err) {
@@ -448,12 +453,106 @@ namespace Ilia {
             select_first_row(item_view, path);
         }
 
-        // launch a desktop app
+        // Run the binding of the row that the text typed names, or the row's first binding
         public void execute_app_from_selection(Gtk.TreeIter selection) {
-            string cmd_path;
-            filter.@get(selection, ITEM_VIEW_COLUMN_EXEC, out cmd_path);
+            int index;
+            filter.@get(selection, ITEM_VIEW_COLUMN_ROW, out index);
 
-            if (cmd_path != null) execute_keybinding(cmd_path);
+            var keys = chosen_binding(rows[index].bound_keys, entry.get_text());
+            if (keys != null && keys.command != null)
+                execute_keybinding(keys.command);
+        }
+
+        /**
+         * The binding of a row to run for the text typed. A word of the text names a
+         * binding when it is the binding's key as the page shows it, in any spelling the
+         * page shows alike: "down" and "↓" name "Mod4+Down". Of the bindings named:
+         *
+         * - with different keys, the first one runs;
+         * - with the same key, the modifiers they don't all share decide: the binding
+         *   whose such modifiers are all among the words, the one with the most of them,
+         *   the first one if none has them all.
+         *
+         * With no binding named, such as when the text matches the description, the
+         * row's first binding runs. null when the row has no bindings.
+         */
+        public static BoundKeys ? chosen_binding(Gee.List<BoundKeys> bindings, string text) {
+            if (bindings.size == 0)
+                return null;
+
+            string[] words = {};
+            foreach (unowned string word in text.split_set(" \t\n\r\f\v")) {
+                if (word != "")
+                    words += shown_word(word);
+            }
+
+            var named = new ArrayList<BoundKeys> ();
+            foreach (var binding in bindings) {
+                if (shown_key(binding) in words)
+                    named.add(binding);
+            }
+            if (named.size == 0)
+                return bindings[0];
+
+            foreach (var binding in named) {
+                if (shown_key(binding) != shown_key(named[0]))
+                    return named[0];
+            }
+
+            // The modifiers all the bindings named have
+            string[] shared = shown_key_modifiers(named[0]);
+            foreach (var binding in named) {
+                string[] modifiers = shown_key_modifiers(binding);
+                string[] kept = {};
+                foreach (unowned string modifier in shared) {
+                    if (modifier in modifiers)
+                        kept += modifier;
+                }
+                shared = kept;
+            }
+
+            BoundKeys chosen = named[0];
+            int most = -1;
+            foreach (var binding in named) {
+                int count = 0;
+                bool all_typed = true;
+                foreach (unowned string modifier in shown_key_modifiers(binding)) {
+                    if (modifier in shared)
+                        continue;
+                    if (!(modifier in words)) {
+                        all_typed = false;
+                        break;
+                    }
+                    count++;
+                }
+                if (all_typed && count > most) {
+                    chosen = binding;
+                    most = count;
+                }
+            }
+            return chosen;
+        }
+
+        // A word as the page shows it, in lower case: "super" and "Mod4" are "\uf17a", "down" is "↓"
+        private static string shown_word(string word) {
+            string modifier = format_modifier(word);
+            return (modifier != word ? modifier : format_key(word)).down();
+        }
+
+        // The key of a binding as the page shows it, in lower case
+        private static string shown_key(BoundKeys binding) {
+            string[] parts = binding.combination.split("+");
+            string key = parts[parts.length - 1];
+            return shown_word(binding.is_keycode ? format_keycode(key) : format_key(key));
+        }
+
+        // The modifiers of a binding as the page shows them, in lower case
+        private static string[] shown_key_modifiers(BoundKeys binding) {
+            string[] parts = binding.combination.split("+");
+            string[] modifiers = {};
+            foreach (unowned string modifier in shown_modifiers(parts[0: parts.length - 1]))
+                modifiers += modifier.down();
+            return modifiers;
         }
 
         // Run the binding's command in the window manager, as pressing the key does

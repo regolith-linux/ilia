@@ -251,6 +251,55 @@ void test_i3_no_rebinding() {
     assert(keys_of(rows, "Terminal") == "Mod4+Return Mod4+Shift+Return code:Mod4+36");
 }
 
+// The command of each binding of a row, "-" for none, joined by " | "
+string commands_of(Map<string, ArrayList<Keybinding> > rows, string label) {
+    string[] commands = {};
+    foreach (var keys_bound in row_of(rows, label).bound_keys)
+        commands += keys_bound.command ?? "-";
+    return string.joinv(" | ", commands);
+}
+
+// Each binding of a row keeps the command of its own line, as i3 holds it; a line with
+// keys but no command has none, and a line with options but no keys is no binding
+void test_i3_row_commands() {
+    var rows = parse_pieces({ I3_ROWS });
+    assert(commands_of(rows, "Terminal") == "exec term | exec term2 | exec term3");
+    assert(commands_of(rows, "Resize Window") == "resize shrink width 6 px | resize grow width 6 px");
+
+    rows = parse_pieces({ "## Group // Row // x ##\n" +
+                          "bindsym x exec  a  'b  c'\n" +
+                          "bindsym y\n" +
+                          "bindsym --release\n" +
+                          "bindsym x exec d\n" });
+    assert(keys_of(rows, "Row") == "x y x");
+    assert(commands_of(rows, "Row") == "exec  a  'b  c' | - | exec d");
+    assert(row_of(rows, "Row").exec == "exec  a  'b  c'");
+}
+
+const string SWAY_ROW_COMMANDS = """
+set $mod Mod4
+set $term foot
+## Launch // Terminals // <> Enter ##
+bindsym $mod+Return exec $term
+set $term  xterm   -e  sh
+bindsym $mod+Shift+Return exec  $term  'a  b'
+set_from_resource $term wm.terminal fallback  $mod
+bindsym $mod+t exec $term
+""";
+
+// sway: each binding of a row takes the values the variables have at its own line
+void test_sway_row_commands() {
+    var rows = parse_pieces({ SWAY_ROW_COMMANDS }, true);
+    assert(keys_of(rows, "Terminals") == "Mod4+Return Mod4+Shift+Return Mod4+t");
+    assert(commands_of(rows, "Terminals") == "exec foot | exec xterm -e sh 'a  b' | exec fallback Mod4");
+    assert(row_of(rows, "Terminals").exec == "exec foot");
+
+    var resources = new HashTable<string, string> (str_hash, str_equal);
+    resources.insert("wm.terminal", "kitty");
+    rows = parse_pieces({ SWAY_ROW_COMMANDS }, true, resources);
+    assert(commands_of(rows, "Terminals") == "exec foot | exec xterm -e sh 'a  b' | exec kitty");
+}
+
 public int main(string[] args) {
     Test.init(ref args);
 
@@ -267,6 +316,8 @@ public int main(string[] args) {
     Test.add_func("/config_parser/sway_row_keys", test_sway_row_keys);
     Test.add_func("/config_parser/sway_rebinding", test_sway_rebinding);
     Test.add_func("/config_parser/i3_no_rebinding", test_i3_no_rebinding);
+    Test.add_func("/config_parser/i3_row_commands", test_i3_row_commands);
+    Test.add_func("/config_parser/sway_row_commands", test_sway_row_commands);
 
     return Test.run();
 }

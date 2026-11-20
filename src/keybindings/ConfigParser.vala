@@ -28,6 +28,8 @@ public class BoundKeys {
     public bool is_keycode { get; private set; }
     // false once a later line binds the same keys again or unbinds them (sway)
     public bool active { get; set; default = true; }
+    // The command of its own line, as parseExecLine() reads it; null when the line has none
+    public string ? command { get; set; }
 
     public BoundKeys (string combination, bool is_keycode) {
         this.combination = combination;
@@ -123,10 +125,13 @@ public class ConfigParser {
                 continue;
             } else if (bindingMatch(trimmedLine)) {
                 var keys = parseBindingKeys(trimmedLine, modes[level]);
+                string ? command = parseExecLine(trimmedLine);
+                if (keys != null)
+                    keys.command = command;
                 if (row == null && waiting[level] != null) {
                     row = waiting[level];
                     waiting[level] = null;
-                    row.exec = parseExecLine(trimmedLine);
+                    row.exec = command;
                 }
                 if (row != null && keys != null)
                     row.bound_keys.add(keys);

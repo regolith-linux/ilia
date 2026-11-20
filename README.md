@@ -75,6 +75,8 @@ This page communicates with the [Rofication](https://github.com/regolith-linux/r
 
 This page uses the comment format specified by [Remontoire](https://github.com/regolith-linux/remontoire) and reads the i3 config via it's local socket.
 
+Enter or a click runs the row's binding in the window manager. A row with several keys, such as `<> k j h l`, runs the binding whose key is typed in the filter: `relative j` runs the `j` binding. Keys are typed as the page shows them, in any letter case. When the keys differ only in their modifiers, type those too: `shift enter`. With no key typed, the row's first binding runs.
+
 ## Build
 
 Ilia uses `meson` and `ninja` to build:

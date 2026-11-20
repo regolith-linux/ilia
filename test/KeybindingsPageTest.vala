@@ -71,6 +71,54 @@ void test_row_label() {
     assert(Ilia.KeybingingsPage.row_keys_label(row(written, { "Mod4+Return" }, { false }), row(written, { "Mod4+Return" })) == "");
 }
 
+// The position in the row of the binding run for the text typed; -1 for none
+int chosen(string[] combinations, string text) {
+    var bindings = bound(combinations);
+    var binding = Ilia.KeybingingsPage.chosen_binding(bindings, text);
+    return binding != null ? bindings.index_of(binding) : -1;
+}
+
+const string[] ARROWS = { "Mod4+Left", "Mod4+Down", "Mod4+Up", "Mod4+Right" };
+
+// A word names a binding by the key the page shows for it, whole and in any letter case;
+// with none named the row's first binding runs
+void test_chosen_by_key() {
+    assert(chosen(ARROWS, "down") == 1);
+    assert(chosen(ARROWS, "Navigate DOWN") == 1);
+    assert(chosen(ARROWS, "↓") == 1);
+    assert(chosen(ARROWS, "  up\t") == 2);
+    assert(chosen(ARROWS, "") == 0);
+    assert(chosen(ARROWS, "navigate window") == 0);
+    assert(chosen(ARROWS, "downward") == 0);
+    // words are split at white space only
+    assert(chosen(ARROWS, "super+down") == 0);
+    // bindings with different keys: the first named in the row, whatever the word order
+    assert(chosen(ARROWS, "right down") == 1);
+    assert(chosen({ "Mod4+bracketleft", "Mod4+bracketright" }, "]") == 1);
+    assert(chosen({ "Mod4+bracketleft", "Mod4+bracketright" }, "bracketright") == 1);
+    assert(chosen({ "Mod4+a", "Mod4+a" }, "a") == 0);
+    assert(chosen({}, "a") == -1);
+}
+
+// Bindings of the same key: the one whose modifiers beyond those they share are all typed,
+// the most of them first, the earlier on a tie; the first one when none has them all typed
+void test_chosen_by_modifiers() {
+    string[] enter = { "Mod4+Return", "Mod4+Shift+Return", "Mod4+Ctrl+Shift+Return" };
+    assert(chosen(enter, "enter") == 0);
+    assert(chosen(enter, "shift enter") == 1);
+    assert(chosen(enter, "Return control shift") == 2);
+    assert(chosen(enter, "ctrl enter") == 0);
+
+    string[] alt_super = { "Mod1+x", "Mod4+x" };
+    assert(chosen(alt_super, "x") == 0);
+    assert(chosen(alt_super, "alt x") == 0);
+    assert(chosen(alt_super, "super x") == 1);
+    assert(chosen(alt_super, "logo x") == 1);
+    assert(chosen(alt_super, "x " + SUPER) == 1);
+    assert(chosen({ "Shift+Control+x", "Mod1+x" }, "Ctrl SHIFT x") == 0);
+    assert(chosen({ "Mod4+Shift+a", "Mod4+Ctrl+a" }, "shift ctrl a") == 0);
+}
+
 public int main(string[] args) {
     Test.init(ref args);
 
@@ -79,6 +127,8 @@ public int main(string[] args) {
     Test.add_func("/keybindings_page/grouping", test_grouping);
     Test.add_func("/keybindings_page/keycode_without_display", test_keycode_without_display);
     Test.add_func("/keybindings_page/row_label", test_row_label);
+    Test.add_func("/keybindings_page/chosen_by_key", test_chosen_by_key);
+    Test.add_func("/keybindings_page/chosen_by_modifiers", test_chosen_by_modifiers);
 
     return Test.run();
 }
